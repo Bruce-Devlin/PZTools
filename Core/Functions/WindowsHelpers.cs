@@ -28,6 +28,11 @@ namespace PZTools.Core.Functions
             shortcut.Save();
         }
 
+        public static bool NotNullOrEmpty(this string value)
+        {
+            return !string.IsNullOrEmpty(value);
+        }
+
         public static string OpenFile(string filePath)
         {
             try

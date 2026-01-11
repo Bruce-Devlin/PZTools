@@ -38,6 +38,9 @@ namespace PZTools.Core.Windows.Dialogs
             }
             else if (rdoManagedGame.IsChecked == true)
             {
+                if (txtAppInstallPath.Text.NotNullOrEmpty()) 
+                    txtManagedGamePath.Text = Path.Combine(txtAppInstallPath.Text, "Zomboid");
+
                 txtExistingGamePath.IsEnabled = false;
                 txtManagedGamePath.IsEnabled = true;
                 changeMangedBtn.Visibility = Visibility.Visible;
@@ -127,8 +130,9 @@ namespace PZTools.Core.Windows.Dialogs
                 }
             }
 
-            SaveSettings();
+            App.SetCurrentDirectory(txtAppInstallPath.Text);
 
+            SetupStatus.Text = "Setting up PZTools, please wait...";
             await StartSetupTasks();
 
             // Close setup
@@ -137,11 +141,11 @@ namespace PZTools.Core.Windows.Dialogs
         }
         #endregion
 
-        #region Placeholders
         private void SaveSettings()
         {
             Functions.Config.StoreVariable(Functions.VariableType.system, "AppInstallPath", txtAppInstallPath.Text);
             Functions.Config.StoreVariable(Functions.VariableType.system, "GameMode", rdoExistingGame.IsChecked == true ? "existing" : "managed");
+
             if (rdoExistingGame.IsChecked == true)
                 Functions.Config.StoreVariable(Functions.VariableType.system, "ExistingGamePath", txtExistingGamePath.Text);
             else 
@@ -150,22 +154,14 @@ namespace PZTools.Core.Windows.Dialogs
 
         private async Task StartSetupTasks()
         {
-            // TODO: Handle any setup tasks after finishing
-            // Example:
-            // - Download Project Zomboid versions if managed mode is selected
-            // - Create desktop/start menu shortcuts if checkbox is checked
-            // - Prepare folders and initial configuration
             string instalDir = txtAppInstallPath.Text;
             string destExe = Path.Combine(instalDir, Path.GetFileName(App.currentFilePath));
 
             File.Copy(App.currentFilePath, destExe, true);
             Directory.CreateDirectory(Path.Combine(instalDir, "Configs"));
             Directory.CreateDirectory(Path.Combine(instalDir, "Logs"));
-            if ((bool)rdoManagedGame.IsChecked)
-            {
-                Directory.CreateDirectory(Path.Combine(instalDir, "SteamCMD"));
-                Directory.CreateDirectory(Path.Combine(instalDir, "Zomboid"));
-            }
+
+            SaveSettings();
 
             if ((bool)chkDesktopShortcut.IsChecked)
             {
@@ -173,10 +169,27 @@ namespace PZTools.Core.Windows.Dialogs
                     Environment.GetFolderPath(Environment.SpecialFolder.Desktop),
                     "PZTools.lnk"
                 );
-                WindowsHelpers.CreateShortcut(shortcutPath, destExe, "Project Zomboid Tools Launcher");
+                WindowsHelpers.CreateShortcut(shortcutPath, destExe, "Project Zomboid Tools");
                 await Console.Log($"Desktop shortcut created at {shortcutPath}");
             }
+
+            if ((bool)chkStartMenuShortcut.IsChecked)
+            {
+                string startMenuDir = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.StartMenu),
+                    "PZTools"
+                );
+                Directory.CreateDirectory(startMenuDir);
+                string shortcutPath = Path.Combine(startMenuDir, "PZTools.lnk");
+                WindowsHelpers.CreateShortcut(shortcutPath, destExe, "Project Zomboid Tools");
+                await Console.Log($"Start menu shortcut created at {shortcutPath}");
+            }
+
+            if ((bool)rdoManagedGame.IsChecked)
+            {
+                Directory.CreateDirectory(Path.Combine(instalDir, "SteamCMD"));
+                Directory.CreateDirectory(Path.Combine(instalDir, "Zomboid"));
+            }
         }
-        #endregion
     }
 }

@@ -9,7 +9,6 @@
         WindowStartupLocation="CenterScreen"
         ResizeMode="NoResize"
         Background="#1E1E1E" Loaded="Window_Loaded">
-
     <Grid Margin="10">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -58,8 +57,7 @@
                 <RadioButton x:Name="rdoManagedGame" Content="Let PZ Tools manage game versions" Checked="GameInstallOption_Checked"
                              Foreground="White"/>
                 <StackPanel Orientation="Horizontal" Margin="20,5,0,0">
-                    <TextBox x:Name="txtManagedGamePath" Width="400" Margin="0,0,10,0" IsReadOnly="True"
-                             Text="C:\PZTools\Games" Background="#2D2D30" Foreground="White" BorderBrush="#3E3E42" IsEnabled="False"/>
+                    <TextBox x:Name="txtManagedGamePath" Width="400" Margin="0,0,10,0" IsReadOnly="True" Background="#2D2D30" Foreground="White" BorderBrush="#3E3E42" IsEnabled="False"/>
                     <Button x:Name="changeMangedBtn" Content="Change..." Width="75" Click="BrowseManagedGamePath_Click"
                             Background="#3E3E42" Foreground="White" Visibility="Collapsed"/>
                 </StackPanel>
@@ -87,5 +85,7 @@
             <Button Content="Finish" Width="75" Click="FinishButton_Click"
                     Background="#007ACC" Foreground="White"/>
         </StackPanel>
+        
+        <TextBlock x:Name="SetupStatus" Grid.Row="3" Margin="0,94,230,0" Grid.RowSpan="2" Foreground="White"/>
     </Grid>
 </Window>

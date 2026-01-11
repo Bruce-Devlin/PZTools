@@ -21,18 +21,20 @@ namespace PZTools
         public static Task cliTask;
         public static CancellationTokenSource cliCancelToken;
 
-        public static string currentFilePath => Assembly.GetExecutingAssembly().Location;
-        public static DirectoryInfo? currentDirectory => Directory.GetParent(currentFilePath);
-        public static string configsDirectory
+        public static string currentFilePath => Assembly.GetExecutingAssembly().Location.Replace(".dll", ".exe");
+        
+        private static DirectoryInfo _currentDirectory = Directory.GetParent(currentFilePath);
+        public static DirectoryInfo? GetCurrentDirectory() { return _currentDirectory; }
+        public static string currentDirectory => GetCurrentDirectory().FullName;
+        public static void SetCurrentDirectory(string path)
         {
-            get
-            {
-                var dir = Path.GetFullPath(currentDirectory + "\\Configs\\");
-                if (!Directory.Exists(configsDirectory))
-                    Directory.CreateDirectory(configsDirectory);
-                return dir;
-            }
+            Directory.SetCurrentDirectory(path);
+            _currentDirectory = new DirectoryInfo(path);
         }
+        public static DirectoryInfo GetConfigDirectory() { return new DirectoryInfo(Path.Combine(currentDirectory, "Configs")); }
+        public static string configsDirectory => GetConfigDirectory().FullName;
+
+
 
         public static async Task RunCLI(bool printOld = false)
         {
