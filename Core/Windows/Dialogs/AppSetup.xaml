@@ -1,0 +1,91 @@
+﻿<Window x:Class="PZTools.Core.Windows.Dialogs.AppSetup"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:PZTools.Core.Windows.Dialogs"
+        mc:Ignorable="d"
+        Title="PZ Tools Setup" Height="420" Width="665"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="NoResize"
+        Background="#1E1E1E" Loaded="Window_Loaded">
+
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <!-- Welcome -->
+            <RowDefinition Height="Auto"/>
+            <!-- App Install Path -->
+            <RowDefinition Height="Auto"/>
+            <!-- Game Install Options -->
+            <RowDefinition Height="*"/>
+            <!-- Spacer / Extra options -->
+            <RowDefinition Height="Auto"/>
+            <!-- Buttons -->
+        </Grid.RowDefinitions>
+
+        <!-- Welcome Text -->
+        <TextBlock Grid.Row="0" Text="Welcome to PZ Tools!" 
+                   FontSize="20" FontWeight="Bold" Margin="0,0,0,10"
+                   Foreground="White"/>
+
+        <!-- App Installation Path -->
+        <StackPanel Grid.Row="1" Margin="0,0,0,10">
+            <TextBlock Text="Please choose where you would like to install PZ Tools:" Margin="0,0,0,5"
+                       Foreground="White"/>
+            <StackPanel Orientation="Horizontal">
+                <TextBox x:Name="txtAppInstallPath" Width="400" Margin="0,0,10,0" Background="#2D2D30" Foreground="White" BorderBrush="#3E3E42"/>
+                <Button Content="Browse..." Width="75" Click="BrowseAppInstallButton_Click"
+                        Background="#3E3E42" Foreground="White"/>
+            </StackPanel>
+        </StackPanel>
+
+        <!-- Game Installation Options -->
+        <GroupBox Grid.Row="2" Header="Project Zomboid Game Installation" Margin="0,0,0,10"
+                  Background="#2D2D30" Foreground="White" BorderBrush="#3E3E42">
+            <StackPanel Margin="10">
+                <RadioButton x:Name="rdoExistingGame" Content="Use existing installation" IsChecked="True" 
+                             Checked="GameInstallOption_Checked" Foreground="White"/>
+                <StackPanel Orientation="Horizontal" Margin="20,5,0,0">
+                    <TextBox x:Name="txtExistingGamePath" Width="400" Margin="0,0,10,0"
+                             Background="#2D2D30" Foreground="White" BorderBrush="#3E3E42"/>
+                    <Button x:Name="browseExistingBtn" Content="Browse..." Width="75" Click="BrowseGameInstallButton_Click"
+                            Background="#3E3E42" Foreground="White"/>
+                </StackPanel>
+                <TextBlock Text="This will work with a single, static installation of Zomboid. Usually via Steam." 
+                           Foreground="LightGray" Margin="20,0,0,5" TextWrapping="Wrap"/>
+
+                <RadioButton x:Name="rdoManagedGame" Content="Let PZ Tools manage game versions" Checked="GameInstallOption_Checked"
+                             Foreground="White"/>
+                <StackPanel Orientation="Horizontal" Margin="20,5,0,0">
+                    <TextBox x:Name="txtManagedGamePath" Width="400" Margin="0,0,10,0" IsReadOnly="True"
+                             Text="C:\PZTools\Games" Background="#2D2D30" Foreground="White" BorderBrush="#3E3E42" IsEnabled="False"/>
+                    <Button x:Name="changeMangedBtn" Content="Change..." Width="75" Click="BrowseManagedGamePath_Click"
+                            Background="#3E3E42" Foreground="White" Visibility="Collapsed"/>
+                </StackPanel>
+
+                <TextBlock Text="Managed installations will require multiple GB of disk space." 
+                           Foreground="LightGray" Margin="20,0,0,5" TextWrapping="Wrap"/>
+            </StackPanel>
+        </GroupBox>
+
+        <!-- Optional: Other Setup Options -->
+        <GroupBox Grid.Row="3" Header="Additional Options" Margin="0,0,0,10"
+          Background="#2D2D30" Foreground="White" BorderBrush="#3E3E42">
+            <WrapPanel Margin="10" Orientation="Horizontal" ItemWidth="200" ItemHeight="25">
+                <CheckBox Content="Create Start Menu Shortcut" x:Name="chkStartMenuShortcut" Foreground="White" Margin="0,0,10,10"/>
+                <CheckBox Content="Create Desktop Shortcut" x:Name="chkDesktopShortcut" Foreground="White" Margin="0,0,10,10"/>
+                <CheckBox Content="Decompile Game Files" x:Name="chkDecompileGame" Foreground="White" Margin="0,0,10,10"/>
+            </WrapPanel>
+        </GroupBox>
+
+
+        <!-- Buttons -->
+        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+            <Button Content="Cancel" Width="75" Margin="0,0,10,0" Click="CancelButton_Click"
+                    Background="#3E3E42" Foreground="White"/>
+            <Button Content="Finish" Width="75" Click="FinishButton_Click"
+                    Background="#007ACC" Foreground="White"/>
+        </StackPanel>
+    </Grid>
+</Window>
