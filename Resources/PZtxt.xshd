@@ -1,0 +1,54 @@
+﻿<SyntaxDefinition name="PlainText" extensions=".txt">
+
+	<Properties>
+		<Property name="LineComment" value=""/>
+	</Properties>
+
+	<Digits name="Digits" bold="false" italic="false" color="LightBlue"/>
+
+	<RuleSets>
+		<RuleSet ignorecase="false">
+			<Delimiters> ,	.?</Delimiters>
+
+			<!-- Strings in quotes -->
+			<Span name="String" bold="false" italic="false" color="#FF6A00" stopateol="false" escapecharacter="\">
+				<Begin>"</Begin>
+				<End>"</End>
+			</Span>
+
+			<!-- Numbers -->
+			<KeyWords name="Numbers" bold="false" italic="false" color="LightBlue">
+				<Key word="0"/>
+				<Key word="1"/>
+				<Key word="2"/>
+				<Key word="3"/>
+				<Key word="4"/>
+				<Key word="5"/>
+				<Key word="6"/>
+				<Key word="7"/>
+				<Key word="8"/>
+				<Key word="9"/>
+			</KeyWords>
+
+			<!-- Punctuation -->
+			<KeyWords name="Punctuation" bold="false" italic="false" color="LightBlue">
+				<Key word=","/>
+				<Key word="."/>
+				<Key word=":"/>
+				<Key word=";"/>
+				<Key word="("/>
+				<Key word=")"/>
+				<Key word="["/>
+				<Key word="]"/>
+				<Key word="{" />
+				<Key word="}" />
+				<Key word="=" />
+			</KeyWords>
+
+		</RuleSet>
+
+		<RuleSet name="CommentMarkerSet" ignorecase="false">
+			<Delimiters> ,	.?</Delimiters>
+		</RuleSet>
+	</RuleSets>
+</SyntaxDefinition>
