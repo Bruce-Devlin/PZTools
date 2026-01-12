@@ -75,7 +75,6 @@ namespace PZTools.Core.Functions.Menu
                     continue;
                 }
 
-                // recurse into submenus
                 if (container.HasItems)
                 {
                     ReplaceSeparators(container);

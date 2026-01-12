@@ -50,7 +50,6 @@ namespace PZTools.Core.Functions.Tester
                 int col = 0;
                 string codeLine = null;
 
-                // ex.Message looks like: "chunk_0:(6,0-59): attempt to index a nil value"
                 var match = System.Text.RegularExpressions.Regex.Match(
                     ex.DecoratedMessage, @"chunk_\d+:\((\d+),(\d+)");
                 if (match.Success)

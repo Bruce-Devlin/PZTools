@@ -22,7 +22,6 @@ namespace PZTools.Core.Windows.Dialogs.Project
         {
             InitializeComponent();
 
-            // Load mods from ProjectEngine
             var loaded = ProjectEngine.LoadMods();
             foreach (var mod in loaded)
                 Mods.Add(mod);
@@ -39,7 +38,6 @@ namespace PZTools.Core.Windows.Dialogs.Project
             if (ModsTreeView.SelectedItem is ModTarget target)
             {
                 SelectedTarget = target;
-                // Also set parent mod
                 foreach (var mod in Mods)
                 {
                     if (mod.Targets.Contains(target))
@@ -82,7 +80,6 @@ namespace PZTools.Core.Windows.Dialogs.Project
                 if (currentItem == item)
                     return treeViewItem;
 
-                // Recursively search child items
                 TreeViewItem? child = GetTreeViewItem(treeViewItem, item);
                 if (child != null) return child;
             }
@@ -93,7 +90,6 @@ namespace PZTools.Core.Windows.Dialogs.Project
 
         private void NewModButton_Click(object sender, RoutedEventArgs e)
         {
-            // Ask for mod name
             var inputDialogs = new InputDialogs("Enter new mod name:", "New Mod");
             if (inputDialogs.ShowDialog() == true)
             {
@@ -110,7 +106,6 @@ namespace PZTools.Core.Windows.Dialogs.Project
                     Mods.Add(newMod);
                     ModsTreeView.Items.Refresh();
 
-                    // Programmatically select the new mod
                     SelectedMod = newMod;
                     SelectedTarget = null;
                     SelectTreeViewItem(ModsTreeView, newMod);

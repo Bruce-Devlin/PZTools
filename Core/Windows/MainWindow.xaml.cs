@@ -40,10 +40,9 @@ namespace PZTools.Core.Windows
 
             foreach (var target in ModProject.Targets)
             {
-                target.LoadFiles(); // recursively load files
+                target.LoadFiles();
             }
 
-            // Bind to TreeView
             ModsTreeView.ItemsSource = ModProject.Targets;
 
             foreach (var msg in Console.GetAllMessages())
@@ -108,7 +107,6 @@ namespace PZTools.Core.Windows
                     var info = new FileInfo(node.Path);
                     txtPropSize.Text = $"{info.Length / 1024.0:F2} KB";
 
-                    // Try to detect encoding
                     txtPropEncoding.Text = GetFileEncoding(node.Path).WebName;
                 }
                 else

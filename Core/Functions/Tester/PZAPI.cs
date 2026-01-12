@@ -6,13 +6,11 @@ namespace PZTools.Core.Functions.Tester
     {
         public static void HookScript(Script script)
         {
-            // print(...)
             script.Globals["print"] = (Action<DynValue>)(v =>
             {
                 _ = Console.Log(v.ToString(), title: "LUA DEBUGGER");
             });
 
-            // Create Events table
             Table eventsTable = new Table(script);
             Table onTickTable = new Table(script);
 
@@ -34,13 +32,10 @@ namespace PZTools.Core.Functions.Tester
         {
             Table stub = new Table(script);
 
-            // Metatable to handle any method or property access
             Table meta = new Table(script);
 
-            // Handle indexing (obj:method or obj.property)
             meta["__index"] = (Func<DynValue, DynValue, DynValue>)((self, key) =>
             {
-                // Return a stub function if colon-called
                 Table sub = new Table(script);
                 sub["__call"] = (Func<DynValue, DynValue[], DynValue>)((t, args) =>
                 {
@@ -58,18 +53,14 @@ namespace PZTools.Core.Functions.Tester
         {
             Table t = new Table(script);
 
-            // Metatable to intercept any method/property access
             Table meta = new Table(script);
 
-            // __index returns a callable table for any unknown method
             meta["__index"] = (Func<DynValue, DynValue, DynValue>)((self, key) =>
             {
-                // Create callable stub
                 Table fnTable = new Table(script);
-                fnTable["__call"] = (Func<DynValue, DynValue[], DynValue>)((tbl, args) =>
+                fnTable["__call"] = (Func<DynValue, DynValue[], DynValue>)(async (tbl, args) =>
                 {
-                    Console.Log($"Stub {className ?? "Class"}.{key} called");
-                    // Return another stub table for chaining
+                    await Console.Log($"Stub {className ?? "Class"}.{key} called");
                     return CreateStubClass(script);
                 });
 
@@ -83,7 +74,6 @@ namespace PZTools.Core.Functions.Tester
 
         public static string[] stubMethods = new[]
         {
-            // ===== Global functions =====
             "getPlayer",
             "getCell",
             "getWorld",

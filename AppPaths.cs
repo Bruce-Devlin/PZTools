@@ -6,15 +6,12 @@ namespace PZTools
 {
     public static class AppPaths
     {
-        /// <summary>Path to the running executable</summary>
         public static string CurrentFilePath
         {
             get
             {
-                // First try entry assembly
                 string path = Assembly.GetEntryAssembly()?.Location;
 
-                // Fallback for single-file publish or if Location is empty
                 if (string.IsNullOrEmpty(path))
                 {
                     path = Process.GetCurrentProcess().MainModule?.FileName;
@@ -27,10 +24,8 @@ namespace PZTools
             }
         }
 
-        /// <summary>Directory containing the exe</summary>
         public static DirectoryInfo CurrentDirectory => new DirectoryInfo(Directory.GetCurrentDirectory());
 
-        /// <summary>Configs folder next to exe</summary>
         public static DirectoryInfo ConfigDirectory
         {
             get
@@ -54,7 +49,7 @@ namespace PZTools
         public static DirectoryInfo GetConfigDirectory()
         {
             string path = Path.Combine(CurrentDirectoryPath, "Configs");
-            Directory.CreateDirectory(path); // ensure it exists
+            Directory.CreateDirectory(path);
             return new DirectoryInfo(path);
         }
 

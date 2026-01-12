@@ -108,14 +108,12 @@ namespace PZTools.Core.Windows.Dialogs
 
         private async void FinishButton_Click(object sender, RoutedEventArgs e)
         {
-            // Validate app install path
             if (string.IsNullOrWhiteSpace(txtAppInstallPath.Text) || !Directory.Exists(txtAppInstallPath.Text))
             {
                 MessageBox.Show("Please select a valid installation folder for PZ Tools.", "Invalid Path", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
-            // Validate game installation path based on mode
             if (rdoExistingGame.IsChecked == true)
             {
                 if (string.IsNullOrWhiteSpace(txtExistingGamePath.Text) || !Directory.Exists(txtExistingGamePath.Text))
@@ -292,7 +290,7 @@ namespace PZTools.Core.Windows.Dialogs
                     {
                         FileName = steamCmdExe,
                         WorkingDirectory = steamCmdDir,
-                        UseShellExecute = true, // show console
+                        UseShellExecute = true,
                         Arguments =
                             $"+login {steamUsername} " +
                             $"+force_install_dir \"{installDirVersion}\" " +
@@ -419,7 +417,7 @@ namespace PZTools.Core.Windows.Dialogs
             SetupProgressBar.IsIndeterminate = indeterminate;
             SetupProgressBar.Value = 0;
 
-            IsEnabled = false; // disable window input
+            IsEnabled = false;
         }
 
         private void UpdateSetupStatus(string status, double? progress = null)

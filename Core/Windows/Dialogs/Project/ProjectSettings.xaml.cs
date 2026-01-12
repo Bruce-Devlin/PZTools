@@ -62,7 +62,6 @@ namespace PZTools.Core.Windows.Dialogs.Project
             };
             File.WriteAllLines(infoPath, lines);
 
-            // Copy poster image if changed
             if (!string.IsNullOrEmpty(PosterFilePath))
             {
                 string dest = Path.Combine(ModFolderPath, Path.GetFileName(PosterFilePath));

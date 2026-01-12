@@ -92,9 +92,6 @@ namespace PZTools.Core.Functions.Decompile
             return process.ExitCode == 0;
         }
 
-        /// <summary>
-        /// Attempts to locate java.exe automatically.
-        /// </summary>
         public static string? FindJavaExecutable()
         {
             var javaHome = Environment.GetEnvironmentVariable("JAVA_HOME");

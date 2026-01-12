@@ -96,7 +96,7 @@ namespace PZTools.Core.Functions.Menu
                             var ext = Path.GetExtension(file);
                             if (ext == ".lua")
                             {
-                                 await LuaTester.Test(System.IO.File.ReadAllText(file));
+                                await LuaTester.Test(System.IO.File.ReadAllText(file));
                             }
                         }
                     });

@@ -91,8 +91,6 @@ namespace PZTools.Core.Functions.Projects
                 }
 
 
-
-                // Look for versioned folders (numeric folder names)
                 foreach (var versionDir in Directory.GetDirectories(modRoot))
                 {
                     var folderName = Path.GetFileName(versionDir);

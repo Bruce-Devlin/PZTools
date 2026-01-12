@@ -1,9 +1,7 @@
 ﻿using PZTools.Core.Functions.Zomboid;
-using System;
 using System.Diagnostics;
 using System.IO;
 using System.Windows;
-using System.Windows.Controls;
 
 namespace PZTools.Core.Windows.Dialogs.Project
 {
@@ -50,7 +48,7 @@ namespace PZTools.Core.Windows.Dialogs.Project
                     cmbBuilds.Items.Add(Path.GetFileName(dir));
                 }
             }
-            
+
             cmbBuilds.Items.Add("Exisitng Steam Installation");
 
             if (cmbBuilds.Items.Count > 0)
