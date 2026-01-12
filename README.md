@@ -6,10 +6,9 @@
 Before you start, ensure the following are installed:
 - **Visual Studio 2026 Insiders**  
   Make sure the **.NET desktop development** workload is installed.
-- **.NET 8 SDK** (or latest compatible with Visual Studio 2026)
+- **.NET 10 SDK** (or latest compatible with Visual Studio 2026)
 - **Git** for cloning the repository
 - **Java (JDK)** if you intend to decompile Project Zomboid JARs
-- **SteamCMD** (for managed game installations)
 - Internet connection (for downloading CFR and SteamCMD)
 ---
 
