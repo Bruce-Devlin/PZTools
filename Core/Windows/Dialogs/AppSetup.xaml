@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:PZTools.Core.Windows.Dialogs"
         mc:Ignorable="d"
-        Title="PZ Tools Setup" Height="420" Width="665"
+        Title="PZ Tools Setup" Height="550" Width="750"
         WindowStartupLocation="CenterScreen"
         ResizeMode="NoResize"
         Background="#1E1E1E" Loaded="Window_Loaded">
@@ -85,7 +85,44 @@
             <Button Content="Finish" Width="75" Click="FinishButton_Click"
                     Background="#007ACC" Foreground="White"/>
         </StackPanel>
-        
-        <TextBlock x:Name="SetupStatus" Grid.Row="3" Margin="0,94,230,0" Grid.RowSpan="2" Foreground="White"/>
+
+        <!-- Setup Progress Overlay -->
+        <Grid x:Name="SetupOverlay"
+          Grid.Row="0"
+          Grid.RowSpan="5"
+          Background="#AA000000"
+          Visibility="Collapsed"
+          Panel.ZIndex="999">
+
+            <Border Background="#2D2D30"
+                Padding="25"
+                CornerRadius="8"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Width="400">
+
+                <StackPanel>
+
+                    <TextBlock Text="Setting up PZ Tools..."
+                       FontSize="16"
+                       FontWeight="Bold"
+                       Foreground="White"
+                       Margin="0,0,0,10"/>
+
+                    <TextBlock x:Name="SetupStatusText"
+                       Text="Please wait..."
+                       Foreground="LightGray"
+                       Margin="0,0,0,15"
+                       TextWrapping="Wrap"/>
+
+                    <ProgressBar x:Name="SetupProgressBar"
+                         Height="18"
+                         Minimum="0"
+                         Maximum="100"
+                         IsIndeterminate="True"/>
+
+                </StackPanel>
+            </Border>
+        </Grid>
     </Grid>
 </Window>

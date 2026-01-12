@@ -1,7 +1,12 @@
 {
   "profiles": {
-    "PZTools": {
-      "commandName": "Project"
+    "PZTools Debug": {
+      "commandName": "Project",
+      "commandLineArgs": "--debug"
+    },
+    "PZTools Skip Setup": {
+      "commandName": "Project",
+      "commandLineArgs": "--debug --skipSetup"
     }
   }
 }

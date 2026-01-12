@@ -1,7 +1,5 @@
-﻿using PZTools.Core.Functions.Projects;
-using PZTools.Core.Functions.Menu;
+﻿using PZTools.Core.Functions.Menu;
 using PZTools.Core.Models.Menu;
-using System.Collections.ObjectModel;
 
 namespace PZTools.Core.Models.View
 {

@@ -1,15 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Text;
+﻿using System.IO;
 
 namespace PZTools.Core.Functions.Zomboid
 {
     internal class ZomboidGame
     {
-        public static string GameDirectory 
-        { 
-            get 
+        public static string GameDirectory
+        {
+            get
             {
                 if (GameMode == "existing")
                     return Config.GetVariable(VariableType.system, "ExistingGamePath");
@@ -26,12 +23,18 @@ namespace PZTools.Core.Functions.Zomboid
             }
         }
 
-        public static string GameMode 
-        { 
+        public static string GameMode
+        {
             get
             {
                 return Config.GetVariable(VariableType.system, "GameMode");
-            } 
+            }
+        }
+
+        public static bool IsGameRunning()
+        {
+            var processes = System.Diagnostics.Process.GetProcessesByName("ProjectZomboid");
+            return processes.Length > 0;
         }
     }
 }

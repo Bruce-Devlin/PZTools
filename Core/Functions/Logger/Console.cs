@@ -1,7 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Text;
+﻿using System.Diagnostics;
+using System.IO;
 
 namespace PZTools.Core.Functions.Logger
 {
@@ -52,9 +50,44 @@ namespace PZTools.Core.Functions.Logger
                     System.Console.ReadKey();
                 }
             }
+            LogToFile(messageLogged);
 
-            cliCache.Add(messageLogged);
             if (OnLogMessage != null) OnLogMessage.Invoke(null, messageLogged);
+            cliCache.Add(messageLogged);
+        }
+
+
+        private static bool loggerStarted = false;
+        private static void LogToFile(string message)
+        {
+            var currDir = Directory.GetParent(AppPaths.CurrentFilePath);
+            var logFilePath = Path.Combine(currDir.FullName, "PZTools.log");
+            if (!File.Exists(logFilePath)) File.Create(logFilePath).Dispose();
+            if (!loggerStarted)
+            {
+                using (StreamWriter sw = new StreamWriter(logFilePath, true))
+                {
+                    sw.WriteLine("\r\n" +
+                        "===========================\r\n" +
+                        "    Project Zomboid Tools  \r\n" +
+                        "      by Bruce Devlin      \r\n" +
+                        "===========================\r\n"
+                    );
+                    loggerStarted = true;
+                }
+            }
+
+            try
+            {
+                using (StreamWriter sw = new StreamWriter(logFilePath, true))
+                {
+                    sw.WriteLine(message);
+                }
+            }
+            catch
+            {
+                // Ignore logging errors
+            }
         }
 
         private static string FormatLogMessage(string messageToFormat, LogLevel type, string title)

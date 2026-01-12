@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace PZTools.Core.Models.Test
+﻿namespace PZTools.Core.Models.Test
 {
     public class LuaTestResult
     {

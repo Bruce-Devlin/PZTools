@@ -1,8 +1,5 @@
 ﻿using PZTools.Core.Models;
-using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Text;
 
 namespace PZTools.Core.Functions.Projects
 {
@@ -45,7 +42,7 @@ namespace PZTools.Core.Functions.Projects
 
             if (node.IsFolder)
             {
-                foreach (var dir  in Directory.GetDirectories(path))
+                foreach (var dir in Directory.GetDirectories(path))
                     node.Children.Add(BuildFileTree(dir));
 
                 foreach (var file in Directory.GetFiles(path))
@@ -93,7 +90,7 @@ namespace PZTools.Core.Functions.Projects
                     modRoot = Path.Combine(modDir, "Contents", "mods", modName);
                 }
 
-                
+
 
                 // Look for versioned folders (numeric folder names)
                 foreach (var versionDir in Directory.GetDirectories(modRoot))

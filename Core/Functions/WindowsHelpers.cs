@@ -1,9 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
+﻿using System.IO;
 using System.Reflection;
 using System.Runtime.Versioning;
-using System.Text;
 
 namespace PZTools.Core.Functions
 {

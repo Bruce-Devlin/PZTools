@@ -17,7 +17,7 @@ namespace PZTools.Core.Functions
         {
             ExeConfigurationFileMap fileMap = new ExeConfigurationFileMap
             {
-                ExeConfigFilename = Path.Combine(App.configsDirectory, $"{type}.config")
+                ExeConfigFilename = Path.Combine(AppPaths.ConfigsDirectory, $"{type}.config")
             };
             Configuration configuration = ConfigurationManager.OpenMappedExeConfiguration(fileMap, ConfigurationUserLevel.None);
             KeyValueConfigurationCollection settings = configuration.AppSettings.Settings;
@@ -40,7 +40,7 @@ namespace PZTools.Core.Functions
         {
             ExeConfigurationFileMap fileMap = new ExeConfigurationFileMap
             {
-                ExeConfigFilename = Path.Combine(App.configsDirectory, $"{type}.config")
+                ExeConfigFilename = Path.Combine(AppPaths.ConfigsDirectory, $"{type}.config")
             };
             Configuration configuration = ConfigurationManager.OpenMappedExeConfiguration(fileMap, ConfigurationUserLevel.None);
             KeyValueConfigurationCollection settings = configuration.AppSettings.Settings;
@@ -59,7 +59,7 @@ namespace PZTools.Core.Functions
 
             ExeConfigurationFileMap fileMap = new ExeConfigurationFileMap
             {
-                ExeConfigFilename = Path.Combine(App.configsDirectory, $"{type}.config")
+                ExeConfigFilename = Path.Combine(AppPaths.ConfigsDirectory, $"{type}.config")
             };
 
             Configuration configuration = ConfigurationManager.OpenMappedExeConfiguration(fileMap, ConfigurationUserLevel.None);

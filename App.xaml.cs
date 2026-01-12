@@ -2,10 +2,6 @@
 using PZTools.Core.Functions.Projects;
 using PZTools.Core.Models.Commands;
 using PZTools.Core.Windows;
-
-using System.IO;
-using System.Linq;
-using System.Reflection;
 using System.Windows;
 
 namespace PZTools
@@ -20,21 +16,6 @@ namespace PZTools
         public static string[] CommandLineArgs => Environment.GetCommandLineArgs();
         public static Task cliTask;
         public static CancellationTokenSource cliCancelToken;
-
-        public static string currentFilePath => Assembly.GetExecutingAssembly().Location.Replace(".dll", ".exe");
-        
-        private static DirectoryInfo _currentDirectory = Directory.GetParent(currentFilePath);
-        public static DirectoryInfo? GetCurrentDirectory() { return _currentDirectory; }
-        public static string currentDirectory => GetCurrentDirectory().FullName;
-        public static void SetCurrentDirectory(string path)
-        {
-            Directory.SetCurrentDirectory(path);
-            _currentDirectory = new DirectoryInfo(path);
-        }
-        public static DirectoryInfo GetConfigDirectory() { return new DirectoryInfo(Path.Combine(currentDirectory, "Configs")); }
-        public static string configsDirectory => GetConfigDirectory().FullName;
-
-
 
         public static async Task RunCLI(bool printOld = false)
         {
@@ -70,6 +51,8 @@ namespace PZTools
 
         private async void Application_Startup(object sender, StartupEventArgs e)
         {
+            await HandleExceptions();
+
             await this.Log("PZTools launching...");
             await this.Log($"Launch args: {string.Join("\", \"", CommandLineArgs)}");
             if (CommandLineArgs.Contains("--debug"))
@@ -78,6 +61,37 @@ namespace PZTools
                 LogHelper.Show();
                 await this.Log("Debug Mode Enabled");
             }
+        }
+
+        static async Task HandleExceptions()
+        {
+            AppDomain.CurrentDomain.UnhandledException += new UnhandledExceptionEventHandler(CurrentDomain_UnhandledException);
+            Current.DispatcherUnhandledException += Current_DispatcherUnhandledException;
+            TaskScheduler.UnobservedTaskException += TaskScheduler_UnobservedTaskException;
+            System.Windows.Forms.Application.ThreadException += Application_ThreadException;
+        }
+
+        static void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
+        {
+            Exception ex = (e.ExceptionObject as Exception);
+            Console.Log($"Error! - {ex.Message}\r\n{ex.StackTrace}", Console.LogLevel.Error);
+        }
+
+        private static void Current_DispatcherUnhandledException(object sender, System.Windows.Threading.DispatcherUnhandledExceptionEventArgs e)
+        {
+            Console.Log($"UI Thread Error! - {e.Exception.Message}\r\n{e.Exception.StackTrace}", Console.LogLevel.Error);
+            e.Handled = true;
+        }
+
+        private static void TaskScheduler_UnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
+        {
+            Console.Log($"Task Error! - {e.Exception.Message}\r\n{e.Exception.StackTrace}", Console.LogLevel.Error);
+            e.SetObserved();
+        }
+
+        private static void Application_ThreadException(object sender, System.Threading.ThreadExceptionEventArgs e)
+        {
+            Console.Log($"Thread Error! - {e.Exception.Message}\r\n{e.Exception.StackTrace}", Console.LogLevel.Error);
         }
     }
 

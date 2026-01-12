@@ -1,6 +1,4 @@
-﻿using ICSharpCode.AvalonEdit.Highlighting;
-using ICSharpCode.AvalonEdit.Highlighting.Xshd;
-using PZTools.Core.Functions.Projects;
+﻿using PZTools.Core.Functions.Projects;
 using PZTools.Core.Functions.Tester;
 using PZTools.Core.Models;
 using PZTools.Core.Models.View;
@@ -9,7 +7,6 @@ using System.IO;
 using System.Reflection;
 using System.Windows;
 using System.Xml;
-using static PZTools.Core.Functions.Menu.MenuButtonEvents;
 using Application = System.Windows.Application;
 
 namespace PZTools.Core.Windows
@@ -49,7 +46,7 @@ namespace PZTools.Core.Windows
             // Bind to TreeView
             ModsTreeView.ItemsSource = ModProject.Targets;
 
-            foreach(var msg in Console.GetAllMessages())
+            foreach (var msg in Console.GetAllMessages())
             {
                 await WriteToConsole(msg);
             }
@@ -90,7 +87,7 @@ namespace PZTools.Core.Windows
                         LuaEditor.Text = text;
                         LoadHighlighting(extension);
 
-                        var results = await LuaTester.Test(text);
+                        if (extension == ".lua") await LuaTester.Test(text);
                     }
                     catch
                     {

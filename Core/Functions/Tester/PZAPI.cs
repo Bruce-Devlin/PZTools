@@ -1,7 +1,4 @@
 ﻿using MoonSharp.Interpreter;
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace PZTools.Core.Functions.Tester
 {
@@ -12,7 +9,7 @@ namespace PZTools.Core.Functions.Tester
             // print(...)
             script.Globals["print"] = (Action<DynValue>)(v =>
             {
-                _ = Console.Log(v.ToString(), title:"LUA DEBUGGER");
+                _ = Console.Log(v.ToString(), title: "LUA DEBUGGER");
             });
 
             // Create Events table

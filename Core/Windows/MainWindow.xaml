@@ -110,7 +110,7 @@
                 <ScrollViewer x:Name="ConsoleScroll" Grid.Row="1" VerticalScrollBarVisibility="Auto">
                     <TextBox x:Name="ConsoleOutput"
                              Background="{StaticResource BgEditor}"
-                             Foreground="{StaticResource TextPrimary}"
+                             Foreground="White"
                              FontFamily="Consolas"
                              FontSize="13"
                              BorderThickness="0"
@@ -140,7 +140,7 @@
                     BorderBrush="{StaticResource BorderSoft}"
                     BorderThickness="0,0,1,0">
 
-                <TreeView x:Name="ModsTreeView">
+                <TreeView x:Name="ModsTreeView" Foreground="White">
 
                     <TreeView.Resources>
 
@@ -196,28 +196,23 @@
                     BorderBrush="{StaticResource BorderSoft}"
                     BorderThickness="1,0,0,0"
                     Padding="14">
+                <GroupBox Header="File Properties" Foreground="White">
+                    <StackPanel>
+                        <TextBlock Text="Name:" Foreground="White"/>
+                        <TextBox x:Name="txtPropName" IsReadOnly="True" Margin="0,0,0,8"/>
 
-                <StackPanel>
+                        <TextBlock Text="Full Path:" Foreground="White"/>
+                        <TextBox x:Name="txtPropPath" IsReadOnly="True" Margin="0,0,0,8"/>
 
-                    <TextBlock Text="Properties"
-                               Foreground="{StaticResource TextPrimary}"
-                               FontWeight="SemiBold"
-                               FontSize="16"
-                               Margin="0,0,0,12"/>
+                        <TextBlock Text="Size:" Foreground="White"/>
+                        <TextBox x:Name="txtPropSize" IsReadOnly="True" Margin="0,0,0,8"/>
 
-                    <TextBlock Text="Name:" Foreground="{StaticResource TextSecondary}"/>
-                    <TextBox x:Name="txtPropName" IsReadOnly="True" Margin="0,0,0,8"/>
+                        <TextBlock Text="Encoding:" Foreground="White"/>
+                        <TextBox x:Name="txtPropEncoding" IsReadOnly="True"/>
 
-                    <TextBlock Text="Full Path:" Foreground="{StaticResource TextSecondary}"/>
-                    <TextBox x:Name="txtPropPath" IsReadOnly="True" Margin="0,0,0,8"/>
+                    </StackPanel>
+                </GroupBox>
 
-                    <TextBlock Text="Size:" Foreground="{StaticResource TextSecondary}"/>
-                    <TextBox x:Name="txtPropSize" IsReadOnly="True" Margin="0,0,0,8"/>
-
-                    <TextBlock Text="Encoding:" Foreground="{StaticResource TextSecondary}"/>
-                    <TextBox x:Name="txtPropEncoding" IsReadOnly="True"/>
-
-                </StackPanel>
 
             </Border>
 

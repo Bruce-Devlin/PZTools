@@ -1,5 +1,4 @@
 ﻿using PZTools.Core.Functions.Projects;
-using PZTools.Core;
 using PZTools.Core.Models;
 using System.Collections.ObjectModel;
 using System.Windows;

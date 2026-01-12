@@ -1,5 +1,4 @@
-﻿using PZTools.Core.Functions;
-using PZTools.Core.Functions.Projects;
+﻿using PZTools.Core.Functions.Projects;
 using PZTools.Core.Functions.Tester;
 using PZTools.Core.Functions.Zomboid;
 using PZTools.Core.Models.Commands;
@@ -7,7 +6,6 @@ using PZTools.Core.Windows.Dialogs;
 using PZTools.Core.Windows.Dialogs.Project;
 using System.IO;
 using System.Windows.Input;
-using System.Xml.Linq;
 
 namespace PZTools.Core.Functions.Menu
 {
@@ -43,7 +41,7 @@ namespace PZTools.Core.Functions.Menu
         public static class View
         {
             public static ICommand Game_Logs { get; } =
-                    new RelayCommand(() => 
+                    new RelayCommand(() =>
                     {
                         WindowsHelpers.OpenFile(Path.Combine(ZomboidGame.GameUserDirectory, "console.txt"));
                     });
@@ -55,8 +53,18 @@ namespace PZTools.Core.Functions.Menu
                     });
         }
 
-        public static class Tools
+        public static class Debug
         {
+            public static ICommand Run_Game { get; } =
+                new RelayCommand(async () =>
+                {
+                    var runGameWindow = new RunProject();
+                    runGameWindow.Show();
+                });
+
+            public static object Separator => null;
+
+
             public static class Lua_Watermark
             {
                 public static ICommand Apply_Watermark_To_This_File { get; } =
@@ -66,10 +74,10 @@ namespace PZTools.Core.Functions.Menu
                     new RelayCommand(() => System.Windows.Application.Current.Shutdown());
             }
 
-            public static class Test_Lua
+            public static class Test
             {
                 public static ICommand Test_This_Lua_File { get; } =
-                    new RelayCommand(async () => 
+                    new RelayCommand(async () =>
                     {
                         var ext = Path.GetExtension(App.MainWindow.OpenedFilePath);
                         if (ext != ".lua")
@@ -88,7 +96,7 @@ namespace PZTools.Core.Functions.Menu
                             var ext = Path.GetExtension(file);
                             if (ext == ".lua")
                             {
-                                var results = await LuaTester.Test(System.IO.File.ReadAllText(file));
+                                 await LuaTester.Test(System.IO.File.ReadAllText(file));
                             }
                         }
                     });
