@@ -38,4 +38,10 @@
     <EmbeddedResource Include="Resources\PZlua.xshd" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="README.md">
+      <Generator>MSBuild:Compile</Generator>
+    </None>
+  </ItemGroup>
+
 </Project>

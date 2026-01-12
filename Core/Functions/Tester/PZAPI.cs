@@ -58,9 +58,9 @@ namespace PZTools.Core.Functions.Tester
             meta["__index"] = (Func<DynValue, DynValue, DynValue>)((self, key) =>
             {
                 Table fnTable = new Table(script);
-                fnTable["__call"] = (Func<DynValue, DynValue[], DynValue>)(async (tbl, args) =>
+                fnTable["__call"] = (Func<DynValue, DynValue[], DynValue>)((tbl, args) =>
                 {
-                    await Console.Log($"Stub {className ?? "Class"}.{key} called");
+                    Console.Log($"Stub {className ?? "Class"}.{key} called");
                     return CreateStubClass(script);
                 });
 
