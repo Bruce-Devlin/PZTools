@@ -1,4 +1,4 @@
-﻿<Window x:Class="PZTools.Core.Windows.MainWindow"
+<Window x:Class="PZTools.Core.Windows.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -15,22 +15,15 @@
         Loaded="Window_Loaded"
         MinWidth="700"
         MinHeight="420"
-        Background="#0F1117">
+        Background="{StaticResource Brush.BgApp}"
+        Foreground="{StaticResource Brush.TextPrimary}">
 
-    <!-- ================= THEME ================= -->
     <Window.Resources>
 
-        <!-- Colors -->
-        <SolidColorBrush x:Key="BgMain" Color="#0F1117"/>
-        <SolidColorBrush x:Key="BgPanel" Color="#161A23"/>
-        <SolidColorBrush x:Key="BgPanelAlt" Color="#1B2030"/>
-        <SolidColorBrush x:Key="BgEditor" Color="#0D1117"/>
-        <SolidColorBrush x:Key="BorderSoft" Color="#2A2F3A"/>
-        <SolidColorBrush x:Key="TextPrimary" Color="#E6EDF3"/>
-        <SolidColorBrush x:Key="TextSecondary" Color="#9AA4B2"/>
-        <SolidColorBrush x:Key="Accent" Color="#4FC1FF"/>
+        <!-- Converters -->
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
 
-        <!-- MenuItem -->
+        <!-- MenuItem (app-specific) -->
         <Style TargetType="MenuItem" x:Key="MenuItemWithSeparatorStyle">
             <Setter Property="Header" Value="{Binding Header}" />
             <Setter Property="FontFamily" Value="Segoe UI"/>
@@ -52,47 +45,181 @@
             </Style.Triggers>
         </Style>
 
-        <!-- TextBox -->
+        <!-- MainWindow-local TextBox default: keep consistent with theme -->
         <Style TargetType="TextBox">
-            <Setter Property="Background" Value="#10151E"/>
-            <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
-            <Setter Property="BorderBrush" Value="{StaticResource BorderSoft}"/>
+            <Setter Property="Background" Value="{StaticResource Brush.BgApp}"/>
+            <Setter Property="Foreground" Value="{StaticResource Brush.TextPrimary}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Brush.BorderStrong}"/>
+            <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Padding" Value="6"/>
         </Style>
 
-        <!-- TreeView -->
-        <Style TargetType="TreeView">
-            <Setter Property="Background" Value="{StaticResource BgPanel}"/>
-            <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
-            <Setter Property="BorderThickness" Value="0"/>
-        </Style>
+        <!-- MainWindow-local TreeView default -->
+        <Style TargetType="TreeView" BasedOn="{StaticResource ModernTreeView}"/>
+        <Style TargetType="TreeViewItem" BasedOn="{StaticResource ModernTreeViewItem}"/>
 
     </Window.Resources>
 
-    <DockPanel Background="{StaticResource BgMain}">
+    <Grid Background="{StaticResource Brush.BgApp}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <!-- Menu -->
+            <RowDefinition Height="*"/>
+            <!-- Main content -->
+            <RowDefinition Height="4"/>
+            <!-- Splitter -->
+            <RowDefinition x:Name="LayoutConsole" Height="160" MinHeight="120"/>
+            <RowDefinition Height="Auto"/>
+            <!-- Status bar -->
+        </Grid.RowDefinitions>
 
         <!-- Menu -->
-        <Menu DockPanel.Dock="Top" ItemsSource="{Binding Menus}" Height="20">
+        <Menu Grid.Row="0" ItemsSource="{Binding Menus}" Height="24">
             <Menu.ItemContainerStyle>
-                <Style TargetType="MenuItem" BasedOn="{StaticResource MenuItemWithSeparatorStyle}" />
+                <!-- keep your binding + separator logic, but base it on the themed MenuItem -->
+                <Style TargetType="MenuItem"
+               BasedOn="{StaticResource ModernMenuItem}">
+                    <Setter Property="Header" Value="{Binding Header}" />
+                    <Setter Property="Command" Value="{Binding Command}" />
+                    <Setter Property="ItemsSource" Value="{Binding Children}" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsSeparator}" Value="True">
+                            <Setter Property="Header" Value="{x:Null}" />
+                            <Setter Property="Command" Value="{x:Null}" />
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="MenuItem">
+                                        <Separator Style="{StaticResource ModernMenuSeparator}"/>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
             </Menu.ItemContainerStyle>
         </Menu>
 
-        <!-- Status bar -->
-        <StatusBar DockPanel.Dock="Bottom"
-                   Background="#0C1016"
-                   BorderThickness="0">
-            <TextBlock x:Name="StatusBarText"
-                       Foreground="{StaticResource TextSecondary}"
-                       Text="Ready"/>
-        </StatusBar>
+        <!-- Main layout -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition x:Name="LayoutExplorer" Width="250"/>
+                <ColumnDefinition x:Name="LayoutEditor" Width="*"/>
+                <ColumnDefinition x:Name="LayoutProperties" Width="320"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Project Explorer -->
+            <Border Grid.Column="0"
+                    Background="{StaticResource Brush.BgSurface}"
+                    BorderBrush="{StaticResource Brush.Border}"
+                    BorderThickness="0,0,1,0"
+                    Padding="8">
+
+                <!-- If you want to keep GroupBox, leave it; otherwise swap to a TextBlock header + content -->
+                <GroupBox Header="Project Explorer"
+                          Foreground="{StaticResource Brush.TextPrimary}"
+                          Padding="8"
+                          Background="Transparent"
+                          BorderBrush="{StaticResource Brush.Border}"
+                          BorderThickness="0">
+                    <TreeView x:Name="ProjectTreeView"
+                              AllowDrop="True"
+                              PreviewMouseLeftButtonDown="ProjectTreeView_PreviewMouseLeftButtonDown"
+                              MouseMove="ProjectTreeView_MouseMove"
+                              DragOver="ProjectTreeView_DragOver"
+                              Drop="ProjectTreeView_Drop"
+                              ContextMenuOpening="ProjectTreeView_ContextMenuOpening">
+
+                        <TreeView.Resources>
+
+                            <HierarchicalDataTemplate DataType="{x:Type models:ProjectFileNode}"
+                                                      ItemsSource="{Binding Children}">
+                                <TextBlock Text="{Binding Name}"
+                                           Foreground="{StaticResource Brush.TextPrimary}"/>
+                            </HierarchicalDataTemplate>
+
+                            <HierarchicalDataTemplate DataType="{x:Type models:ModTarget}"
+                                                      ItemsSource="{Binding FileTree.Children}">
+                                <TextBlock Text="{Binding Build, StringFormat=Build {0}}"
+                                           FontWeight="SemiBold"
+                                           Foreground="{StaticResource Brush.TextInfo}"/>
+                            </HierarchicalDataTemplate>
+
+                        </TreeView.Resources>
+                    </TreeView>
+                </GroupBox>
+            </Border>
+
+            <!-- Left splitter -->
+            <GridSplitter Grid.Column="0"
+                          Width="4"
+                          Background="{StaticResource Brush.Border}"
+                          HorizontalAlignment="Right"/>
+
+            <!-- Editor -->
+            <Border Grid.Column="1"
+                    Background="{StaticResource Brush.BgApp}"
+                    BorderBrush="{StaticResource Brush.Border}"
+                    BorderThickness="1,0,1,0">
+
+                <!-- AvalonEdit: map to theme brushes -->
+                <avalonedit:TextEditor x:Name="LuaEditor"
+                                       ShowLineNumbers="True"
+                                       FontFamily="Consolas"
+                                       FontSize="14"
+                                       IsReadOnly="True"
+                                       Background="{StaticResource Brush.BgApp}"
+                                       Foreground="{StaticResource Brush.TextPrimary}"/>
+            </Border>
+
+            <!-- Right splitter -->
+            <GridSplitter Grid.Column="1"
+                          Width="4"
+                          Background="{StaticResource Brush.Border}"
+                          HorizontalAlignment="Right"/>
+
+            <!-- Properties -->
+            <Border Grid.Column="2"
+                    Background="{StaticResource Brush.BgSurface}"
+                    BorderBrush="{StaticResource Brush.Border}"
+                    BorderThickness="1,0,0,0"
+                    Padding="8">
+
+                <GroupBox Header="File Properties"
+                          Foreground="{StaticResource Brush.TextPrimary}"
+                          Background="Transparent"
+                          BorderBrush="{StaticResource Brush.Border}"
+                          BorderThickness="0">
+                    <StackPanel>
+                        <TextBlock Text="Name:" Foreground="{StaticResource Brush.TextMuted}"/>
+                        <TextBox x:Name="txtPropName" IsReadOnly="True" Margin="0,0,0,8"/>
+
+                        <TextBlock Text="Full Path:" Foreground="{StaticResource Brush.TextMuted}"/>
+                        <TextBox x:Name="txtPropPath" IsReadOnly="True" Margin="0,0,0,8"/>
+
+                        <TextBlock Text="Size:" Foreground="{StaticResource Brush.TextMuted}"/>
+                        <TextBox x:Name="txtPropSize" IsReadOnly="True" Margin="0,0,0,8"/>
+
+                        <TextBlock Text="Encoding:" Foreground="{StaticResource Brush.TextMuted}"/>
+                        <TextBox x:Name="txtPropEncoding" IsReadOnly="True"/>
+                    </StackPanel>
+                </GroupBox>
+            </Border>
+        </Grid>
+
+        <!-- Console splitter -->
+        <GridSplitter Grid.Row="2"
+                      Height="4"
+                      Background="{StaticResource Brush.Border}"
+                      ResizeDirection="Rows"
+                      HorizontalAlignment="Stretch"
+                      Cursor="SizeNS"/>
 
         <!-- Console panel -->
-        <Border DockPanel.Dock="Bottom"
-                Height="160"
-                Background="{StaticResource BgPanel}"
-                BorderBrush="{StaticResource BorderSoft}"
-                BorderThickness="1">
+        <Border Grid.Row="3"
+                Background="{StaticResource Brush.BgSurface}"
+                BorderBrush="{StaticResource Brush.Border}"
+                BorderThickness="1"
+                MinHeight="100">
 
             <Grid>
                 <Grid.RowDefinitions>
@@ -100,17 +227,17 @@
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
 
-                <DockPanel Background="{StaticResource BgPanelAlt}">
+                <DockPanel Background="{StaticResource Brush.BgApp}">
                     <TextBlock Text="Console"
-                               Foreground="{StaticResource TextSecondary}"
+                               Foreground="{StaticResource Brush.TextMuted}"
                                VerticalAlignment="Center"
                                Margin="10,0"/>
                 </DockPanel>
 
-                <ScrollViewer x:Name="ConsoleScroll" Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                <ScrollViewer x:Name="ConsoleScroll" Grid.Row="1">
                     <TextBox x:Name="ConsoleOutput"
-                             Background="{StaticResource BgEditor}"
-                             Foreground="White"
+                             Background="{StaticResource Brush.BgApp}"
+                             Foreground="{StaticResource Brush.TextPrimary}"
                              FontFamily="Consolas"
                              FontSize="13"
                              BorderThickness="0"
@@ -120,102 +247,14 @@
             </Grid>
         </Border>
 
-        <!-- Splitter -->
-        <GridSplitter DockPanel.Dock="Bottom"
-                      Height="4"
-                      Background="#1E2430"
-                      HorizontalAlignment="Stretch"/>
+        <!-- Status bar -->
+        <StatusBar Grid.Row="4"
+                   Background="{StaticResource Brush.BgApp}"
+                   BorderThickness="0">
+            <TextBlock x:Name="StatusBarText"
+                       Foreground="{StaticResource Brush.TextMuted}"
+                       Text="Ready"/>
+        </StatusBar>
 
-        <!-- Main layout -->
-        <Grid>
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="250"/>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="320"/>
-            </Grid.ColumnDefinitions>
-
-            <!-- Project Explorer -->
-            <Border Grid.Column="0"
-                    Background="{StaticResource BgPanel}"
-                    BorderBrush="{StaticResource BorderSoft}"
-                    BorderThickness="0,0,1,0">
-
-                <TreeView x:Name="ModsTreeView" Foreground="White">
-
-                    <TreeView.Resources>
-
-                        <HierarchicalDataTemplate DataType="{x:Type models:ProjectFileNode}"
-                                                  ItemsSource="{Binding Children}">
-                            <TextBlock Text="{Binding Name}"
-                                       Foreground="{StaticResource TextPrimary}" />
-                        </HierarchicalDataTemplate>
-
-                        <HierarchicalDataTemplate DataType="{x:Type models:ModTarget}"
-                                                  ItemsSource="{Binding FileTree.Children}">
-                            <TextBlock Text="{Binding Build, StringFormat=Build {0}}"
-                                       FontWeight="SemiBold"
-                                       Foreground="{StaticResource Accent}" />
-                        </HierarchicalDataTemplate>
-
-                    </TreeView.Resources>
-
-                </TreeView>
-            </Border>
-
-            <!-- Left splitter -->
-            <GridSplitter Grid.Column="0"
-                          Width="4"
-                          Background="#1E2430"
-                          HorizontalAlignment="Right"/>
-
-            <!-- Editor -->
-            <Border Grid.Column="1"
-                    Background="{StaticResource BgEditor}"
-                    BorderBrush="{StaticResource BorderSoft}"
-                    BorderThickness="1,0,1,0">
-
-                <avalonedit:TextEditor x:Name="LuaEditor"
-                                       ShowLineNumbers="True"
-                                       FontFamily="Consolas"
-                                       FontSize="14"
-                                       IsReadOnly="True"
-                                       Background="{StaticResource BgEditor}"
-                                       Foreground="{StaticResource TextPrimary}"/>
-
-            </Border>
-
-            <!-- Right splitter -->
-            <GridSplitter Grid.Column="1"
-                          Width="4"
-                          Background="#1E2430"
-                          HorizontalAlignment="Right"/>
-
-            <!-- Properties -->
-            <Border Grid.Column="2"
-                    Background="{StaticResource BgPanel}"
-                    BorderBrush="{StaticResource BorderSoft}"
-                    BorderThickness="1,0,0,0"
-                    Padding="14">
-                <GroupBox Header="File Properties" Foreground="White">
-                    <StackPanel>
-                        <TextBlock Text="Name:" Foreground="White"/>
-                        <TextBox x:Name="txtPropName" IsReadOnly="True" Margin="0,0,0,8"/>
-
-                        <TextBlock Text="Full Path:" Foreground="White"/>
-                        <TextBox x:Name="txtPropPath" IsReadOnly="True" Margin="0,0,0,8"/>
-
-                        <TextBlock Text="Size:" Foreground="White"/>
-                        <TextBox x:Name="txtPropSize" IsReadOnly="True" Margin="0,0,0,8"/>
-
-                        <TextBlock Text="Encoding:" Foreground="White"/>
-                        <TextBox x:Name="txtPropEncoding" IsReadOnly="True"/>
-
-                    </StackPanel>
-                </GroupBox>
-
-
-            </Border>
-
-        </Grid>
-    </DockPanel>
+    </Grid>
 </Window>

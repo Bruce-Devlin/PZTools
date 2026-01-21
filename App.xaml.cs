@@ -1,4 +1,4 @@
-﻿using PZTools.Core.Functions.Logger;
+using PZTools.Core.Functions.Logger;
 using PZTools.Core.Functions.Projects;
 using PZTools.Core.Models.Commands;
 using PZTools.Core.Windows;
@@ -47,6 +47,14 @@ namespace PZTools
             MainWindow.Close();
             preloader.Show();
             ProjectEngine.Cleanup();
+        }
+
+        public static void CloseApp()
+        {
+            cliCancelToken.Cancel();
+            MainWindow.Close();
+
+            System.Windows.Application.Current.Shutdown();
         }
 
         private async void Application_Startup(object sender, StartupEventArgs e)

@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.IO;
 
 namespace PZTools.Core.Functions.Logger
@@ -86,7 +86,6 @@ namespace PZTools.Core.Functions.Logger
             }
             catch
             {
-                // Ignore logging errors
             }
         }
 

@@ -1,15 +1,180 @@
-﻿<Window x:Class="PZTools.Core.Windows.Dialogs.Project.InputDialogs"
+<Window x:Class="PZTools.Core.Windows.Dialogs.Project.InputDialogs"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        WindowStartupLocation="CenterScreen"
+        xmlns:sys="clr-namespace:System;assembly=mscorlib"
+        WindowStartupLocation="CenterOwner"
         SizeToContent="WidthAndHeight"
-        ResizeMode="NoResize" Topmost="True">
-    <StackPanel Margin="10">
-        <TextBlock x:Name="QuestionText" Margin="0,0,0,10"/>
-        <TextBox x:Name="InputTextBox" Width="300" Margin="0,0,0,10"/>
-        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button Width="75" Margin="5,0" Content="OK" Click="OkButton_Click"/>
-            <Button Width="75" Margin="5,0" Content="Cancel" Click="CancelButton_Click"/>
-        </StackPanel>
-    </StackPanel>
+        ResizeMode="NoResize"
+        Topmost="True"
+        Background="{x:Null}"
+        Foreground="{StaticResource Brush.TextPrimary}"
+        FontSize="13"
+        Title="Input"
+        MinWidth="520"
+        ShowInTaskbar="False" WindowStyle="None" AllowsTransparency="True">
+
+    <Window.Resources>
+
+        <!-- Built-in converter -->
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+
+        <!-- Template used explicitly (no DataType lookup) -->
+        <DataTemplate x:Key="InputFieldTemplate">
+            <StackPanel Margin="0,0,0,12">
+                <DockPanel LastChildFill="True">
+                    <TextBlock Text="{Binding Label}" FontWeight="SemiBold"/>
+
+                    <!-- Required star -->
+                    <TextBlock DockPanel.Dock="Right"
+                               Text="*"
+                               Foreground="{StaticResource Brush.TextDanger}">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsRequired}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </DockPanel>
+
+                <!-- Description (only show if not empty) -->
+                <TextBlock Text="{Binding Description}"
+                           Margin="0,2,0,6">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock" BasedOn="{StaticResource Text.Muted}">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Description}" Value="{x:Null}">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Description}" Value="">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Description}" Value="{x:Static sys:String.Empty}">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                                <Trigger Property="Text" Value="">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </Trigger>
+                                <!-- If it has text, show -->
+                                <DataTrigger Binding="{Binding Description}" Value="{x:Null}">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+
+                <!-- Non-password -->
+                <TextBox
+                         Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}">
+                    <TextBox.Style>
+                        <Style TargetType="TextBox" BasedOn="{StaticResource ModernTextBox}">
+                            <Setter Property="Visibility" Value="Visible"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsPassword}" Value="True">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBox.Style>
+                </TextBox>
+
+                <!-- Password -->
+                <PasswordBox>
+                    <PasswordBox.Style>
+                        <Style TargetType="PasswordBox" BasedOn="{StaticResource ModernPasswordBox}">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsPassword}" Value="True">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </PasswordBox.Style>
+                </PasswordBox>
+
+                <!-- Validation -->
+                <TextBlock Margin="0,6,0,0"
+                           Foreground="{StaticResource Brush.TextDanger}"
+                           Text="{Binding ValidationMessage}">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsValid}" Value="False">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </StackPanel>
+        </DataTemplate>
+
+    </Window.Resources>
+
+    <Border Style="{StaticResource Card}" Margin="18">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="1"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <StackPanel Grid.Row="0" Margin="0,0,0,12">
+                <TextBlock Text="{Binding Question}" Style="{StaticResource Text.Title}"/>
+                <TextBlock Text="{Binding Subtext}">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock" BasedOn="{StaticResource Text.Muted}">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Subtext}" Value="{x:Null}">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Subtext}" Value="">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Subtext}" Value="{x:Static sys:String.Empty}">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                                <!-- show when it has content -->
+                                <Trigger Property="Text" Value="">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </StackPanel>
+
+            <ScrollViewer Grid.Row="1" MaxHeight="420" VerticalScrollBarVisibility="Auto">
+                <ItemsControl ItemsSource="{Binding Fields}"
+                              ItemTemplate="{StaticResource InputFieldTemplate}"/>
+            </ScrollViewer>
+
+            <Border Grid.Row="2"
+                        Background="{StaticResource Brush.Border}"
+                        Height="1"
+                        VerticalAlignment="Top"/>
+
+            <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Style="{StaticResource ModernButton}"
+                        Content="Cancel"
+                        IsCancel="True"
+                        Click="CancelButton_Click"/>
+
+                <Button Style="{StaticResource PrimaryButton}"
+                        Content="OK"
+                        IsDefault="True"
+                        IsEnabled="{Binding CanSubmit}"
+                        Click="OkButton_Click"/>
+            </StackPanel>
+        </Grid>
+    </Border>
 </Window>

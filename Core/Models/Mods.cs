@@ -1,4 +1,4 @@
-﻿using PZTools.Core.Functions.Projects;
+using PZTools.Core.Functions.Projects;
 using System.Collections.ObjectModel;
 using System.IO;
 
@@ -26,7 +26,7 @@ namespace PZTools.Core.Models
 
     public class ModTarget
     {
-        public int Build { get; set; }
+        public double Build { get; set; }
         public string Path { get; set; } = "";
         public ProjectFileNode? FileTree { get; set; }
 
@@ -46,7 +46,4 @@ namespace PZTools.Core.Models
 
         public override string ToString() => Name;
     }
-
-
-
 }

@@ -1,11 +1,50 @@
-﻿using System.Configuration;
+using Newtonsoft.Json;
+using PZTools.Core.Models;
+using System.Configuration;
 using System.IO;
 
 namespace PZTools.Core.Functions
 {
     internal static class Config
     {
+        public static string GetAppSetting(string name)
+        {
+            var savedSettings = GetVariable(VariableType.system, "appSettings");
+            var appSettings = JsonConvert.DeserializeObject<AppSettings>(savedSettings);
 
+            if (appSettings != null)
+            {
+                var property = appSettings.GetType().GetProperty(name);
+                if (property != null)
+                {
+                    var value = property.GetValue(appSettings);
+                    return value?.ToString() ?? string.Empty;
+                }
+                else
+                {
+                    return string.Empty;
+                }
+            }
+            else return string.Empty;
+        }
+
+        public static void SetAppSetting(string name, string value)
+        {
+            var savedSettings = GetVariable(VariableType.system, "appSettings");
+            var appSettings = JsonConvert.DeserializeObject<AppSettings>(savedSettings);
+
+            if (appSettings != null)
+            {
+                var property = appSettings.GetType().GetProperty(name);
+                if (property != null)
+                {
+                    property.SetValue(appSettings, value, null);
+                }
+            }
+
+            var settingToSave = JsonConvert.SerializeObject(appSettings);
+            StoreVariable(VariableType.user, "appSettings", settingToSave);
+        }
 
         /// <summary>
         /// Stores variable to config file
@@ -27,7 +66,9 @@ namespace PZTools.Core.Functions
         }
         public static void StoreVariable(VariableType type, string name, bool data) => StoreVariable(type, name, data.ToString().ToLower());
         public static void StoreVariable(VariableType type, string name, int data) => StoreVariable(type, name, data.ToString());
-
+        public static void StoreVariable(VariableType type, string name, double data) => StoreVariable(type, name, data.ToString());
+        public static void StoreVariable(VariableType type, string name, float data) => StoreVariable(type, name, data.ToString());
+        public static void StoreObject(VariableType type, string name, object obj) => StoreVariable(type, name, JsonConvert.SerializeObject(obj));
 
 
         /// <summary>
@@ -46,6 +87,15 @@ namespace PZTools.Core.Functions
             KeyValueConfigurationCollection settings = configuration.AppSettings.Settings;
             if (settings[variable] == null) return null;
             else return settings[variable].Value;
+        }
+
+        public static T? GetObject<T>(VariableType type, string name)
+        {
+            string? jsonString = GetVariable(type, name);
+            if (jsonString == null)
+                return default;
+
+            return JsonConvert.DeserializeObject<T>(jsonString);
         }
 
         /// <summary>

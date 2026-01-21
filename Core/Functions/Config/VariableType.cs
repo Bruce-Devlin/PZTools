@@ -1,4 +1,4 @@
-﻿namespace PZTools.Core.Functions
+namespace PZTools.Core.Functions
 {
     public enum VariableType
     {

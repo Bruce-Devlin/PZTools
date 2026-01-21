@@ -1,139 +1,109 @@
-﻿<Window x:Class="PZTools.Core.Windows.Dialogs.Project.ProjectSelector"
+<Window x:Class="PZTools.Core.Windows.Dialogs.Project.ProjectSelector"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d"
         Title="PZTools - Select Project"
         Height="340"
         Width="480"
         WindowStartupLocation="CenterScreen"
         ResizeMode="NoResize"
-        Background="#1E1E1E"
-        Foreground="#DCDCDC">
+        Background="{x:Null}"
+        Foreground="{StaticResource Brush.TextPrimary}" WindowStyle="None" AllowsTransparency="True">
 
-    <Window.Resources>
+    <Grid Margin="18">
+        <Border Style="{StaticResource Card}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="10"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
 
-        <!-- TreeView style -->
-        <Style TargetType="TreeView">
-            <Setter Property="Background" Value="#252526"/>
-            <Setter Property="BorderBrush" Value="#333"/>
-            <Setter Property="BorderThickness" Value="1"/>
-        </Style>
+                <!-- Header -->
+                <StackPanel Grid.Row="0" Margin="0,0,0,12">
+                    <TextBlock Text="Select a Project" Style="{StaticResource Text.Title}"/>
+                    <Grid>
+                        <TextBlock x:Name="ProjectFolderTxt"
+                               Text="Projects folder:"
+                               Foreground="{StaticResource Brush.TextInfo}"
+                               FontSize="10"/>
+                        <Button x:Name="OpenProjectFolderBtn"
+                                Click="OpenProjectFolderBtn_Click" Background="Black" BorderBrush="{x:Null}" Foreground="{x:Null}" Cursor="Hand" Panel.ZIndex="10" Opacity="0.01"/>
+                    </Grid>
 
-        <Style TargetType="TreeViewItem">
-            <Setter Property="Foreground" Value="#DCDCDC"/>
-            <Setter Property="Margin" Value="2"/>
-        </Style>
+                </StackPanel>
 
-        <!-- Modern button style -->
-        <Style TargetType="Button">
-            <Setter Property="Background" Value="#2D2D30"/>
-            <Setter Property="Foreground" Value="#FFFFFF"/>
-            <Setter Property="BorderBrush" Value="#3E3E42"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="10,5"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="3">
-                            <ContentPresenter HorizontalAlignment="Center"
-                                              VerticalAlignment="Center"/>
-                        </Border>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
+                <!-- TreeView -->
+                <Border Grid.Row="1"
+                        Background="{StaticResource Brush.BgApp}"
+                        BorderBrush="{StaticResource Brush.Border}"
+                        BorderThickness="1"
+                        CornerRadius="10"
+                        Padding="8">
 
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#3E3E42"/>
-                </Trigger>
-                <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#007ACC"/>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
+                    <TreeView x:Name="ProjectsTreeView"
+                              Style="{StaticResource ModernTreeView}">
+                        <TreeView.Resources>
+                            <Style TargetType="TreeViewItem" BasedOn="{StaticResource ModernTreeViewItem}"/>
+                        </TreeView.Resources>
 
-    </Window.Resources>
-
-    <Grid Margin="14">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
-
-        <!-- Header -->
-        <StackPanel Grid.Row="0" Margin="0,0,0,10">
-            <TextBlock Text="Select a Project"
-                       FontSize="18"
-                       FontWeight="SemiBold"
-                       Margin="0,0,0,6"/>
-
-            <TextBlock x:Name="ModFolderTxt"
-                       Text="Mods folder:"
-                       Foreground="#9CDCFE"
-                       FontSize="12"/>
-        </StackPanel>
-
-        <!-- TreeView -->
-        <Border Grid.Row="1"
-                Background="#252526"
-                BorderBrush="#333"
-                BorderThickness="1"
-                CornerRadius="4"
-                Padding="6">
-
-            <TreeView x:Name="ModsTreeView">
-
-                <TreeView.ItemTemplate>
-                    <HierarchicalDataTemplate ItemsSource="{Binding VersionWrappers}">
-                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold"/>
-
-                        <HierarchicalDataTemplate.ItemTemplate>
-                            <HierarchicalDataTemplate ItemsSource="{Binding Builds}">
-                                <TextBlock Text="{Binding Label}"
-                                           Foreground="#9CDCFE"
-                                           Margin="10,2,0,2"/>
+                        <TreeView.ItemTemplate>
+                            <HierarchicalDataTemplate ItemsSource="{Binding VersionWrappers}">
+                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold"/>
 
                                 <HierarchicalDataTemplate.ItemTemplate>
-                                    <DataTemplate>
-                                        <TextBlock Text="{Binding Build, StringFormat='b{0}'}"
-                                                   Margin="20,2,0,2"
-                                                   Foreground="#CE9178"/>
-                                    </DataTemplate>
+                                    <HierarchicalDataTemplate ItemsSource="{Binding Builds}">
+                                        <TextBlock Text="{Binding Label}"
+                                                   Foreground="{StaticResource Brush.TextInfo}"
+                                                   Margin="10,2,0,2"/>
+
+                                        <HierarchicalDataTemplate.ItemTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding Build, StringFormat='b{0}'}"
+                                                           Margin="20,2,0,2"
+                                                           Foreground="{StaticResource Brush.TextWarn}"/>
+                                            </DataTemplate>
+                                        </HierarchicalDataTemplate.ItemTemplate>
+                                    </HierarchicalDataTemplate>
                                 </HierarchicalDataTemplate.ItemTemplate>
-
                             </HierarchicalDataTemplate>
-                        </HierarchicalDataTemplate.ItemTemplate>
+                        </TreeView.ItemTemplate>
+                    </TreeView>
+                </Border>
 
-                    </HierarchicalDataTemplate>
-                </TreeView.ItemTemplate>
+                <Border Grid.Row="2"
+                        Background="{StaticResource Brush.Border}"
+                        Height="1"
+                        VerticalAlignment="Top" Margin="0,8,0,0"/>
 
-            </TreeView>
+                <!-- Buttons -->
+                <StackPanel Grid.Row="3"
+                            Orientation="Horizontal"
+                            HorizontalAlignment="Right"
+                            Margin="0,12,0,0">
+                    <Button Style="{StaticResource ModernButton}"
+                            Content="New Project"
+                            Width="100"
+                            Margin="0,0,8,0"
+                            Click="NewProjectButton_Click"/>
 
+                    <Button Style="{StaticResource PrimaryButton}"
+                            Content="OK"
+                            Width="100"
+                            Margin="0,0,8,0"
+                            Click="OkButton_Click"/>
+
+                    <Border Grid.Row="2"
+                        Background="{StaticResource Brush.Border}"
+                        Height="34"
+                        VerticalAlignment="Top" Margin="0,0,8,0" Width="3"/>
+
+                    <Button Style="{StaticResource ModernButton}"
+                            Content="Close PZTools"
+                            Width="110"
+                            Click="CancelButton_Click"/>
+                </StackPanel>
+            </Grid>
         </Border>
-
-        <!-- Buttons -->
-        <StackPanel Grid.Row="2"
-                    Orientation="Horizontal"
-                    HorizontalAlignment="Right"
-                    Margin="0,12,0,0">
-
-            <Button Content="New Mod" Width="90" Margin="0,0,8,0"
-                    Click="NewModButton_Click"/>
-
-            <Button Content="OK" Width="90" Margin="0,0,8,0"
-                    Click="OkButton_Click"/>
-
-            <Button Content="Cancel" Width="90"
-                    Click="CancelButton_Click"/>
-
-        </StackPanel>
-
     </Grid>
 </Window>

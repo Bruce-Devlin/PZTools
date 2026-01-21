@@ -1,4 +1,3 @@
-﻿
 using PZTools.Core.Models.Commands;
 
 namespace PZTools.Core.Functions.Logger

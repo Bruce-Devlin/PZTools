@@ -1,4 +1,4 @@
-﻿using PZTools.Core.Models.Commands;
+using PZTools.Core.Models.Commands;
 
 namespace PZTools.Core.Functions.Logger
 {

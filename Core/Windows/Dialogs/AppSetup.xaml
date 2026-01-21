@@ -1,15 +1,20 @@
-﻿<Window x:Class="PZTools.Core.Windows.Dialogs.AppSetup"
+<Window x:Class="PZTools.Core.Windows.Dialogs.AppSetup"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:PZTools.Core.Windows.Dialogs"
         mc:Ignorable="d"
-        Title="PZ Tools Setup" Height="550" Width="750"
+        Title="PZ Tools Setup"
+        Height="630"
+        Width="820"
         WindowStartupLocation="CenterScreen"
         ResizeMode="NoResize"
-        Background="#1E1E1E" Loaded="Window_Loaded">
-    <Grid Margin="10">
+        Background="{StaticResource Brush.BgApp}"
+        Foreground="{StaticResource Brush.TextPrimary}"
+        Loaded="Window_Loaded">
+
+    <Grid Margin="18">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <!-- Welcome -->
@@ -18,109 +23,180 @@
             <RowDefinition Height="Auto"/>
             <!-- Game Install Options -->
             <RowDefinition Height="*"/>
-            <!-- Spacer / Extra options -->
+            <!-- Additional options -->
             <RowDefinition Height="Auto"/>
             <!-- Buttons -->
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <!-- Welcome Text -->
-        <TextBlock Grid.Row="0" Text="Welcome to PZ Tools!" 
-                   FontSize="20" FontWeight="Bold" Margin="0,0,0,10"
-                   Foreground="White"/>
+        <TextBlock Grid.Row="0"
+                   Text="Welcome to PZ Tools!"
+                   Style="{StaticResource Text.Title}"
+                   FontSize="20"
+                   FontWeight="SemiBold"
+                   Margin="0,0,0,12"/>
 
         <!-- App Installation Path -->
-        <StackPanel Grid.Row="1" Margin="0,0,0,10">
-            <TextBlock Text="Please choose where you would like to install PZ Tools:" Margin="0,0,0,5"
-                       Foreground="White"/>
-            <StackPanel Orientation="Horizontal">
-                <TextBox x:Name="txtAppInstallPath" Width="400" Margin="0,0,10,0" Background="#2D2D30" Foreground="White" BorderBrush="#3E3E42"/>
-                <Button Content="Browse..." Width="75" Click="BrowseAppInstallButton_Click"
-                        Background="#3E3E42" Foreground="White"/>
+        <Border Grid.Row="1" Style="{StaticResource Card}" Margin="0,0,0,12">
+            <StackPanel>
+                <TextBlock Text="Please choose where you would like to install PZ Tools:"
+                           Foreground="{StaticResource Brush.TextPrimary}"
+                           Margin="0,0,0,8"/>
+
+                <DockPanel LastChildFill="True">
+                    <TextBox x:Name="txtAppInstallPath"
+                             Style="{StaticResource ModernTextBox}"
+                             Margin="0,0,10,0"
+                             MinWidth="420" Width="568"/>
+
+                    <Button Content="Browse..."
+                            Width="95"
+                            Style="{StaticResource ModernButton}"
+                            Click="BrowseAppInstallButton_Click"/>
+                </DockPanel>
             </StackPanel>
-        </StackPanel>
+        </Border>
 
         <!-- Game Installation Options -->
-        <GroupBox Grid.Row="2" Header="Project Zomboid Game Installation" Margin="0,0,0,10"
-                  Background="#2D2D30" Foreground="White" BorderBrush="#3E3E42">
-            <StackPanel Margin="10">
-                <RadioButton x:Name="rdoExistingGame" Content="Use existing installation" IsChecked="True" 
-                             Checked="GameInstallOption_Checked" Foreground="White"/>
-                <StackPanel Orientation="Horizontal" Margin="20,5,0,0">
-                    <TextBox x:Name="txtExistingGamePath" Width="400" Margin="0,0,10,0"
-                             Background="#2D2D30" Foreground="White" BorderBrush="#3E3E42"/>
-                    <Button x:Name="browseExistingBtn" Content="Browse..." Width="75" Click="BrowseGameInstallButton_Click"
-                            Background="#3E3E42" Foreground="White"/>
-                </StackPanel>
-                <TextBlock Text="This will work with a single, static installation of Zomboid. Usually via Steam." 
-                           Foreground="LightGray" Margin="20,0,0,5" TextWrapping="Wrap"/>
+        <Border Grid.Row="2" Style="{StaticResource Card}" Margin="0,0,0,12">
+            <StackPanel>
+                <TextBlock Text="Project Zomboid Game Installation"
+                           FontWeight="SemiBold"
+                           Margin="0,0,0,10"/>
 
-                <RadioButton x:Name="rdoManagedGame" Content="Let PZ Tools manage game versions" Checked="GameInstallOption_Checked"
-                             Foreground="White"/>
-                <StackPanel Orientation="Horizontal" Margin="20,5,0,0">
-                    <TextBox x:Name="txtManagedGamePath" Width="400" Margin="0,0,10,0" IsReadOnly="True" Background="#2D2D30" Foreground="White" BorderBrush="#3E3E42" IsEnabled="False"/>
-                    <Button x:Name="changeMangedBtn" Content="Change..." Width="75" Click="BrowseManagedGamePath_Click"
-                            Background="#3E3E42" Foreground="White" Visibility="Collapsed"/>
-                </StackPanel>
+                <RadioButton x:Name="rdoExistingGame"
+                             Content="Use existing installation"
+                             IsChecked="True"
+                             Checked="GameInstallOption_Checked"
+                             Foreground="{StaticResource Brush.TextPrimary}"/>
 
-                <TextBlock Text="Managed installations will require multiple GB of disk space." 
-                           Foreground="LightGray" Margin="20,0,0,5" TextWrapping="Wrap"/>
+                <DockPanel Margin="20,8,0,0" LastChildFill="True">
+                    <TextBox x:Name="txtExistingGamePath"
+                             Style="{StaticResource ModernTextBox}"
+                             Margin="0,0,10,0" Width="548"/>
+
+                    <Button x:Name="browseExistingBtn"
+                            Content="Browse..."
+                            Width="95"
+                            Style="{StaticResource ModernButton}"
+                            Click="BrowseGameInstallButton_Click"/>
+                </DockPanel>
+
+                <TextBlock Text="This will work with a single, static installation of Zomboid. Usually via Steam."
+                           Style="{StaticResource Text.Muted}"
+                           Margin="20,6,0,12"
+                           TextWrapping="Wrap"/>
+
+                <Border Height="1"
+                        Background="{StaticResource Brush.Border}"
+                        Margin="0,6,0,12"/>
+
+                <RadioButton x:Name="rdoManagedGame"
+                             Content="Let PZ Tools manage game versions"
+                             Checked="GameInstallOption_Checked"
+                             Foreground="{StaticResource Brush.TextPrimary}"/>
+
+                <DockPanel Margin="20,8,0,0" LastChildFill="True">
+                    <TextBox x:Name="txtManagedGamePath"
+                             Style="{StaticResource ModernTextBox}"
+                             IsReadOnly="True"
+                             IsEnabled="False" Width="548"/>
+
+                    <Button x:Name="changeMangedBtn"
+                            Content="Change..."
+                            Width="95"
+                            Style="{StaticResource ModernButton}"
+                            Click="BrowseManagedGamePath_Click"
+                            Visibility="Collapsed"/>
+                </DockPanel>
+
+                <TextBlock Text="Managed installations will require multiple GB of disk space."
+                           Style="{StaticResource Text.Muted}"
+                           Margin="20,6,0,0"
+                           TextWrapping="Wrap"/>
             </StackPanel>
-        </GroupBox>
+        </Border>
 
-        <!-- Optional: Other Setup Options -->
-        <GroupBox Grid.Row="3" Header="Additional Options" Margin="0,0,0,10"
-          Background="#2D2D30" Foreground="White" BorderBrush="#3E3E42">
-            <WrapPanel Margin="10" Orientation="Horizontal" ItemWidth="200" ItemHeight="25">
-                <CheckBox Content="Create Start Menu Shortcut" x:Name="chkStartMenuShortcut" Foreground="White" Margin="0,0,10,10"/>
-                <CheckBox Content="Create Desktop Shortcut" x:Name="chkDesktopShortcut" Foreground="White" Margin="0,0,10,10"/>
-                <CheckBox Content="Decompile Game Files" x:Name="chkDecompileGame" Foreground="White" Margin="0,0,10,10"/>
-            </WrapPanel>
-        </GroupBox>
+        <!-- Additional Options -->
+        <Border Grid.Row="3" Style="{StaticResource Card}" Margin="0,0,0,12">
+            <StackPanel>
+                <TextBlock Text="Additional Options"
+                           FontWeight="SemiBold"
+                           Margin="0,0,0,10"/>
 
+                <WrapPanel Orientation="Horizontal" ItemWidth="240" ItemHeight="28">
+                    <CheckBox Content="Create Start Menu Shortcut"
+                              x:Name="chkStartMenuShortcut"
+                              Foreground="{StaticResource Brush.TextPrimary}"
+                              Margin="0,0,10,10"/>
+                    <CheckBox Content="Create Desktop Shortcut"
+                              x:Name="chkDesktopShortcut"
+                              Foreground="{StaticResource Brush.TextPrimary}"
+                              Margin="0,0,10,10"/>
+                    <CheckBox Content="Decompile Game Files"
+                              x:Name="chkDecompileGame"
+                              Foreground="{StaticResource Brush.TextPrimary}"
+                              Margin="0,0,10,10"/>
+                </WrapPanel>
+            </StackPanel>
+        </Border>
+
+        <Border Grid.Row="4"
+                 Background="{StaticResource Brush.Border}"
+                 Height="1"
+                 VerticalAlignment="Top"/>
 
         <!-- Buttons -->
-        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
-            <Button Content="Cancel" Width="75" Margin="0,0,10,0" Click="CancelButton_Click"
-                    Background="#3E3E42" Foreground="White"/>
-            <Button Content="Finish" Width="75" Click="FinishButton_Click"
-                    Background="#007ACC" Foreground="White"/>
+        <StackPanel Grid.Row="5"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    Margin="0,6,0,0">
+            <Button Content="Cancel"
+                    Width="100"
+                    Margin="0,0,10,0"
+                    Style="{StaticResource ModernButton}"
+                    Click="CancelButton_Click"/>
+
+            <Button Content="Finish"
+                    Width="100"
+                    Style="{StaticResource PrimaryButton}"
+                    Click="FinishButton_Click"/>
         </StackPanel>
 
         <!-- Setup Progress Overlay -->
         <Grid x:Name="SetupOverlay"
-          Grid.Row="0"
-          Grid.RowSpan="5"
-          Background="#AA000000"
-          Visibility="Collapsed"
-          Panel.ZIndex="999">
+              Grid.Row="0"
+              Grid.RowSpan="5"
+              Background="#AA000000"
+              Visibility="Collapsed"
+              Panel.ZIndex="999">
 
-            <Border Background="#2D2D30"
-                Padding="25"
-                CornerRadius="8"
-                HorizontalAlignment="Center"
-                VerticalAlignment="Center"
-                Width="400">
+            <Border Background="{StaticResource Brush.BgSurface}"
+                    BorderBrush="{StaticResource Brush.Border}"
+                    BorderThickness="1"
+                    Padding="22"
+                    CornerRadius="14"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Width="420">
 
                 <StackPanel>
-
                     <TextBlock Text="Setting up PZ Tools..."
-                       FontSize="16"
-                       FontWeight="Bold"
-                       Foreground="White"
-                       Margin="0,0,0,10"/>
+                               Style="{StaticResource Text.Title}"
+                               Margin="0,0,0,10"/>
 
                     <TextBlock x:Name="SetupStatusText"
-                       Text="Please wait..."
-                       Foreground="LightGray"
-                       Margin="0,0,0,15"
-                       TextWrapping="Wrap"/>
+                               Text="Please wait..."
+                               Style="{StaticResource Text.Muted}"
+                               Margin="0,0,0,14"
+                               TextWrapping="Wrap"/>
 
                     <ProgressBar x:Name="SetupProgressBar"
-                         Height="18"
-                         Minimum="0"
-                         Maximum="100"
-                         IsIndeterminate="True"/>
-
+                                 Height="18"
+                                 Minimum="0"
+                                 Maximum="100"
+                                 IsIndeterminate="True"/>
                 </StackPanel>
             </Border>
         </Grid>

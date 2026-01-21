@@ -1,4 +1,4 @@
-﻿namespace PZTools.Core.Models.Commands
+namespace PZTools.Core.Models.Commands
 {
     internal class CommandTemplate
     {

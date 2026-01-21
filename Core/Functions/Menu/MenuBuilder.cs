@@ -1,4 +1,4 @@
-﻿using PZTools.Core.Models.Menu;
+using PZTools.Core.Models.Menu;
 using System.Reflection;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -25,12 +25,9 @@ namespace PZTools.Core.Functions.Menu
 
             foreach (var prop in groupType.GetProperties(BindingFlags.Public | BindingFlags.Static))
             {
-                if (prop.Name == "Separator")
+                if (prop.Name.StartsWith("Separator", StringComparison.Ordinal))
                 {
-                    menu.Children.Add(new MenuItemDef
-                    {
-                        IsSeparator = true
-                    });
+                    menu.Children.Add(new MenuItemDef { IsSeparator = true });
                     continue;
                 }
 

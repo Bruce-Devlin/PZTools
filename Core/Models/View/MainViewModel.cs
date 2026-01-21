@@ -1,4 +1,4 @@
-﻿using PZTools.Core.Functions.Menu;
+using PZTools.Core.Functions.Menu;
 using PZTools.Core.Models.Menu;
 
 namespace PZTools.Core.Models.View

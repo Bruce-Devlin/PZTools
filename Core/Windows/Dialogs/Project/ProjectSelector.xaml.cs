@@ -1,5 +1,7 @@
-﻿using PZTools.Core.Functions.Projects;
+using PZTools.Core.Functions;
+using PZTools.Core.Functions.Projects;
 using PZTools.Core.Models;
+using PZTools.Core.Models.InputDialog;
 using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
@@ -10,46 +12,44 @@ namespace PZTools.Core.Windows.Dialogs.Project
 {
     public partial class ProjectSelector : Window
     {
-        public ObservableCollection<ModProject> Mods { get; set; } = new();
+        public ObservableCollection<ModProject> Projects { get; set; } = new();
 
-        public ModProject? SelectedMod { get; private set; }
+        public ModProject? SelectedProject { get; private set; }
         public ModTarget? SelectedTarget { get; private set; }
-
-
 
 
         public ProjectSelector()
         {
             InitializeComponent();
 
-            var loaded = ProjectEngine.LoadMods();
-            foreach (var mod in loaded)
-                Mods.Add(mod);
+            var loaded = ProjectEngine.LoadProjects();
+            foreach (var project in loaded)
+                Projects.Add(project);
 
-            ModFolderTxt.Text = "Mods Folder: " + ProjectEngine.ModsRootPath;
+            ProjectFolderTxt.Text = "Projects Folder: " + ProjectEngine.ProjectsRootPath;
 
-            ModsTreeView.ItemsSource = Mods;
+            ProjectsTreeView.ItemsSource = Projects;
 
-            ModsTreeView.SelectedItemChanged += ModsTreeView_SelectedItemChanged;
+            ProjectsTreeView.SelectedItemChanged += ProjectsTreeView_SelectedItemChanged;
         }
 
-        private void ModsTreeView_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
+        private void ProjectsTreeView_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
         {
-            if (ModsTreeView.SelectedItem is ModTarget target)
+            if (ProjectsTreeView.SelectedItem is ModTarget target)
             {
                 SelectedTarget = target;
-                foreach (var mod in Mods)
+                foreach (var project in Projects)
                 {
-                    if (mod.Targets.Contains(target))
+                    if (project.Targets.Contains(target))
                     {
-                        SelectedMod = mod;
+                        SelectedProject = project;
                         break;
                     }
                 }
             }
-            else if (ModsTreeView.SelectedItem is ModProject mod)
+            else if (ProjectsTreeView.SelectedItem is ModProject project)
             {
-                SelectedMod = mod;
+                SelectedProject = project;
                 SelectedTarget = null;
             }
         }
@@ -87,47 +87,107 @@ namespace PZTools.Core.Windows.Dialogs.Project
             return null;
         }
 
-
-        private void NewModButton_Click(object sender, RoutedEventArgs e)
+        private bool ValidateInputResponses(InputDialogs inputDialogs, string projectName, string targetBuild)
         {
-            var inputDialogs = new InputDialogs("Enter new mod name:", "New Mod");
+            if (string.IsNullOrWhiteSpace(projectName))
+            {
+                MessageBox.Show("Project name cannot be empty.", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return false;
+            }
+
+            projectName = projectName.Trim();
+
+            if (string.IsNullOrWhiteSpace(targetBuild))
+            {
+                MessageBox.Show("Target build cannot be empty.", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return false;
+            }
+
+            targetBuild = targetBuild.Trim();
+
+            var invalidChars = System.IO.Path.GetInvalidFileNameChars();
+            if (projectName.IndexOfAny(invalidChars) >= 0)
+            {
+                MessageBox.Show("Project name contains invalid characters.", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return false;
+            }
+
+            if (targetBuild.IndexOfAny(invalidChars) >= 0)
+            {
+                MessageBox.Show("Target build contains invalid characters.", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return false;
+            }
+
+            if (targetBuild != string.Empty && !double.TryParse(targetBuild, out _))
+            {
+                MessageBox.Show("Target build must be a valid version number.", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return false;
+            }
+
+            return true;
+        }
+
+        private void NewProjectButton_Click(object sender, RoutedEventArgs e)
+        {
+            const string projectNameKey = "projectName";
+            const string targetBuildKey = "targetBuild";
+            var fields = new[]
+            {
+                new InputFieldDefinition
+                {
+                    Key = projectNameKey,
+                    Label = "Project Name",
+                    IsRequired = true,
+                    DefaultValue = string.Empty
+                },
+                new InputFieldDefinition
+                {
+                    Key = targetBuildKey,
+                    Label = "Target Build",
+                    IsRequired = true,
+                    DefaultValue = string.Empty
+                }
+            };
+
+            var inputDialogs = new InputDialogs("Enter new project name:", fields, "New Project");
             if (inputDialogs.ShowDialog() == true)
             {
-                string modName = inputDialogs.ResponseText.Trim();
-                if (string.IsNullOrWhiteSpace(modName))
-                {
-                    MessageBox.Show("Mod name cannot be empty.", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    return;
-                }
+                string projectName = inputDialogs.TryGetResponse(projectNameKey);
+                string targetBuild = inputDialogs.TryGetResponse(targetBuildKey);
+
+                bool isValid = ValidateInputResponses(inputDialogs, projectName, targetBuild);
+
+                if (!isValid) return;
 
                 try
                 {
-                    var newMod = ProjectEngine.CreateMod(modName);
-                    Mods.Add(newMod);
-                    ModsTreeView.Items.Refresh();
+                    var newProject = ProjectEngine.CreateProject(projectName, targetBuild);
+                    ProjectEngine.LoadProjects();
+                    Projects.Add(newProject);
+                    ProjectsTreeView.Items.Refresh();
 
-                    SelectedMod = newMod;
+                    SelectedProject = newProject;
                     SelectedTarget = null;
-                    SelectTreeViewItem(ModsTreeView, newMod);
+                    SelectTreeViewItem(ProjectsTreeView, newProject);
 
-                    MessageBox.Show($"Mod '{modName}' created successfully.", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+                    MessageBox.Show($"Project '{projectName}' created successfully.", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show($"Failed to create mod: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBox.Show($"Failed to create project: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 }
             }
         }
 
         private void OkButton_Click(object sender, RoutedEventArgs e)
         {
-            if (SelectedMod == null)
+            if (SelectedProject == null)
             {
-                System.Windows.MessageBox.Show("Please select a mod.", "Select Mod", MessageBoxButton.OK, MessageBoxImage.Warning);
+                System.Windows.MessageBox.Show("Please select a project.", "Select Project", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
-            ProjectEngine.LoadProject(SelectedMod);
+            ProjectEngine.LoadProject(SelectedProject);
 
             DialogResult = true;
             Close();
@@ -136,6 +196,11 @@ namespace PZTools.Core.Windows.Dialogs.Project
         private void CancelButton_Click(object sender, RoutedEventArgs e)
         {
             DialogResult = false;
+        }
+
+        private void OpenProjectFolderBtn_Click(object sender, RoutedEventArgs e)
+        {
+            WindowsHelpers.OpenFile(ProjectEngine.ProjectsRootPath);
         }
     }
 }

@@ -1,4 +1,4 @@
-﻿using PZTools.Core.Functions;
+using PZTools.Core.Functions;
 using PZTools.Core.Functions.Logger;
 using PZTools.Core.Windows.Dialogs;
 using PZTools.Core.Windows.Dialogs.Project;

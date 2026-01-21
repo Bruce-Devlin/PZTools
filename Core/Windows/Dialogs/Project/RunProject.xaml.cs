@@ -1,5 +1,5 @@
-﻿using PZTools.Core.Functions.Zomboid;
-using System.Diagnostics;
+using PZTools.Core.Functions.Logger;
+using PZTools.Core.Functions.Zomboid;
 using System.IO;
 using System.Windows;
 
@@ -18,6 +18,7 @@ namespace PZTools.Core.Windows.Dialogs.Project
             {
                 txtOutputLog.Text = string.Join("\r\n", Console.GetAllMessages());
                 btnLaunch.IsEnabled = false;
+                btnStopGame.IsEnabled = true;
             }
 
             Console.OnLogMessage += (s, msg) =>
@@ -28,6 +29,8 @@ namespace PZTools.Core.Windows.Dialogs.Project
                     txtOutputLog.ScrollToEnd();
                 });
             };
+
+            txtLaunchArgs.Text = "-debug -debugtranslation -modfolders workshop,steam -imgui -windowed";
         }
 
         private void LoadBuilds()
@@ -81,48 +84,42 @@ namespace PZTools.Core.Windows.Dialogs.Project
 
             string args = txtLaunchArgs.Text;
 
-            try
+            ZomboidGame.OnGameOutput += (s, output) =>
             {
-                var psi = new ProcessStartInfo
+                Dispatcher.Invoke(() =>
                 {
-                    FileName = exePath,
-                    Arguments = args,
-                    WorkingDirectory = buildPath,
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    CreateNoWindow = true
-                };
-
-                var process = new Process { StartInfo = psi, EnableRaisingEvents = true };
-
-                process.OutputDataReceived += (s, ev) =>
-                {
-                    if (!string.IsNullOrEmpty(ev.Data))
-                        Dispatcher.Invoke(() => Console.Log(ev.Data + "\n"));
-                };
-
-                process.ErrorDataReceived += (s, ev) =>
-                {
-                    if (!string.IsNullOrEmpty(ev.Data))
-                        Dispatcher.Invoke(() => Console.Log("[ERROR] " + ev.Data + "\n"));
-                };
-
-                process.Start();
-                process.BeginOutputReadLine();
-                process.BeginErrorReadLine();
-
-                txtOutputLog.AppendText($"Launched build: {selectedBuild}\n");
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Failed to launch: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
+                    txtOutputLog.AppendText(output);
+                    txtOutputLog.ScrollToEnd();
+                });
+            };
+            ZomboidGame.StartGame(exePath, args);
         }
 
         private void BtnClose_Click(object sender, RoutedEventArgs e)
         {
             this.Close();
+        }
+
+        private async void btnStopGame_Click(object sender, RoutedEventArgs e)
+        {
+            if (!ZomboidGame.IsGameRunning()) return;
+
+            var gameProcess = ZomboidGame.GetGameProcess();
+            if (gameProcess == null) return;
+
+            try
+            {
+                gameProcess.Kill();
+                gameProcess.WaitForExit();
+                txtOutputLog.AppendText("Game process terminated.\n");
+                await this.Log("Game process terminated by user.");
+                btnStopGame.IsEnabled = false;
+                btnLaunch.IsEnabled = true;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to stop the game: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
     }
 }

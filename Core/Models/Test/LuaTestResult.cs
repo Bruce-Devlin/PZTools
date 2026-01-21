@@ -1,4 +1,4 @@
-﻿namespace PZTools.Core.Models.Test
+namespace PZTools.Core.Models.Test
 {
     public class LuaTestResult
     {

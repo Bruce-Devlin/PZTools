@@ -1,11 +1,23 @@
 ﻿# PZTools
-**Project Zomboid Tools – Modding and Game Utilities**<br>This repository contains the PZTools application, a utility for managing Project Zomboid installations, builds, decompiling source files, and launching specific game versions with optional debug arguments.
+**Project Zomboid Tools – Modding, Build Management, and Developer Utilities**
+<br>PZTools is a desktop utility designed to streamline Project Zomboid modding, development, and build management workflows. It provides a unified interface for managing multiple game installations, decompiling game source files, validating Lua scripts, and launching specific builds with optional debug or runtime arguments.
+<br><br>This tool is primarily aimed at modders, reverse engineers, and developers who need tighter control over Project Zomboid environments than the base Steam installation provides.
+
+
+## Key Features
+- Manage multiple Project Zomboid builds (Steam-managed or custom)
+- Launch specific game versions with custom JVM or debug arguments
+- Automatic Java decompilation using the CFR decompiler
+- Integrated Lua syntax testing
+- Centralised project and configuration management
+- Extensible WPF architecture with undoable command support
+- Designed for long-term modding and tooling workflows
 
 ---
 ## Prerequisites
 Before you start, ensure the following are installed:
 - **Visual Studio 2026 Insiders**  
-  Make sure the **.NET desktop development** workload is installed.
+    - Make sure the **.NET desktop development** workload is installed.
 - **.NET 10 SDK** (or latest compatible with Visual Studio 2026)
 - **Git** for cloning the repository
 - **Java (JDK)** if you intend to decompile Project Zomboid JARs
@@ -19,7 +31,7 @@ cd PZTools
 ```
 ---
 
-## Opening the Project in Visual Studio Insiders 2026
+## Opening the Project
 1. Open Visual Studio 2026 Insiders.
 2. Click File → Open → Project/Solution.
 3. Navigate to the repository folder and select PZTools.sln.
@@ -27,24 +39,35 @@ cd PZTools
 ---
 
 ## Project Structure
-- **Resources** – Embedded resources like icons and images, or in our case the syntax highlighting definitions for the code editor.
-- **Core** – Main application logic.
-	- **Windows** – WPF UI components and dialogs.
-		- **Dialogs** – WPF UI dialogs.
-			- **Project** – WPF UI Project spesific dialogs.
-	- **Models** – Application logic models.
-		- **Commands** – Commands logic models.
-		- **Menu** – Menu logic models.
-		- **Test** – Test logic models.
-		- **View** – View logic models.
-	- **Functions** – Application logic functions.
-		- **Config** – Configuration functions.
-		- **Decompile** – Java decompilation functions.
-		- **Logger** – Application logging functions.
-		- **Menu** – Main window toolbar menu functions.
-		- **Projects** – Project Zomboid Mod/Project management functions.
-		- **Tester** – Lua testing functions.
-		- **Zomboid** – Project Zomboid management functions.
+```
+PZTools
+├── Resources
+│   └── Editor syntax highlighting definitions, icons, and embedded assets
+│
+├── Core
+│   ├── Windows
+│   │   ├── WPF windows and UI entry points
+│   │   └── Dialogs
+│   │       └── Project-specific dialogs
+│   │
+│   ├── Models
+│   │   ├── Commands     (Undoable command models)
+│   │   ├── Menu         (Menu and toolbar models)
+│   │   ├── InputDialog  (Custom Input Dialog models)
+│   │   ├── Test         (Testing-related models)
+│   │   └── View         (View and layout models)
+│   │
+│   └── Functions
+│       ├── Config       (Configuration handling)
+│       ├── Decompile    (Java decompilation logic)
+│       ├── Logger       (Centralised logging)
+│       ├── InputDialog  (Functions for Custom Input Dialog)
+│       ├── Menu         (Main menu behaviour)
+│       ├── Projects     (Project and workspace management)
+│       ├── Tester       (Lua syntax testing)
+│       └── Zomboid      (Game installation and launch logic)
+│       └── Undo         (Undoable command logic)
+```
 ---
 
 ## Configuration
@@ -56,9 +79,7 @@ For managed installations, PZTools will handle downloading and setting up multip
 ### CFR Decompiler
 CFR JAR is downloaded automatically to tools/cfr.jar if missing.
 ### Running PZTools
-- Launch the application via Visual Studio (F5 for Debug or Ctrl+F5 for Release).
-- Select installation options for PZTools and Project Zomboid.
-- Use the RunProject window to launch specific builds, set optional arguments, or debug.
+- Simply run and setup a release build .exe!
 ---
 
 ## Notes

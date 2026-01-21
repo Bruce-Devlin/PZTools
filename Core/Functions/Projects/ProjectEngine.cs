@@ -1,4 +1,5 @@
-﻿using PZTools.Core.Models;
+using PZTools.Core.Functions.Zomboid;
+using PZTools.Core.Models;
 using System.IO;
 
 namespace PZTools.Core.Functions.Projects
@@ -8,9 +9,9 @@ namespace PZTools.Core.Functions.Projects
         /// <summary>
         /// The root directory where all mods are stored.
         /// </summary>
-        public static string ModsRootPath { get; set; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Zomboid", "mods");
+        public static string ProjectsRootPath { get; set; } = Path.Combine(AppPaths.CurrentDirectory.FullName, "Projects");
 
-        private static readonly List<ModProject> LoadedMods = new();
+        private static readonly List<ModProject> LoadedProjects = new();
         public static ModProject? CurrentProject { get; private set; } = null;
         public static string CurrentProjectPath => CurrentProject?.RootPath ?? "";
         public static void LoadProject(ModProject project)
@@ -27,7 +28,7 @@ namespace PZTools.Core.Functions.Projects
         {
             CurrentProject = null;
             CurrentTarget = null;
-            LoadedMods.Clear();
+            LoadedProjects.Clear();
         }
 
         public static ProjectFileNode BuildFileTree(string path, bool root = false)
@@ -53,48 +54,47 @@ namespace PZTools.Core.Functions.Projects
         }
 
         /// <summary>
-        /// Load all mods from the ModsRootPath.
+        /// Load all projects from the ProjectsRootPath.
         /// Scans for version folders like 41, 42, etc.
         /// </summary>
-        public static List<ModProject> LoadMods()
+        public static List<ModProject> LoadProjects()
         {
-            LoadedMods.Clear();
+            LoadedProjects.Clear();
 
-            if (!Directory.Exists(ModsRootPath))
-                Directory.CreateDirectory(ModsRootPath);
+            if (!Directory.Exists(ProjectsRootPath))
+                Directory.CreateDirectory(ProjectsRootPath);
 
-            foreach (var modDir in Directory.GetDirectories(ModsRootPath))
+            foreach (var projectDir in Directory.GetDirectories(ProjectsRootPath))
             {
-                bool hasModInfo = File.Exists(modDir + Path.DirectorySeparatorChar + "mod.info");
-                bool hasWorkshopInfo = File.Exists(modDir + Path.DirectorySeparatorChar + "workshop.txt");
+                bool hasModInfo = File.Exists(projectDir + Path.DirectorySeparatorChar + "mod.info");
+                bool hasWorkshopInfo = File.Exists(projectDir + Path.DirectorySeparatorChar + "workshop.txt");
 
                 if (!hasModInfo && !hasWorkshopInfo) continue;
 
-                var modName = Path.GetFileName(modDir);
+                var projectName = Path.GetFileName(projectDir);
                 var modProject = new ModProject
                 {
-                    Name = modName,
-                    RootPath = modDir
+                    Name = projectName,
+                    RootPath = projectDir
                 };
 
                 modProject.Targets.Add(new ModTarget
                 {
-                    Build = 41,
-                    Path = modDir
+                    Build = ZomboidGame.latestStableBuild,
+                    Path = projectDir
                 });
 
-                string modRoot = modDir;
+                string projectRoot = projectDir;
 
                 if (hasWorkshopInfo)
                 {
-                    modRoot = Path.Combine(modDir, "Contents", "mods", modName);
+                    projectRoot = Path.Combine(projectDir, "Contents", "mods", projectName);
                 }
 
-
-                foreach (var versionDir in Directory.GetDirectories(modRoot))
+                foreach (var versionDir in Directory.GetDirectories(projectDir))
                 {
                     var folderName = Path.GetFileName(versionDir);
-                    if (int.TryParse(folderName, out int build))
+                    if (double.TryParse(folderName, out double build))
                     {
                         modProject.Targets.Add(new ModTarget
                         {
@@ -104,51 +104,135 @@ namespace PZTools.Core.Functions.Projects
                     }
                 }
 
-                LoadedMods.Add(modProject);
+                LoadedProjects.Add(modProject);
             }
 
-            return LoadedMods;
+            return LoadedProjects;
         }
 
         /// <summary>
-        /// Creates a new mod project with a base folder.
+        /// Creates a new project project with a base folder.
         /// </summary>
-        public static ModProject CreateMod(string modName)
+        public static ModProject CreateProject(string projectName, params string[] supportedBuilds)
         {
-            if (string.IsNullOrWhiteSpace(modName))
-                throw new ArgumentException("Mod name cannot be empty.", nameof(modName));
+            if (string.IsNullOrWhiteSpace(projectName))
+                throw new ArgumentException("Project name cannot be empty.", nameof(projectName));
 
-            var modPath = Path.Combine(ModsRootPath, modName);
-            if (Directory.Exists(modPath))
-                throw new InvalidOperationException($"Mod '{modName}' already exists.");
+            var projectPath = Path.Combine(ProjectsRootPath, projectName);
+            if (Directory.Exists(projectPath))
+                throw new InvalidOperationException($"Project '{projectName}' already exists.");
 
-            Directory.CreateDirectory(modPath);
+            CreateModFolderStructure(projectPath);
 
             var newMod = new ModProject
             {
-                Name = modName,
-                RootPath = modPath,
+                Name = projectName,
+                RootPath = projectPath,
                 Targets = new List<ModTarget>()
             };
 
-            LoadedMods.Add(newMod);
+            newMod.Targets.Add(new ModTarget
+            {
+                Build = ZomboidGame.latestStableBuild,
+                Path = projectPath
+            });
 
+            foreach (var buildStr in supportedBuilds)
+            {
+                if (double.TryParse(buildStr, out double build))
+                {
+                    if (build == ZomboidGame.latestStableBuild)
+                        continue;
+
+                    var targetPath = Path.Combine(projectPath, buildStr);
+                    CreateModFolderStructure(targetPath);
+                    newMod.Targets.Add(new ModTarget
+                    {
+                        Build = build,
+                        Path = targetPath
+                    });
+                }
+            }
+
+            newMod.SaveModInfo();
+            LoadedProjects.Add(newMod);
             return newMod;
         }
 
+        private static void CreateModFolderStructure(string modPath, bool foldersOnly = false)
+        {
+            var mediaPath = Path.Combine(modPath, "media");
+            var luaPath = Path.Combine(mediaPath, "lua");
+
+
+            EnsureFolder(modPath);
+            EnsureFolder(modPath, "common");
+
+            EnsureFolder(mediaPath);
+            EnsureFolder(luaPath);
+            EnsureFolder(luaPath, "client");
+            EnsureFolder(luaPath, "server");
+            EnsureFolder(luaPath, "shared");
+
+            EnsureFolder(mediaPath, "scripts");
+            EnsureFolder(mediaPath, "ui");
+        }
+
+        private static void EnsureFolder(string path, string? name = null)
+        {
+            if (string.IsNullOrEmpty(name))
+            {
+                if (!Directory.Exists(path))
+                    Directory.CreateDirectory(path);
+            }
+            else
+            {
+                var subPath = Path.Combine(path, name);
+                if (!Directory.Exists(subPath))
+                    Directory.CreateDirectory(subPath);
+            }
+        }
+
+        public static void SaveModInfo(this ModProject project)
+        {
+            if (project == null)
+                throw new ArgumentNullException(nameof(project));
+            var infoPath = Path.Combine(project.RootPath, "mod.info");
+            var lines = new List<string>
+            {
+                $"name={project.Name}",
+                $"id={project.Name.Replace(" ", "")}",
+                $"description=A project created using PZTools"
+            };
+            File.WriteAllLines(infoPath, lines);
+
+            foreach (var supportedBuild in project.Targets.Where(x => x.Build != ZomboidGame.latestStableBuild))
+            {
+                var buildPath = Path.Combine(project.RootPath, supportedBuild.Build.ToString());
+                var buildInfoPath = Path.Combine(buildPath, "mod.info");
+                var buildLines = new List<string>
+                {
+                    $"name={project.Name}",
+                    $"id={project.Name.Replace(" ", "")}",
+                    $"description=A project created using PZTools"
+                };
+                File.WriteAllLines(buildInfoPath, buildLines);
+            }
+        }
+
         /// <summary>
-        /// Adds a versioned target to an existing mod.
+        /// Adds a versioned target to an existing project.
         /// Creates the folder structure.
         /// </summary>
-        public static ModTarget AddTarget(ModProject mod, int build)
+        public static ModTarget AddTarget(ModProject project, int build)
         {
-            if (mod == null)
-                throw new ArgumentNullException(nameof(mod));
+            if (project == null)
+                throw new ArgumentNullException(nameof(project));
 
-            if (mod.Targets.Exists(t => t.Build == build))
-                throw new InvalidOperationException($"Build {build} already exists for mod {mod.Name}.");
+            if (project.Targets.Exists(t => t.Build == build))
+                throw new InvalidOperationException($"Build {build} already exists for project {project.Name}.");
 
-            var targetPath = Path.Combine(mod.RootPath, build.ToString());
+            var targetPath = Path.Combine(project.RootPath, build.ToString());
             Directory.CreateDirectory(targetPath);
 
             var newTarget = new ModTarget
@@ -157,21 +241,21 @@ namespace PZTools.Core.Functions.Projects
                 Path = targetPath
             };
 
-            mod.Targets.Add(newTarget);
+            project.Targets.Add(newTarget);
             return newTarget;
         }
 
         /// <summary>
-        /// Get a mod by name.
+        /// Get a project by name.
         /// </summary>
-        public static ModProject? GetMod(string modName)
+        public static ModProject? GetProject(string modName)
         {
-            return LoadedMods.Find(m => m.Name.Equals(modName, StringComparison.OrdinalIgnoreCase));
+            return LoadedProjects.Find(m => m.Name.Equals(modName, StringComparison.OrdinalIgnoreCase));
         }
 
         /// <summary>
-        /// Get all loaded mods.
+        /// Get all loaded projects.
         /// </summary>
-        public static List<ModProject> GetAllMods() => new(LoadedMods);
+        public static List<ModProject> GetAllProjects() => new(LoadedProjects);
     }
 }

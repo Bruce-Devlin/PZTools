@@ -1,4 +1,4 @@
-﻿using PZTools.Core.Functions;
+using PZTools.Core.Functions;
 using PZTools.Core.Functions.Decompile;
 using System.Diagnostics;
 using System.IO;
@@ -181,13 +181,13 @@ namespace PZTools.Core.Windows.Dialogs
 
         private void SaveSettings()
         {
-            Functions.Config.StoreVariable(Functions.VariableType.system, "AppInstallPath", txtAppInstallPath.Text);
-            Functions.Config.StoreVariable(Functions.VariableType.system, "GameMode", rdoExistingGame.IsChecked == true ? "existing" : "managed");
+            Functions.Config.SetAppSetting("AppInstallPath", txtAppInstallPath.Text);
+            Functions.Config.SetAppSetting("GameMode", rdoExistingGame.IsChecked == true ? "existing" : "managed");
 
             if (rdoExistingGame.IsChecked == true)
-                Functions.Config.StoreVariable(Functions.VariableType.system, "ExistingGamePath", txtExistingGamePath.Text);
+                Functions.Config.SetAppSetting("ExistingGamePath", txtExistingGamePath.Text);
             else
-                Functions.Config.StoreVariable(Functions.VariableType.system, "ManagedGamePath", txtManagedGamePath.Text);
+                Functions.Config.SetAppSetting("ManagedGamePath", txtManagedGamePath.Text);
         }
 
         private async Task<bool> StartSetupTasks(string installDir, bool managed, string existingGameDir, bool createDesktopShortcut, bool createStartMenuShortcut, bool decompileGameFiles, string steamUsername)
@@ -197,6 +197,7 @@ namespace PZTools.Core.Windows.Dialogs
             UpdateSetupStatus("Setting up application files...", 5);
             File.Copy(AppPaths.CurrentFilePath, destExe, true);
             Directory.CreateDirectory(Path.Combine(installDir, "Configs"));
+            Directory.CreateDirectory(Path.Combine(installDir, "Projects"));
 
             string zomboidRoot = Path.Combine(installDir, "Zomboid");
             if (managed || decompileGameFiles) Directory.CreateDirectory(zomboidRoot);
@@ -225,6 +226,7 @@ namespace PZTools.Core.Windows.Dialogs
                 WindowsHelpers.CreateShortcut(shortcutPath, destExe, "Project Zomboid Tools");
                 await Console.Log($"Start menu shortcut created at {shortcutPath}");
             }
+
 
             if (managed)
             {
@@ -343,6 +345,7 @@ namespace PZTools.Core.Windows.Dialogs
                 string sourcePath = Path.Combine(zomboidRoot, "Source");
                 Directory.CreateDirectory(sourcePath);
 
+                JavaDecompilerHelpers.UpdateSetupStatus += (s, status) => UpdateSetupStatus(status);
                 if (managed)
                 {
                     foreach (var dir in Directory.GetDirectories(zomboidRoot))
@@ -350,59 +353,15 @@ namespace PZTools.Core.Windows.Dialogs
                         string existingJarPath = Path.Combine(dir, "projectzomboid.jar");
                         if (File.Exists(existingJarPath))
                         {
-                            string versionDir = Path.Combine(sourcePath, Path.GetFileName(dir));
-                            File.Copy(existingJarPath, Path.Combine(versionDir, $"projectzomboid.jar"), true);
-                            await Console.Log($"Source files copied from managed installation: {dir}");
-
-                            string managedJar = Path.Combine(versionDir, "projectzomboid.jar");
-                            string cfrPath = JavaDecompiler.CfrJarPath;
-
-                            await JavaDecompiler.DecompileJarAsync(
-                                javaExe,
-                                cfrPath,
-                                managedJar,
-                                versionDir,
-                                onOutput: msg => UpdateSetupStatus($"Decompiler: {msg}"),
-                                onError: msg => UpdateSetupStatus($"Decompiler: {msg}")
-                            );
-
-                            File.Delete(managedJar);
-
-                            if (!Directory.Exists(Path.Combine(versionDir, "zombie")))
-                            {
-                                MessageBox.Show("Decompilation failed! Source files not found after decompilation.", "Decompilation Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                                return false;
-                            }
+                            return await JavaDecompilerHelpers.DecompileGame(dir, Path.GetFileName(dir));
                         }
                     }
                 }
                 else
                 {
-                    string existingJarPath = Path.Combine(existingGameDir, "projectzomboid.jar");
-
-                    File.Copy(existingJarPath, Path.Combine(sourcePath, "projectzomboid.jar"), true);
-                    await Console.Log("Source files copied from existing installation.");
-
-                    string managedJar = Path.Combine(sourcePath, "projectzomboid.jar");
-                    string cfrPath = JavaDecompiler.CfrJarPath;
-
-                    await JavaDecompiler.DecompileJarAsync(
-                        javaExe,
-                        cfrPath,
-                        managedJar,
-                        sourcePath,
-                        onOutput: msg => UpdateSetupStatus($"Decompiler: {msg}"),
-                        onError: msg => UpdateSetupStatus($"Decompiler: {msg}")
-                    );
-
-                    File.Delete(managedJar);
-
-                    if (!Directory.Exists(Path.Combine(sourcePath, "zombie")))
-                    {
-                        MessageBox.Show("Decompilation failed! Source files not found after decompilation.", "Decompilation Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                        return false;
-                    }
+                    return await JavaDecompilerHelpers.DecompileGame(existingGameDir);
                 }
+                JavaDecompilerHelpers.ClearUpdateStatusEvents();
             }
 
             UpdateSetupStatus("Setup complete!", 100);

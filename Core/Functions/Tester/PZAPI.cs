@@ -1,4 +1,4 @@
-﻿using MoonSharp.Interpreter;
+using MoonSharp.Interpreter;
 
 namespace PZTools.Core.Functions.Tester
 {
