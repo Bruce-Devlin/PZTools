@@ -5,7 +5,6 @@ using System.Windows.Data;
 
 namespace PZTools.Core.Functions.InputDialog
 {
-    // WPF doesn't ship a built-in Bool->Visibility converter in a single instance form.
     public static class BooleanBoxes
     {
         public static IValueConverter VisibilityConverter { get; } = new BoolToVisibilityConverter();

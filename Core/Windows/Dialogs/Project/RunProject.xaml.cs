@@ -1,5 +1,4 @@
 using PZTools.Core.Functions;
-using PZTools.Core.Functions.Logger;
 using PZTools.Core.Functions.Zomboid;
 using System.IO;
 using System.Text;
@@ -146,7 +145,6 @@ namespace PZTools.Core.Windows.Dialogs.Project
 
             EnsureLogFlushTimer();
 
-            // Prevent multiple subscriptions across repeated launches
             if (_gameOutputHandler != null)
                 ZomboidGame.OnGameOutput -= _gameOutputHandler;
 
@@ -174,7 +172,6 @@ namespace PZTools.Core.Windows.Dialogs.Project
                 }
                 finally
                 {
-                    // Stop button state back on UI
                     Dispatcher.BeginInvoke(new Action(() =>
                     {
                         btnStopGame.IsEnabled = false;

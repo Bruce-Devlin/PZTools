@@ -101,6 +101,7 @@ namespace PZTools.Core.Functions.Decompile
             process.BeginErrorReadLine();
 
             await process.WaitForExitAsync(cancellationToken);
+            if (cancellationToken.IsCancellationRequested) return false;
 
             return process.ExitCode == 0;
         }

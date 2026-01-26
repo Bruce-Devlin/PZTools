@@ -1,9 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
-using System.Text;
 
 namespace PZTools.Core.Functions.Steam
 {
@@ -25,7 +22,7 @@ namespace PZTools.Core.Functions.Steam
             await Console.Log($"Installing SteamCMD...");
 
             SteamCMDDirectory = steamCMDDirectory;
-            if (!Directory.Exists(SteamCMDDirectory)) 
+            if (!Directory.Exists(SteamCMDDirectory))
                 Directory.CreateDirectory(SteamCMDDirectory);
 
             string steamCmdExe = Path.Combine(SteamCMDDirectory, "steamcmd.exe");
@@ -74,37 +71,73 @@ namespace PZTools.Core.Functions.Steam
             setupProc.WaitForExit();
         }
 
-        public async Task<bool> InstallApp(string appId, string installDir, string username, string beta = "")
+        public async Task<bool> InstallApp(
+             string appId,
+             string installDir,
+             string username,
+             string beta = "",
+             CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(SteamCMDDirectory))
-                throw new ArgumentNullException("Setup SteamCMD first! (SteamInstaller.SetupSteamCMD().InstallApp())");
+                throw new ArgumentNullException(nameof(SteamCMDDirectory),
+                    "Setup SteamCMD first! (SteamInstaller.SetupSteamCMD().InstallApp())");
+
+            cancellationToken.ThrowIfCancellationRequested();
 
             await Console.Log($"Installing {appId} [beta={beta}]...");
 
-            if (string.IsNullOrEmpty(beta)) beta = $"-beta {beta}";
-            if (!Directory.Exists(installDir)) 
-                Directory.CreateDirectory(installDir);
+            Directory.CreateDirectory(installDir);
+
+            var betaArgs = string.IsNullOrWhiteSpace(beta) ? "" : $"-beta {beta}";
 
             onMessage($"Installing {appId} [beta={beta}]...");
-            var installZomboid = new ProcessStartInfo
+
+            var startInfo = new ProcessStartInfo
             {
                 FileName = steamCMDExe,
                 WorkingDirectory = SteamCMDDirectory,
-                UseShellExecute = true,
+
+                UseShellExecute = false,
+                CreateNoWindow = true,
+
                 Arguments =
                     $"+login {username} " +
                     $"+force_install_dir \"{installDir}\" " +
-                    $"+app_update 108600 -beta {beta} validate " +
+                    $"+app_update {appId} {betaArgs} validate " +
                     $"+quit"
             };
 
-            using var installZombProc = Process.Start(installZomboid);
+            using var proc = new Process { StartInfo = startInfo, EnableRaisingEvents = true };
+
+            try
             {
-                installZombProc.WaitForExit();
+                if (!proc.Start())
+                    return false;
+
+                await proc.WaitForExitAsync(cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                TryKillProcessTree(proc);
+                return false;
             }
 
-            bool result = File.Exists(Path.Combine(installDir, "projectzomboid.jar"));
-            return result;
+            if (proc.ExitCode != 0)
+                return false;
+
+            return File.Exists(Path.Combine(installDir, "projectzomboid.jar"));
+        }
+
+        private static void TryKillProcessTree(Process proc)
+        {
+            try
+            {
+                if (!proc.HasExited)
+                    proc.Kill(entireProcessTree: true);
+            }
+            catch
+            {
+            }
         }
     }
 }

@@ -1,9 +1,7 @@
 using PZTools.Core.Functions;
 using PZTools.Core.Functions.Projects;
 using PZTools.Core.Models;
-using System;
 using System.IO;
-using System.Linq;
 using System.Windows;
 using System.Windows.Media.Imaging;
 
@@ -14,7 +12,7 @@ namespace PZTools.Core.Windows.Dialogs.Project
         public string ModFolderPath { get; set; } = "";
 
         private ModInfo _modInfo = new();
-        private string? _selectedPosterSourcePath; // external path chosen via dialog (before copy)
+        private string? _selectedPosterSourcePath;
         private string? _selectedIconSourcePath;
 
         private int _posterIndex = 0;
@@ -32,7 +30,6 @@ namespace PZTools.Core.Windows.Dialogs.Project
         {
             _modInfo = ModInfoParser.Load(ModFolderPath);
 
-            // Basic
             txtModName.Text = _modInfo.Name ?? "";
             txtModID.Text = _modInfo.Id ?? "";
             txtAuthor.Text = _modInfo.Author ?? "";
@@ -42,10 +39,8 @@ namespace PZTools.Core.Windows.Dialogs.Project
             txtVersionMax.Text = _modInfo.VersionMax ?? "";
             txtDescription.Text = _modInfo.Description ?? "";
 
-            // Category combo selection
             SetCategorySelection(_modInfo.Category);
 
-            // Multi-line editors
             txtPosters.Text = string.Join(Environment.NewLine, _modInfo.Posters);
             txtPacks.Text = string.Join(Environment.NewLine, _modInfo.Packs);
             txtTiledefs.Text = string.Join(Environment.NewLine, _modInfo.Tiledefs);
@@ -55,15 +50,12 @@ namespace PZTools.Core.Windows.Dialogs.Project
             txtLoadAfter.Text = string.Join(Environment.NewLine, _modInfo.LoadModAfter);
             txtLoadBefore.Text = string.Join(Environment.NewLine, _modInfo.LoadModBefore);
 
-            // Icon field
             txtIcon.Text = _modInfo.Icon ?? "";
 
-            // Previews
             _posterIndex = 0;
             RefreshPosterPreview();
             RefreshIconPreview();
 
-            // Watermark
             var luaWatermark = Config.GetVariable(VariableType.user, $"{ProjectEngine.CurrentProject.Name}-watermark");
             if (!string.IsNullOrEmpty(luaWatermark))
                 txtWatermark.Text = luaWatermark;
@@ -71,7 +63,6 @@ namespace PZTools.Core.Windows.Dialogs.Project
 
         private void SaveButton_Click(object sender, RoutedEventArgs e)
         {
-            // Build ModInfo from UI
             _modInfo.Name = txtModName.Text.Trim();
             _modInfo.Id = txtModID.Text.Trim();
             _modInfo.Author = NullIfEmpty(txtAuthor.Text);
@@ -104,13 +95,11 @@ namespace PZTools.Core.Windows.Dialogs.Project
             _modInfo.LoadModBefore.Clear();
             _modInfo.LoadModBefore.AddRange(ParseLines(txtLoadBefore.Text));
 
-            // Assets: if user picked external files, copy them into mod folder and store filename
             if (!string.IsNullOrWhiteSpace(_selectedPosterSourcePath))
             {
                 var fileName = ModInfoParser.EnsureLocalAsset(ModFolderPath, _selectedPosterSourcePath);
                 if (!string.IsNullOrWhiteSpace(fileName))
                 {
-                    // Ensure the chosen poster is present and first in list (main poster)
                     _modInfo.Posters.RemoveAll(p => p.Equals(fileName, StringComparison.OrdinalIgnoreCase));
                     _modInfo.Posters.Insert(0, fileName);
                 }
@@ -124,7 +113,6 @@ namespace PZTools.Core.Windows.Dialogs.Project
             }
             else
             {
-                // If not using an external pick, take whatever is typed in the box
                 _modInfo.Icon = NullIfEmpty(txtIcon.Text);
             }
 
@@ -132,7 +120,6 @@ namespace PZTools.Core.Windows.Dialogs.Project
             ProjectEngine.CurrentProject.ModInfo = _modInfo;
             ProjectEngine.CurrentProject.UpdateModInfo(_modInfo);
 
-            // Persist watermark
             if (!string.IsNullOrEmpty(txtWatermark.Text))
                 Config.StoreVariable(VariableType.user, $"{ProjectEngine.CurrentProject.Name}-watermark", txtWatermark.Text);
 
@@ -159,7 +146,6 @@ namespace PZTools.Core.Windows.Dialogs.Project
             {
                 _selectedPosterSourcePath = dlg.FileName;
 
-                // Update UI list immediately with filename (it will be copied on save)
                 var fn = Path.GetFileName(dlg.FileName);
 
                 var posters = ParseLines(txtPosters.Text).ToList();
@@ -220,7 +206,6 @@ namespace PZTools.Core.Windows.Dialogs.Project
 
             var entry = posters[_posterIndex];
 
-            // If user has just selected a poster file externally and it matches current entry, show that
             if (!string.IsNullOrWhiteSpace(_selectedPosterSourcePath) &&
                 Path.GetFileName(_selectedPosterSourcePath).Equals(entry, StringComparison.OrdinalIgnoreCase) &&
                 File.Exists(_selectedPosterSourcePath))
@@ -229,14 +214,12 @@ namespace PZTools.Core.Windows.Dialogs.Project
                 return;
             }
 
-            // Otherwise resolve relative path from mod folder
             var resolved = ModInfoParser.ResolveAssetPath(ModFolderPath, entry);
             imgPoster.Source = resolved != null ? new BitmapImage(new Uri(resolved)) : null;
         }
 
         private void RefreshIconPreview()
         {
-            // Prefer external selection
             if (!string.IsNullOrWhiteSpace(_selectedIconSourcePath) && File.Exists(_selectedIconSourcePath))
             {
                 imgIcon.Source = new BitmapImage(new Uri(_selectedIconSourcePath));

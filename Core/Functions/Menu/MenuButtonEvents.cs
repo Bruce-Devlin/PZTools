@@ -53,7 +53,7 @@ namespace PZTools.Core.Functions.Menu
             public static ICommand Upload_To_Steam_Workshop { get; } =
                     new RelayCommand(static async () =>
                     {
-                        
+
                     });
 
             public static object Separator3 => null;

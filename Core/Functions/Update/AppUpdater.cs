@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace PZTools.Core.Functions.Update
+﻿namespace PZTools.Core.Functions.Update
 {
     enum UpdateChannel
     {
@@ -22,7 +18,7 @@ namespace PZTools.Core.Functions.Update
         public static UpdateChannel UpdateChannel { get; private set; }
         public static void SwitchUpdateChannel(UpdateChannel newChannel)
         {
-            UpdateChannel = newChannel; 
+            UpdateChannel = newChannel;
         }
 
         public static Task<bool> CheckForUpdates()

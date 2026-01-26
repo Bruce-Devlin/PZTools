@@ -6,7 +6,6 @@ using System.IO;
 
 namespace PZTools.Core.Functions.Undo
 {
-    // Creates a file with provided initial content. Undo deletes the file.
     public class FileCreateCommand : IUndoableCommand
     {
         public string Path { get; }
@@ -22,7 +21,6 @@ namespace PZTools.Core.Functions.Undo
 
         public Task ExecuteAsync()
         {
-            // Ensure directory exists
             var dir = System.IO.Path.GetDirectoryName(Path);
             if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
                 Directory.CreateDirectory(dir);
@@ -51,7 +49,6 @@ namespace PZTools.Core.Functions.Undo
             Description = $"Delete file {System.IO.Path.GetFileName(Path)}";
             if (File.Exists(Path))
             {
-                // create a temp backup
                 _backupTemp = System.IO.Path.GetTempFileName();
                 File.Copy(Path, _backupTemp, true);
             }
@@ -138,7 +135,6 @@ namespace PZTools.Core.Functions.Undo
         }
     }
 
-    // Moves a file or folder; Undo moves it back.
     public class FileMoveCommand : IUndoableCommand
     {
         public string Source { get; }

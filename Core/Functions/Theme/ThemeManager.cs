@@ -1,21 +1,13 @@
-﻿using System;
-using System.Linq;
-using System.Threading.Tasks;
-using System.Windows;
+﻿using System.Windows;
 using Application = System.Windows.Application;
 
 namespace PZTools.Core.Functions.Theme
 {
     public static class ThemeManager
     {
-        // Update these paths to match your project structure.
-        // If the dictionaries are in your main app project, this is fine.
-        // If they are in a separate assembly, use:
-        // pack://application:,,,/YourAssemblyName;component/Themes/Light.xaml
         private static readonly Uri DarkThemeUri = new("pack://application:,,,/Core/Windows/Themes/Dark.xaml", UriKind.Absolute);
         private static readonly Uri LightThemeUri = new("pack://application:,,,/Core/Windows/Themes/Light.xaml", UriKind.Absolute);
 
-        // We identify the active theme dictionary by a marker key inserted into it.
         private const string ThemeMarkerKey = "PZTools.ThemeDictionaryMarker";
 
         public static string CurrentTheme { get; private set; } = "Dark";
@@ -47,15 +39,12 @@ namespace PZTools.Core.Functions.Theme
             {
                 var themeUri = ResolveThemeUri(themeName);
 
-                // Load dictionary
                 var newThemeDict = new ResourceDictionary { Source = themeUri };
 
-                // Marker so we can find/replace later reliably
                 newThemeDict[ThemeMarkerKey] = true;
 
                 var merged = Application.Current.Resources.MergedDictionaries;
 
-                // Find existing theme dictionary by marker, else fall back to "first dictionary with Brushes"
                 var existingThemeDict = merged.FirstOrDefault(d => d.Contains(ThemeMarkerKey))
                                        ?? merged.FirstOrDefault(d => d.Source != null &&
                                                                     (d.Source.OriginalString.Contains("/Themes/", StringComparison.OrdinalIgnoreCase) ||
@@ -69,7 +58,6 @@ namespace PZTools.Core.Functions.Theme
                 }
                 else
                 {
-                    // If not found, insert at the top so styles can reference it
                     merged.Insert(0, newThemeDict);
                 }
 

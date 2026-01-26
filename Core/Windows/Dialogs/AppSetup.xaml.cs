@@ -1,9 +1,7 @@
 using PZTools.Core.Functions;
 using PZTools.Core.Functions.Decompile;
 using PZTools.Core.Functions.Steam;
-using System.Diagnostics;
 using System.IO;
-using System.Net.Http;
 using System.Windows;
 
 namespace PZTools.Core.Windows.Dialogs
@@ -13,6 +11,8 @@ namespace PZTools.Core.Windows.Dialogs
     /// </summary>
     public partial class AppSetup : Window
     {
+        private CancellationTokenSource cancelSetupSource = new CancellationTokenSource();
+
         public AppSetup()
         {
             InitializeComponent();
@@ -249,7 +249,7 @@ namespace PZTools.Core.Windows.Dialogs
                     string installDirVersion = Path.Combine(zomboidRoot, branchName);
                     string appId = "108600";
 
-                    var result = await steamInstaller.InstallApp(appId, installDirVersion, steamUsername, betaName);
+                    var result = await steamInstaller.InstallApp(appId, installDirVersion, steamUsername, betaName, cancelSetupSource.Token);
 
                     await Console.Log($"Finished installing: [{branchName}] (result={result}");
 
@@ -335,6 +335,19 @@ namespace PZTools.Core.Windows.Dialogs
         {
             SetupOverlay.Visibility = Visibility.Collapsed;
             IsEnabled = true;
+        }
+
+        private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+        {
+            var result = MessageBox.Show("Are you sure you want to exit and cancel the setup? The application will exit.", "Exit Setup", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            if (result != MessageBoxResult.No)
+            {
+                e.Cancel = true;
+            }
+            else
+            {
+                cancelSetupSource.Cancel();
+            }
         }
     }
 }

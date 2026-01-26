@@ -275,7 +275,7 @@
                     Click="DeployProject_Click"/>
 
                 <Button x:Name="RunGameBtn" Style="{DynamicResource PrimaryButton}"
-                    Content="Run Game"
+                    Content="{Binding RunGameButtonText}"
                     Margin="12,0,0,0"
                     Click="RunGame_Click" UseLayoutRounding="False"/>
             </StackPanel>

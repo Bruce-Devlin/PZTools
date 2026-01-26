@@ -1,7 +1,5 @@
-﻿using System;
-using System.IO;
+﻿using System.IO;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace PZTools.Core.Functions.Watermark
 {
@@ -78,7 +76,7 @@ namespace PZTools.Core.Functions.Watermark
                     if (File.Exists(tempPath))
                         File.Delete(tempPath);
                 }
-                catch {}
+                catch { }
             }
 
             return true;
@@ -113,7 +111,7 @@ namespace PZTools.Core.Functions.Watermark
 
             if (original.Length > 0 && original[0] == '\uFEFF')
                 i = 1;
-            
+
             int commentLineCount = 0;
             int start = i;
 

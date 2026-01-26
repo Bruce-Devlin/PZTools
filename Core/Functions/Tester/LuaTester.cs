@@ -30,7 +30,6 @@ namespace PZTools.Core.Functions.Tester
 
             try
             {
-                // Compile-only parse. No execution.
                 var script = new Script(CoreModules.Preset_SoftSandbox);
                 script.LoadString(luaCode, null, fileName);
 
@@ -72,10 +71,6 @@ namespace PZTools.Core.Functions.Tester
             }
         }
 
-        // ----------------------------
-        // Result building
-        // ----------------------------
-
         private static LuaTestResult BuildResult(string type, InterpreterException ex, string source, string chunkName)
         {
             (int line, int col) = TryExtractLineCol(ex, chunkName);
@@ -93,28 +88,20 @@ namespace PZTools.Core.Functions.Tester
             };
         }
 
-        // ----------------------------
-        // Location extraction
-        // ----------------------------
-
         private static (int line, int col) TryExtractLineCol(InterpreterException ex, string chunkName)
         {
-            // 1) Try structured extraction via reflection (works across MoonSharp variants).
             if (TryGetStructuredLocation(ex, out int line, out int col))
                 return (line, col);
 
-            // 2) Try parsing DecoratedMessage/Message with targeted + loose patterns.
             var decorated = ex.DecoratedMessage ?? string.Empty;
             var message = ex.Message ?? string.Empty;
 
-            // If chunkName matches, great; if not, we still want to parse location.
             if (TryMatchLocationWithOptionalChunk(decorated, chunkName, out line, out col))
                 return (line, col);
 
             if (TryMatchLocationWithOptionalChunk(message, chunkName, out line, out col))
                 return (line, col);
 
-            // 3) Last resort: any "<something>:<line>:" or "<something>:(line,col)" anywhere.
             if (TryMatchLooseLocation(decorated, out line, out col))
                 return (line, col);
 
@@ -137,11 +124,9 @@ namespace PZTools.Core.Functions.Tester
             col = 0;
             if (ex == null) return false;
 
-            // A) If exception itself exposes a SourceRef (some builds do)
             if (TryGetSourceRefLineColFromObject(ex, out line, out col))
                 return line > 0;
 
-            // B) Try Token -> SourceRef -> FromLine/FromChar (common for SyntaxErrorException)
             var tokenObj = GetMemberValue(ex, "Token");
             if (tokenObj != null)
             {
@@ -149,20 +134,16 @@ namespace PZTools.Core.Functions.Tester
                 if (sourceRefObj != null && TryGetSourceRefLineColFromObject(sourceRefObj, out line, out col))
                     return line > 0;
 
-                // Some builds might expose token location differently
                 if (TryGetLineColFromCommonMembers(tokenObj, out line, out col))
                     return line > 0;
             }
 
-            // C) Some builds store a SourceRef on the exception as "m_SourceRef" or similar
-            // Try a couple of common backing names
             var sr = GetMemberValue(ex, "SourceRef")
                      ?? GetMemberValue(ex, "m_SourceRef")
                      ?? GetMemberValue(ex, "_sourceRef");
             if (sr != null && TryGetSourceRefLineColFromObject(sr, out line, out col))
                 return line > 0;
 
-            // D) Try "Line"/"Column" if they exist in *your* build but aren’t in the public type you’re compiling against
             if (TryGetLineColFromCommonMembers(ex, out line, out col))
                 return line > 0;
 
@@ -200,7 +181,6 @@ namespace PZTools.Core.Functions.Tester
             col = 0;
             if (obj == null) return false;
 
-            // Try a few plausible names across variants
             int? l =
                 GetIntMember(obj, "Line")
                 ?? GetIntMember(obj, "line")
@@ -236,10 +216,6 @@ namespace PZTools.Core.Functions.Tester
 
             var escapedChunk = Regex.Escape(chunkName ?? string.Empty);
 
-            // Support both:
-            //   chunk:(16,0-5):
-            //   chunk:(16,0):
-            // and also tolerate missing trailing colon in some variants.
             if (!string.IsNullOrWhiteSpace(chunkName))
             {
                 var m = Regex.Match(
@@ -254,7 +230,6 @@ namespace PZTools.Core.Functions.Tester
                     return line > 0;
                 }
 
-                // line-only form: chunk:16:
                 var m2 = Regex.Match(text, $@"{escapedChunk}:(\d+):");
                 if (m2.Success)
                 {
@@ -275,8 +250,6 @@ namespace PZTools.Core.Functions.Tester
             if (string.IsNullOrWhiteSpace(text))
                 return false;
 
-            // Any:(16,0-5):
-            // Any:(16,0):
             var m = Regex.Match(text, @":\(\s*(\d+)\s*,\s*(\d+)(?:\s*-\s*(\d+))?\s*\)\s*:");
             if (m.Success)
             {
@@ -285,7 +258,6 @@ namespace PZTools.Core.Functions.Tester
                 return line > 0;
             }
 
-            // Any:16:
             var m2 = Regex.Match(text, @":(\d+):");
             if (m2.Success)
             {
@@ -294,7 +266,6 @@ namespace PZTools.Core.Functions.Tester
                 return line > 0;
             }
 
-            // "line 16"
             var m3 = Regex.Match(text, @"\bline\s+(\d+)\b", RegexOptions.IgnoreCase);
             if (m3.Success)
             {
@@ -306,10 +277,6 @@ namespace PZTools.Core.Functions.Tester
             return false;
         }
 
-        // ----------------------------
-        // Reflection helpers
-        // ----------------------------
-
         private static object GetMemberValue(object obj, string name)
         {
             try
@@ -318,12 +285,10 @@ namespace PZTools.Core.Functions.Tester
 
                 var t = obj.GetType();
 
-                // Property
                 var p = t.GetProperty(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
                 if (p != null)
                     return p.GetValue(obj);
 
-                // Field
                 var f = t.GetField(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
                 if (f != null)
                     return f.GetValue(obj);
@@ -349,10 +314,6 @@ namespace PZTools.Core.Functions.Tester
 
             return null;
         }
-
-        // ----------------------------
-        // Source-line helpers
-        // ----------------------------
 
         private static string TryGetSourceLine(string source, int line)
         {

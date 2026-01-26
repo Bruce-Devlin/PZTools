@@ -1,5 +1,4 @@
 using PZTools.Core.Functions;
-using PZTools.Core.Functions.Logger;
 using PZTools.Core.Functions.Projects;
 using PZTools.Core.Functions.Tester;
 using PZTools.Core.Functions.Undo;
@@ -11,14 +10,12 @@ using PZTools.Core.Windows.Dialogs.Project;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
-using System.IO.Packaging;
 using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Xml;
-using System.Xml.Linq;
 using Application = System.Windows.Application;
 using ContextMenu = System.Windows.Controls.ContextMenu;
 using DataObject = System.Windows.DataObject;
@@ -65,7 +62,6 @@ namespace PZTools.Core.Windows
             InitializeComponent();
             this.FreeDragThisWindow();
 
-            // Apply editor font size from saved AppSettings (will update the DynamicResource EditorFontSize)
             ApplyAppSettings();
 
             DataContext = new MainViewModel();
@@ -92,7 +88,6 @@ namespace PZTools.Core.Windows
                 var fontSize = Config.GetAppSetting<double>("EditorFontSize");
                 this.Resources["EditorFontSize"] = fontSize;
 
-                // Also apply directly to known controls as a fallback
                 if (LuaEditor != null) LuaEditor.FontSize = fontSize;
                 if (ConsoleOutput != null) ConsoleOutput.FontSize = fontSize;
             }
@@ -313,7 +308,7 @@ namespace PZTools.Core.Windows
 
                 var w = new FileSystemWatcher(folderFullPath)
                 {
-                    IncludeSubdirectories = false, // Watch this folder only; open children will get their own watchers
+                    IncludeSubdirectories = false,
                     NotifyFilter =
                         NotifyFilters.FileName |
                         NotifyFilters.DirectoryName |
@@ -550,7 +545,7 @@ namespace PZTools.Core.Windows
 
                 _openedFileWatcher = new FileSystemWatcher(dir)
                 {
-                    Filter = fileName, // watch only this file
+                    Filter = fileName,
                     NotifyFilter =
                         NotifyFilters.LastWrite |
                         NotifyFilters.Size |
@@ -1170,7 +1165,7 @@ namespace PZTools.Core.Windows
                 }
             }
 
-            
+
         }
 
         private async void Context_TestFile_Click(object sender, RoutedEventArgs e)
@@ -1371,7 +1366,6 @@ namespace PZTools.Core.Windows
             if (dragged == null || targetNode == null || !targetNode.IsFolder)
                 return;
 
-            // prevent moving into self or descendant
             if (IsDescendant(dragged, targetNode) || dragged == targetNode)
                 return;
 
@@ -1396,10 +1390,8 @@ namespace PZTools.Core.Windows
                     }
                 }
 
-                // remove from old parent
                 RemoveProjectTreeNode(dragged);
 
-                // update node paths and add to destination
                 dragged.Path = destPath;
                 UpdateProjectTreeNodeParent(dragged, targetNode);
             }
@@ -1564,31 +1556,24 @@ namespace PZTools.Core.Windows
 
         private void DeployProject_Click(object sender, RoutedEventArgs e)
         {
-            ProjectDeployer.DeployProject(DeployFolder.Workshop);
+            ProjectDeployer.DeployProject(DeployFolder.Mods);
         }
 
         private async void RunGame_Click(object sender, RoutedEventArgs e)
         {
-            if (ZomboidGame.IsGameRunning())
+            if (ZomboidGame.IsRunning)
             {
                 await ZomboidGame.StopGame();
+                return;
             }
-            else
-            {
-                bool showWindow = true;
-                var showSettingsWindow = Config.GetVariable(VariableType.user, "showRunWindowBeforeLaunch");
-                if (!string.IsNullOrEmpty(showSettingsWindow))
-                {
-                    bool.TryParse(showSettingsWindow, out showWindow);
-                }
 
-                var runGameWindow = new RunProject(showWindow);
-                runGameWindow.ShowDialog();
-                if (ZomboidGame.IsGameRunning())
-                {
-                    RunGameBtn.Content = "Stop Game";
-                }
-            }
+            bool showWindow = true;
+            var showSettingsWindow = Config.GetVariable(VariableType.user, "showRunWindowBeforeLaunch");
+            if (!string.IsNullOrEmpty(showSettingsWindow))
+                bool.TryParse(showSettingsWindow, out showWindow);
+
+            var runGameWindow = new RunProject(showWindow);
+            runGameWindow.ShowDialog();
         }
     }
 }

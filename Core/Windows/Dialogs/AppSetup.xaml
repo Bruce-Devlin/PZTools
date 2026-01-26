@@ -12,7 +12,7 @@
         ResizeMode="NoResize"
         Background="{DynamicResource Brush.BgApp}"
         Foreground="{DynamicResource Brush.TextPrimary}"
-        Loaded="Window_Loaded" Icon="/Core/Assets/Icons/PZToolsIcon.png">
+        Loaded="Window_Loaded" Icon="/Core/Assets/Icons/PZToolsIcon.png" Closing="Window_Closing">
 
     <Grid Margin="18">
         <Grid.RowDefinitions>

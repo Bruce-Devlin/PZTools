@@ -21,17 +21,21 @@ namespace PZTools.Core.Windows
 
         private async void Window_Loaded(object sender, RoutedEventArgs e)
         {
-            bool success = false;
+            bool directoriesSuccess = false;
+            bool projectsSuccess = false;
+
+
             await this.Log("Started preloading...");
-            if (await CheckDirectories()) success = true;
+            if (await CheckDirectories()) directoriesSuccess = true;
 
             await Config.PrintAppSettings();
             await ThemeManager.ApplyThemeFromSettings();
             await CheckForUpdates();
 
-            if (await CheckProjects()) success = true;
-            else success = false;
+            if (await CheckProjects()) projectsSuccess = true;
 
+
+            bool success = directoriesSuccess && projectsSuccess;
             DonePreloading(success);
         }
 

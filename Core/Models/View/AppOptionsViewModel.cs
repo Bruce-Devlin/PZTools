@@ -1,9 +1,7 @@
-﻿using Newtonsoft.Json;
-using PZTools.Core.Functions;
+﻿using PZTools.Core.Functions;
 using PZTools.Core.Functions.Theme;
 using PZTools.Core.Functions.Update;
 using System.Collections.ObjectModel;
-using System.IO;
 using System.Windows;
 using OpenFileDialog = Microsoft.Win32.OpenFileDialog;
 
@@ -33,7 +31,6 @@ namespace PZTools.Core.Models.View
             CloseCommand = new RelayCommand(CloseWindow);
         }
 
-        // Made public so the code-behind can call these (keeps current XAML Click usage)
         public void AppInstallPathBtn_Click(object sender, RoutedEventArgs e)
         {
             WindowsHelpers.OpenFile(Settings.AppInstallPath);
@@ -152,7 +149,6 @@ namespace PZTools.Core.Models.View
         {
             Settings.Reset();
 
-            // Rebuild pages with new Settings reference
             Pages.Clear();
             Pages.Add(new GeneralSettingsPageViewModel(Settings));
             Pages.Add(new SystemSettingsPageViewModel(Settings));

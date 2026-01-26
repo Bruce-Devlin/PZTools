@@ -39,7 +39,7 @@ namespace PZTools.Core.Functions.Projects
                 Path = path,
                 IsFolder = Directory.Exists(path)
             };
-            if (root) 
+            if (root)
                 node.Name = ProjectEngine.CurrentProject.Name;
 
             if (node.IsFolder)

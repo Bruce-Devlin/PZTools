@@ -43,7 +43,6 @@ namespace PZTools.Core.Functions.Undo
 
         private UndoRedoManager()
         {
-            // Wrap async calls safely for RelayCommand (which expects Action)
             UndoCommand = new RelayCommand(() => _ = UndoAsync(), () => CanUndo);
             RedoCommand = new RelayCommand(() => _ = RedoAsync(), () => CanRedo);
         }
@@ -57,10 +56,8 @@ namespace PZTools.Core.Functions.Undo
             _undoStack.Push(command);
             _redoStack.Clear();
 
-            // Notify WPF that command availability may have changed
             System.Windows.Input.CommandManager.InvalidateRequerySuggested();
 
-            // Notify subscribers (UI) that an action completed
             CommandExecuted?.Invoke(this, new UndoRedoEventArgs(command, UndoRedoAction.Executed));
         }
 

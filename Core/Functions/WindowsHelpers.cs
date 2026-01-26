@@ -353,14 +353,11 @@ namespace PZTools.Core.Functions
             if (attribute == null) return "unknown";
 
             string frameworkName = attribute.FrameworkName;
-            // Example: ".NETCoreApp,Version=v10.0,Profile=Windows"
 
-            // Split by commas
             var parts = frameworkName.Split(',');
             if (parts.Length < 2) return "unknown";
 
-            // Map base framework
-            string baseFramework = parts[0].Trim(); // ".NETCoreApp" or ".NETFramework"
+            string baseFramework = parts[0].Trim();
             string tfm = "";
 
             switch (baseFramework)
@@ -388,7 +385,7 @@ namespace PZTools.Core.Functions
 
             if (parts.Length >= 3)
             {
-                string profile = parts[2].Trim(); // "Profile=Windows"
+                string profile = parts[2].Trim();
                 if (profile.StartsWith("Profile=", StringComparison.OrdinalIgnoreCase))
                 {
                     string profileName = profile.Substring("Profile=".Length).ToLowerInvariant();
@@ -396,7 +393,7 @@ namespace PZTools.Core.Functions
                 }
             }
 
-            return tfm; // e.g. "net10.0-windows"
+            return tfm;
         }
     }
 }

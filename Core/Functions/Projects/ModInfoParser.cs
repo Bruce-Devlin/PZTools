@@ -1,8 +1,5 @@
 ﻿using PZTools.Core.Models;
-using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Text;
 
 namespace PZTools.Core.Functions.Projects
 {
@@ -15,7 +12,7 @@ namespace PZTools.Core.Functions.Projects
 
             var infoPath = Path.Combine(modFolderPath, "mod.info");
             if (!File.Exists(infoPath))
-                return new ModInfo(); // caller can decide defaults
+                return new ModInfo();
 
             var info = new ModInfo();
 
@@ -31,7 +28,6 @@ namespace PZTools.Core.Functions.Projects
                 var key = line.Substring(0, idx).Trim();
                 var value = line.Substring(idx + 1).Trim();
 
-                // Allow empty values (treat as unset)
                 if (string.IsNullOrWhiteSpace(value))
                     value = "";
 
@@ -49,7 +45,6 @@ namespace PZTools.Core.Functions.Projects
                     case "versionMin": info.VersionMin = EmptyToNull(value); break;
                     case "versionMax": info.VersionMax = EmptyToNull(value); break;
 
-                    // repeatable
                     case "poster":
                         if (!string.IsNullOrWhiteSpace(value))
                             info.Posters.Add(value);
@@ -63,7 +58,6 @@ namespace PZTools.Core.Functions.Projects
                             info.Tiledefs.Add(value);
                         break;
 
-                    // lists
                     case "require":
                         ParseListInto(info.Requires, value);
                         break;
@@ -79,7 +73,6 @@ namespace PZTools.Core.Functions.Projects
                 }
             }
 
-            // Normalize to avoid duplicates / weird whitespace
             Normalize(info);
             return info;
         }
@@ -96,7 +89,6 @@ namespace PZTools.Core.Functions.Projects
 
             Normalize(info);
 
-            // Required fields enforcement
             info.Name = info.Name?.Trim() ?? "";
             info.Id = info.Id?.Trim() ?? "";
 
@@ -120,7 +112,6 @@ namespace PZTools.Core.Functions.Projects
             var fileName = Path.GetFileName(sourcePath);
             var destPath = Path.Combine(modFolderPath, fileName);
 
-            // If it's already the same file, do nothing
             if (Path.GetFullPath(sourcePath).Equals(Path.GetFullPath(destPath), StringComparison.OrdinalIgnoreCase))
                 return fileName;
 
@@ -132,7 +123,6 @@ namespace PZTools.Core.Functions.Projects
         {
             if (string.IsNullOrWhiteSpace(relativeOrPath)) return null;
 
-            // Allow "../common/..." etc.
             var combined = Path.GetFullPath(Path.Combine(modFolderPath, relativeOrPath));
             return File.Exists(combined) ? combined : null;
         }
@@ -141,7 +131,6 @@ namespace PZTools.Core.Functions.Projects
         {
             if (string.IsNullOrWhiteSpace(raw)) return;
 
-            // mod.info examples often use "\modId,\modId2"
             var parts = raw.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
                            .Select(x => x.Trim())
                            .Select(x => x.StartsWith("\\") ? x.Substring(1) : x)
@@ -152,7 +141,6 @@ namespace PZTools.Core.Functions.Projects
 
         private static void Normalize(ModInfo info)
         {
-            // Deduplicate lists; preserve order reasonably
             Dedup(info.Posters);
             Dedup(info.Packs);
             Dedup(info.Tiledefs);
@@ -162,7 +150,6 @@ namespace PZTools.Core.Functions.Projects
             Dedup(info.LoadModAfter);
             Dedup(info.LoadModBefore);
 
-            // Trim optional strings
             info.Author = TrimToNull(info.Author);
             info.Description = TrimToNull(info.Description);
             info.Url = TrimToNull(info.Url);

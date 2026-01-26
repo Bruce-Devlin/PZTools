@@ -62,7 +62,6 @@ namespace PZTools.Core.Models.View
 
         public RelayCommand CheckNowCommand => new(() =>
         {
-            // Wire this into your actual update checker later.
             StatusText = "Checking...";
             Settings.LastUpdateCheckUtc = System.DateTime.UtcNow;
             Raise(nameof(Settings));

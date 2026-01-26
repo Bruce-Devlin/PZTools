@@ -1,5 +1,4 @@
 using Newtonsoft.Json;
-using PZTools.Core.Functions.Logger;
 using PZTools.Core.Models;
 using System.Configuration;
 using System.IO;
