@@ -7,6 +7,7 @@
         xmlns:view="clr-namespace:PZTools.Core.Models.View"
         xmlns:models="clr-namespace:PZTools.Core.Models"
         xmlns:avalonedit="http://icsharpcode.net/sharpdevelop/avalonedit"
+        xmlns:sys="clr-namespace:System;assembly=mscorlib"
         mc:Ignorable="d"
         Title="PZ Tools"
         Height="565"
@@ -15,10 +16,12 @@
         Loaded="Window_Loaded"
         MinWidth="700"
         MinHeight="420"
-        Background="{StaticResource Brush.BgApp}"
-        Foreground="{StaticResource Brush.TextPrimary}">
-
+        Background="{DynamicResource Brush.BgApp}"
+        Foreground="{DynamicResource Brush.TextPrimary}" Closing="Window_Closing" Icon="/Core/Assets/Icons/PZToolsIcon.png">
     <Window.Resources>
+
+        <!-- Editor font size (can be overridden at runtime from AppSettings.EditorFontSize) -->
+        <sys:Double x:Key="EditorFontSize">14</sys:Double>
 
         <!-- Converters -->
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
@@ -47,11 +50,12 @@
 
         <!-- MainWindow-local TextBox default: keep consistent with theme -->
         <Style TargetType="TextBox">
-            <Setter Property="Background" Value="{StaticResource Brush.BgApp}"/>
-            <Setter Property="Foreground" Value="{StaticResource Brush.TextPrimary}"/>
-            <Setter Property="BorderBrush" Value="{StaticResource Brush.BorderStrong}"/>
+            <Setter Property="Background" Value="{DynamicResource Brush.BgApp}"/>
+            <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderStrong}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Padding" Value="6"/>
+            <Setter Property="FontSize" Value="{DynamicResource EditorFontSize}"/>
         </Style>
 
         <!-- MainWindow-local TreeView default -->
@@ -60,7 +64,7 @@
 
     </Window.Resources>
 
-    <Grid Background="{StaticResource Brush.BgApp}">
+    <Grid Background="{DynamicResource Brush.BgApp}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <!-- Menu -->
@@ -69,7 +73,7 @@
             <RowDefinition Height="4"/>
             <!-- Splitter -->
             <RowDefinition x:Name="LayoutConsole" Height="160" MinHeight="120"/>
-            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="35"/>
             <!-- Status bar -->
         </Grid.RowDefinitions>
 
@@ -89,7 +93,7 @@
                             <Setter Property="Template">
                                 <Setter.Value>
                                     <ControlTemplate TargetType="MenuItem">
-                                        <Separator Style="{StaticResource ModernMenuSeparator}"/>
+                                        <Separator Style="{DynamicResource ModernMenuSeparator}"/>
                                     </ControlTemplate>
                                 </Setter.Value>
                             </Setter>
@@ -98,6 +102,7 @@
                 </Style>
             </Menu.ItemContainerStyle>
         </Menu>
+
 
         <!-- Main layout -->
         <Grid Grid.Row="1">
@@ -109,17 +114,17 @@
 
             <!-- Project Explorer -->
             <Border Grid.Column="0"
-                    Background="{StaticResource Brush.BgSurface}"
-                    BorderBrush="{StaticResource Brush.Border}"
+                    Background="{DynamicResource Brush.BgSurface}"
+                    BorderBrush="{DynamicResource Brush.Border}"
                     BorderThickness="0,0,1,0"
                     Padding="8">
 
                 <!-- If you want to keep GroupBox, leave it; otherwise swap to a TextBlock header + content -->
                 <GroupBox Header="Project Explorer"
-                          Foreground="{StaticResource Brush.TextPrimary}"
+                          Foreground="{DynamicResource Brush.TextPrimary}"
                           Padding="8"
                           Background="Transparent"
-                          BorderBrush="{StaticResource Brush.Border}"
+                          BorderBrush="{DynamicResource Brush.Border}"
                           BorderThickness="0">
                     <TreeView x:Name="ProjectTreeView"
                               AllowDrop="True"
@@ -127,6 +132,7 @@
                               MouseMove="ProjectTreeView_MouseMove"
                               DragOver="ProjectTreeView_DragOver"
                               Drop="ProjectTreeView_Drop"
+                              PreviewMouseRightButtonDown="ProjectTreeView_PreviewMouseRightButtonDown"
                               ContextMenuOpening="ProjectTreeView_ContextMenuOpening">
 
                         <TreeView.Resources>
@@ -134,14 +140,14 @@
                             <HierarchicalDataTemplate DataType="{x:Type models:ProjectFileNode}"
                                                       ItemsSource="{Binding Children}">
                                 <TextBlock Text="{Binding Name}"
-                                           Foreground="{StaticResource Brush.TextPrimary}"/>
+                                           Foreground="{DynamicResource Brush.TextPrimary}"/>
                             </HierarchicalDataTemplate>
 
                             <HierarchicalDataTemplate DataType="{x:Type models:ModTarget}"
                                                       ItemsSource="{Binding FileTree.Children}">
-                                <TextBlock Text="{Binding Build, StringFormat=Build {0}}"
+                                <TextBlock Text="{Binding BuildName}"
                                            FontWeight="SemiBold"
-                                           Foreground="{StaticResource Brush.TextInfo}"/>
+                                           Foreground="{DynamicResource Brush.TextInfo}"/>
                             </HierarchicalDataTemplate>
 
                         </TreeView.Resources>
@@ -152,54 +158,54 @@
             <!-- Left splitter -->
             <GridSplitter Grid.Column="0"
                           Width="4"
-                          Background="{StaticResource Brush.Border}"
+                          Background="{DynamicResource Brush.Border}"
                           HorizontalAlignment="Right"/>
 
             <!-- Editor -->
             <Border Grid.Column="1"
-                    Background="{StaticResource Brush.BgApp}"
-                    BorderBrush="{StaticResource Brush.Border}"
+                    Background="{DynamicResource Brush.BgApp}"
+                    BorderBrush="{DynamicResource Brush.Border}"
                     BorderThickness="1,0,1,0">
 
                 <!-- AvalonEdit: map to theme brushes -->
                 <avalonedit:TextEditor x:Name="LuaEditor"
                                        ShowLineNumbers="True"
                                        FontFamily="Consolas"
-                                       FontSize="14"
+                                       FontSize="{DynamicResource EditorFontSize}"
                                        IsReadOnly="True"
-                                       Background="{StaticResource Brush.BgApp}"
-                                       Foreground="{StaticResource Brush.TextPrimary}"/>
+                                       Background="{DynamicResource Brush.BgApp}"
+                                       Foreground="{DynamicResource Brush.TextPrimary}"/>
             </Border>
 
             <!-- Right splitter -->
             <GridSplitter Grid.Column="1"
                           Width="4"
-                          Background="{StaticResource Brush.Border}"
+                          Background="{DynamicResource Brush.Border}"
                           HorizontalAlignment="Right"/>
 
             <!-- Properties -->
             <Border Grid.Column="2"
-                    Background="{StaticResource Brush.BgSurface}"
-                    BorderBrush="{StaticResource Brush.Border}"
+                    Background="{DynamicResource Brush.BgSurface}"
+                    BorderBrush="{DynamicResource Brush.Border}"
                     BorderThickness="1,0,0,0"
                     Padding="8">
 
                 <GroupBox Header="File Properties"
-                          Foreground="{StaticResource Brush.TextPrimary}"
+                          Foreground="{DynamicResource Brush.TextPrimary}"
                           Background="Transparent"
-                          BorderBrush="{StaticResource Brush.Border}"
+                          BorderBrush="{DynamicResource Brush.Border}"
                           BorderThickness="0">
                     <StackPanel>
-                        <TextBlock Text="Name:" Foreground="{StaticResource Brush.TextMuted}"/>
+                        <TextBlock Text="Name:" Foreground="{DynamicResource Brush.TextMuted}"/>
                         <TextBox x:Name="txtPropName" IsReadOnly="True" Margin="0,0,0,8"/>
 
-                        <TextBlock Text="Full Path:" Foreground="{StaticResource Brush.TextMuted}"/>
+                        <TextBlock Text="Full Path:" Foreground="{DynamicResource Brush.TextMuted}"/>
                         <TextBox x:Name="txtPropPath" IsReadOnly="True" Margin="0,0,0,8"/>
 
-                        <TextBlock Text="Size:" Foreground="{StaticResource Brush.TextMuted}"/>
+                        <TextBlock Text="Size:" Foreground="{DynamicResource Brush.TextMuted}"/>
                         <TextBox x:Name="txtPropSize" IsReadOnly="True" Margin="0,0,0,8"/>
 
-                        <TextBlock Text="Encoding:" Foreground="{StaticResource Brush.TextMuted}"/>
+                        <TextBlock Text="Encoding:" Foreground="{DynamicResource Brush.TextMuted}"/>
                         <TextBox x:Name="txtPropEncoding" IsReadOnly="True"/>
                     </StackPanel>
                 </GroupBox>
@@ -209,15 +215,15 @@
         <!-- Console splitter -->
         <GridSplitter Grid.Row="2"
                       Height="4"
-                      Background="{StaticResource Brush.Border}"
+                      Background="{DynamicResource Brush.Border}"
                       ResizeDirection="Rows"
                       HorizontalAlignment="Stretch"
                       Cursor="SizeNS"/>
 
         <!-- Console panel -->
         <Border Grid.Row="3"
-                Background="{StaticResource Brush.BgSurface}"
-                BorderBrush="{StaticResource Brush.Border}"
+                Background="{DynamicResource Brush.BgSurface}"
+                BorderBrush="{DynamicResource Brush.Border}"
                 BorderThickness="1"
                 MinHeight="100">
 
@@ -227,19 +233,19 @@
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
 
-                <DockPanel Background="{StaticResource Brush.BgApp}">
+                <DockPanel Background="{DynamicResource Brush.BgApp}">
                     <TextBlock Text="Console"
-                               Foreground="{StaticResource Brush.TextMuted}"
+                               Foreground="{DynamicResource Brush.TextMuted}"
                                VerticalAlignment="Center"
                                Margin="10,0"/>
                 </DockPanel>
 
                 <ScrollViewer x:Name="ConsoleScroll" Grid.Row="1">
                     <TextBox x:Name="ConsoleOutput"
-                             Background="{StaticResource Brush.BgApp}"
-                             Foreground="{StaticResource Brush.TextPrimary}"
+                             Background="{DynamicResource Brush.BgApp}"
+                             Foreground="{DynamicResource Brush.TextPrimary}"
                              FontFamily="Consolas"
-                             FontSize="13"
+                             FontSize="{DynamicResource EditorFontSize}"
                              BorderThickness="0"
                              IsReadOnly="True"
                              TextWrapping="Wrap"/>
@@ -247,14 +253,32 @@
             </Grid>
         </Border>
 
-        <!-- Status bar -->
-        <StatusBar Grid.Row="4"
-                   Background="{StaticResource Brush.BgApp}"
-                   BorderThickness="0">
-            <TextBlock x:Name="StatusBarText"
-                       Foreground="{StaticResource Brush.TextMuted}"
-                       Text="Ready"/>
-        </StatusBar>
+        <Grid Grid.Row="4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <StatusBar Grid.Column="0"
+               Background="{DynamicResource Brush.BgApp}"
+               BorderThickness="0">
+                <TextBlock x:Name="StatusBarText"
+                   Foreground="{DynamicResource Brush.TextMuted}"
+                   Text="Ready"/>
+            </StatusBar>
+            <StackPanel
+                Orientation="Horizontal"
+                HorizontalAlignment="Center"
+                Grid.Column="1" VerticalAlignment="Top">
 
+                <Button Style="{DynamicResource ModernButton}"
+                    Content="Deploy Project"
+                    Click="DeployProject_Click"/>
+
+                <Button x:Name="RunGameBtn" Style="{DynamicResource PrimaryButton}"
+                    Content="Run Game"
+                    Margin="12,0,0,0"
+                    Click="RunGame_Click" UseLayoutRounding="False"/>
+            </StackPanel>
+        </Grid>
     </Grid>
 </Window>

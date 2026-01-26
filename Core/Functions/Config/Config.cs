@@ -1,4 +1,5 @@
 using Newtonsoft.Json;
+using PZTools.Core.Functions.Logger;
 using PZTools.Core.Models;
 using System.Configuration;
 using System.IO;
@@ -7,44 +8,66 @@ namespace PZTools.Core.Functions
 {
     internal static class Config
     {
-        public static string GetAppSetting(string name)
+        public static async Task PrintAppSettings()
         {
-            var savedSettings = GetVariable(VariableType.system, "appSettings");
-            var appSettings = JsonConvert.DeserializeObject<AppSettings>(savedSettings);
+            await Console.Log("PZTools App Settings:");
+            bool appSettingsExisted = false;
+            var appSettings = Config.GetAppSettings(out appSettingsExisted);
+            if (appSettingsExisted) await Console.Log("App settings existed!");
 
-            if (appSettings != null)
+            foreach (var appSetting in appSettings.GetAll())
             {
-                var property = appSettings.GetType().GetProperty(name);
-                if (property != null)
-                {
-                    var value = property.GetValue(appSettings);
-                    return value?.ToString() ?? string.Empty;
-                }
-                else
-                {
-                    return string.Empty;
-                }
+                await Console.Log($"- Setting: {appSetting.Name} = {appSetting.Value}");
             }
-            else return string.Empty;
         }
+        public static AppSettings GetAppSettings() { var didExist = false; return GetAppSettings(out didExist); }
+
+        public static AppSettings GetAppSettings(out bool didExist)
+        {
+            var result = new AppSettings();
+            didExist = false;
+
+            var savedSettings = GetVariable(VariableType.system, "appSettings");
+            if (savedSettings != null)
+            {
+                result = JsonConvert.DeserializeObject<AppSettings>(savedSettings);
+                didExist = true;
+            }
+            else Console.Log("No App Settings config found, providing a default.");
+
+            return result;
+        }
+
+        public static T GetAppSetting<T>(string name)
+        {
+            var appSettings = GetAppSettings();
+            if (appSettings == null)
+                return default;
+
+            var property = appSettings.GetType().GetProperty(name);
+            if (property == null)
+                return default;
+
+            var value = property.GetValue(appSettings);
+
+            return (T)Convert.ChangeType(value, typeof(T));
+        }
+
 
         public static void SetAppSetting(string name, string value)
         {
-            var savedSettings = GetVariable(VariableType.system, "appSettings");
-            var appSettings = JsonConvert.DeserializeObject<AppSettings>(savedSettings);
+            var appSettings = GetAppSettings();
 
-            if (appSettings != null)
+            var property = appSettings.GetType().GetProperty(name);
+            if (property != null)
             {
-                var property = appSettings.GetType().GetProperty(name);
-                if (property != null)
-                {
-                    property.SetValue(appSettings, value, null);
-                }
+                property.SetValue(appSettings, value, null);
             }
 
-            var settingToSave = JsonConvert.SerializeObject(appSettings);
-            StoreVariable(VariableType.user, "appSettings", settingToSave);
+            var settingsToSave = JsonConvert.SerializeObject(appSettings);
+            StoreVariable(VariableType.system, "appSettings", settingsToSave);
         }
+
 
         /// <summary>
         /// Stores variable to config file
@@ -54,6 +77,7 @@ namespace PZTools.Core.Functions
         /// <param name="data">Value to store</param>
         public static void StoreVariable(VariableType type, string name, string data)
         {
+
             ExeConfigurationFileMap fileMap = new ExeConfigurationFileMap
             {
                 ExeConfigFilename = Path.Combine(AppPaths.ConfigsDirectory, $"{type}.config")
@@ -88,6 +112,7 @@ namespace PZTools.Core.Functions
             if (settings[variable] == null) return null;
             else return settings[variable].Value;
         }
+
 
         public static T? GetObject<T>(VariableType type, string name)
         {

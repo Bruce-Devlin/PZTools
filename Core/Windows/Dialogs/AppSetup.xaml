@@ -10,9 +10,9 @@
         Width="820"
         WindowStartupLocation="CenterScreen"
         ResizeMode="NoResize"
-        Background="{StaticResource Brush.BgApp}"
-        Foreground="{StaticResource Brush.TextPrimary}"
-        Loaded="Window_Loaded">
+        Background="{DynamicResource Brush.BgApp}"
+        Foreground="{DynamicResource Brush.TextPrimary}"
+        Loaded="Window_Loaded" Icon="/Core/Assets/Icons/PZToolsIcon.png">
 
     <Grid Margin="18">
         <Grid.RowDefinitions>
@@ -32,34 +32,34 @@
         <!-- Welcome Text -->
         <TextBlock Grid.Row="0"
                    Text="Welcome to PZ Tools!"
-                   Style="{StaticResource Text.Title}"
+                   Style="{DynamicResource Text.Title}"
                    FontSize="20"
                    FontWeight="SemiBold"
                    Margin="0,0,0,12"/>
 
         <!-- App Installation Path -->
-        <Border Grid.Row="1" Style="{StaticResource Card}" Margin="0,0,0,12">
+        <Border Grid.Row="1" Style="{DynamicResource Card}" Margin="0,0,0,12">
             <StackPanel>
                 <TextBlock Text="Please choose where you would like to install PZ Tools:"
-                           Foreground="{StaticResource Brush.TextPrimary}"
+                           Foreground="{DynamicResource Brush.TextPrimary}"
                            Margin="0,0,0,8"/>
 
                 <DockPanel LastChildFill="True">
                     <TextBox x:Name="txtAppInstallPath"
-                             Style="{StaticResource ModernTextBox}"
+                             Style="{DynamicResource ModernTextBox}"
                              Margin="0,0,10,0"
                              MinWidth="420" Width="568"/>
 
                     <Button Content="Browse..."
                             Width="95"
-                            Style="{StaticResource ModernButton}"
+                            Style="{DynamicResource ModernButton}"
                             Click="BrowseAppInstallButton_Click"/>
                 </DockPanel>
             </StackPanel>
         </Border>
 
         <!-- Game Installation Options -->
-        <Border Grid.Row="2" Style="{StaticResource Card}" Margin="0,0,0,12">
+        <Border Grid.Row="2" Style="{DynamicResource Card}" Margin="0,0,0,12">
             <StackPanel>
                 <TextBlock Text="Project Zomboid Game Installation"
                            FontWeight="SemiBold"
@@ -69,57 +69,57 @@
                              Content="Use existing installation"
                              IsChecked="True"
                              Checked="GameInstallOption_Checked"
-                             Foreground="{StaticResource Brush.TextPrimary}"/>
+                             Foreground="{DynamicResource Brush.TextPrimary}"/>
 
                 <DockPanel Margin="20,8,0,0" LastChildFill="True">
                     <TextBox x:Name="txtExistingGamePath"
-                             Style="{StaticResource ModernTextBox}"
+                             Style="{DynamicResource ModernTextBox}"
                              Margin="0,0,10,0" Width="548"/>
 
                     <Button x:Name="browseExistingBtn"
                             Content="Browse..."
                             Width="95"
-                            Style="{StaticResource ModernButton}"
+                            Style="{DynamicResource ModernButton}"
                             Click="BrowseGameInstallButton_Click"/>
                 </DockPanel>
 
                 <TextBlock Text="This will work with a single, static installation of Zomboid. Usually via Steam."
-                           Style="{StaticResource Text.Muted}"
+                           Style="{DynamicResource Text.Muted}"
                            Margin="20,6,0,12"
                            TextWrapping="Wrap"/>
 
                 <Border Height="1"
-                        Background="{StaticResource Brush.Border}"
+                        Background="{DynamicResource Brush.Border}"
                         Margin="0,6,0,12"/>
 
                 <RadioButton x:Name="rdoManagedGame"
                              Content="Let PZ Tools manage game versions"
                              Checked="GameInstallOption_Checked"
-                             Foreground="{StaticResource Brush.TextPrimary}"/>
+                             Foreground="{DynamicResource Brush.TextPrimary}"/>
 
                 <DockPanel Margin="20,8,0,0" LastChildFill="True">
                     <TextBox x:Name="txtManagedGamePath"
-                             Style="{StaticResource ModernTextBox}"
+                             Style="{DynamicResource ModernTextBox}"
                              IsReadOnly="True"
                              IsEnabled="False" Width="548"/>
 
                     <Button x:Name="changeMangedBtn"
                             Content="Change..."
                             Width="95"
-                            Style="{StaticResource ModernButton}"
+                            Style="{DynamicResource ModernButton}"
                             Click="BrowseManagedGamePath_Click"
                             Visibility="Collapsed"/>
                 </DockPanel>
 
                 <TextBlock Text="Managed installations will require multiple GB of disk space."
-                           Style="{StaticResource Text.Muted}"
+                           Style="{DynamicResource Text.Muted}"
                            Margin="20,6,0,0"
                            TextWrapping="Wrap"/>
             </StackPanel>
         </Border>
 
         <!-- Additional Options -->
-        <Border Grid.Row="3" Style="{StaticResource Card}" Margin="0,0,0,12">
+        <Border Grid.Row="3" Style="{DynamicResource Card}" Margin="0,0,0,12">
             <StackPanel>
                 <TextBlock Text="Additional Options"
                            FontWeight="SemiBold"
@@ -128,22 +128,22 @@
                 <WrapPanel Orientation="Horizontal" ItemWidth="240" ItemHeight="28">
                     <CheckBox Content="Create Start Menu Shortcut"
                               x:Name="chkStartMenuShortcut"
-                              Foreground="{StaticResource Brush.TextPrimary}"
+                              Foreground="{DynamicResource Brush.TextPrimary}"
                               Margin="0,0,10,10"/>
                     <CheckBox Content="Create Desktop Shortcut"
                               x:Name="chkDesktopShortcut"
-                              Foreground="{StaticResource Brush.TextPrimary}"
+                              Foreground="{DynamicResource Brush.TextPrimary}"
                               Margin="0,0,10,10"/>
                     <CheckBox Content="Decompile Game Files"
                               x:Name="chkDecompileGame"
-                              Foreground="{StaticResource Brush.TextPrimary}"
+                              Foreground="{DynamicResource Brush.TextPrimary}"
                               Margin="0,0,10,10"/>
                 </WrapPanel>
             </StackPanel>
         </Border>
 
         <Border Grid.Row="4"
-                 Background="{StaticResource Brush.Border}"
+                 Background="{DynamicResource Brush.Border}"
                  Height="1"
                  VerticalAlignment="Top"/>
 
@@ -155,12 +155,12 @@
             <Button Content="Cancel"
                     Width="100"
                     Margin="0,0,10,0"
-                    Style="{StaticResource ModernButton}"
+                    Style="{DynamicResource ModernButton}"
                     Click="CancelButton_Click"/>
 
             <Button Content="Finish"
                     Width="100"
-                    Style="{StaticResource PrimaryButton}"
+                    Style="{DynamicResource PrimaryButton}"
                     Click="FinishButton_Click"/>
         </StackPanel>
 
@@ -172,8 +172,8 @@
               Visibility="Collapsed"
               Panel.ZIndex="999">
 
-            <Border Background="{StaticResource Brush.BgSurface}"
-                    BorderBrush="{StaticResource Brush.Border}"
+            <Border Background="{DynamicResource Brush.BgSurface}"
+                    BorderBrush="{DynamicResource Brush.Border}"
                     BorderThickness="1"
                     Padding="22"
                     CornerRadius="14"
@@ -183,12 +183,12 @@
 
                 <StackPanel>
                     <TextBlock Text="Setting up PZ Tools..."
-                               Style="{StaticResource Text.Title}"
+                               Style="{DynamicResource Text.Title}"
                                Margin="0,0,0,10"/>
 
                     <TextBlock x:Name="SetupStatusText"
                                Text="Please wait..."
-                               Style="{StaticResource Text.Muted}"
+                               Style="{DynamicResource Text.Muted}"
                                Margin="0,0,0,14"
                                TextWrapping="Wrap"/>
 

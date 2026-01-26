@@ -1,3 +1,4 @@
+using PZTools.Core.Functions;
 using System.Windows;
 
 namespace PZTools.Core.Windows.Dialogs
@@ -11,6 +12,8 @@ namespace PZTools.Core.Windows.Dialogs
         public SteamLogin()
         {
             InitializeComponent();
+            this.FreeDragThisWindow();
+
             Loaded += (_, _) => TxtUsername.Focus();
         }
 

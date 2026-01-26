@@ -6,7 +6,7 @@
     },
     "PZTools Skip Setup": {
       "commandName": "Project",
-      "commandLineArgs": "--debug --skipSetup"
+      "commandLineArgs": "--debug --skipSetup --isInHome"
     }
   }
 }

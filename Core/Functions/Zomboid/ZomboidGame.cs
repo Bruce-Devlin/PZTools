@@ -7,14 +7,16 @@ namespace PZTools.Core.Functions.Zomboid
     internal class ZomboidGame
     {
         public static double latestStableBuild = 41;
+        public static Process? GameProcess { get; private set; } = null;
+        public static bool IsGameStarting { get; private set; } = false;
         public static string? GameDirectory
         {
             get
             {
-                if (GameMode == "existing")
-                    return Config.GetVariable(VariableType.system, "ExistingGamePath");
+                if (GameMode == "Existing")
+                    return Config.GetAppSetting<string>("ExistingGamePath");
                 else
-                    return Config.GetVariable(VariableType.system, "ManagedGamePath");
+                    return Config.GetAppSetting<string>("ManagedGamePath");
             }
         }
 
@@ -31,7 +33,7 @@ namespace PZTools.Core.Functions.Zomboid
         {
             get
             {
-                return Config.GetVariable(VariableType.system, "GameMode");
+                return Config.GetAppSetting<string>("GameMode");
             }
         }
 
@@ -41,6 +43,7 @@ namespace PZTools.Core.Functions.Zomboid
         {
             try
             {
+                IsGameStarting = true;
                 var psi = new ProcessStartInfo
                 {
                     FileName = gamePath,
@@ -52,16 +55,17 @@ namespace PZTools.Core.Functions.Zomboid
                     CreateNoWindow = true
                 };
 
-                var process = new Process { StartInfo = psi, EnableRaisingEvents = true };
+                GameProcess = new Process { StartInfo = psi, EnableRaisingEvents = true };
 
-                process.OutputDataReceived += (s, ev) => OnGameOutput.Invoke(s, ev.Data ?? string.Empty);
+                GameProcess.OutputDataReceived += (s, ev) => OnGameOutput.Invoke(s, ev.Data ?? string.Empty);
 
-                process.ErrorDataReceived += (s, ev) => OnGameOutput.Invoke(s, ev.Data ?? string.Empty);
+                GameProcess.ErrorDataReceived += (s, ev) => OnGameOutput.Invoke(s, ev.Data ?? string.Empty);
 
-                process.Start();
-                process.BeginOutputReadLine();
-                process.BeginErrorReadLine();
-                process.WaitForExit();
+                GameProcess.Start();
+                GameProcess.BeginOutputReadLine();
+                GameProcess.BeginErrorReadLine();
+                GameProcess.WaitForExit();
+                IsGameStarting = false;
             }
             catch (Exception ex)
             {
@@ -69,18 +73,28 @@ namespace PZTools.Core.Functions.Zomboid
             }
         }
 
-        public static bool IsGameRunning()
+        public static async Task StopGame()
         {
-            var process = GetGameProcess();
-            if (process == null) return false;
-            else return !process.HasExited;
+            var process = GameProcess;
+            if (process != null && !process.HasExited)
+            {
+                var actualProcess = Process.GetProcessById(process.Id);
+
+                actualProcess.Kill();
+                await Console.Log("Game process terminated by user.");
+            }
+            else
+            {
+                await Console.Log("No running game process found.");
+            }
         }
 
-        public static Process? GetGameProcess()
+        public static bool IsGameRunning()
         {
-            var allProcesses = Process.GetProcesses();
-            var zomboidProcess = allProcesses.FirstOrDefault(p => p.ProcessName.Contains("ProjectZomboid"));
-            return zomboidProcess;
+            var process = GameProcess;
+            if (process == null) return false;
+            else if (IsGameStarting) return true;
+            else return !process.HasExited;
         }
     }
 }

@@ -1,8 +1,12 @@
 ﻿# PZTools
 **Project Zomboid Tools – Modding, Build Management, and Developer Utilities**
 <br>PZTools is a desktop utility designed to streamline Project Zomboid modding, development, and build management workflows. It provides a unified interface for managing multiple game installations, decompiling game source files, validating Lua scripts, and launching specific builds with optional debug or runtime arguments.
-<br><br>This tool is primarily aimed at modders, reverse engineers, and developers who need tighter control over Project Zomboid environments than the base Steam installation provides.
 
+This tool is primarily aimed at modders, reverse engineers, and developers who need tighter control over Project Zomboid environments than the base Steam installation provides.
+
+I build this app as I recently started creating a few Project Zomboid mods and wanted a more efficient way to manage different builds and test mods without constantly switching Steam branches or manually decompiling JAR files.
+
+---
 
 ## Key Features
 - Manage multiple Project Zomboid builds (Steam-managed or custom)
@@ -79,7 +83,7 @@ For managed installations, PZTools will handle downloading and setting up multip
 ### CFR Decompiler
 CFR JAR is downloaded automatically to tools/cfr.jar if missing.
 ### Running PZTools
-- Simply run and setup a release build .exe!
+- Simply run and setup a release build! (PZTools.exe)
 ---
 
 ## Notes
@@ -96,10 +100,15 @@ CFR JAR is downloaded automatically to tools/cfr.jar if missing.
 ---
 
 ## Contributing
+Contributions are welcome and encouraged.
+
 1. Fork the repository
-2. Create a new branch
-3. Make your changes
-5. Open a Pull Request
+2. Create a feature or fix branch
+3. Commit your changes with clear messages
+4. Open a Pull Request
+
+Please keep changes focused and document any new functionality.
+
 ---
 
 ## License

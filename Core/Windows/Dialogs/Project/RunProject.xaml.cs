@@ -1,17 +1,30 @@
+using PZTools.Core.Functions;
 using PZTools.Core.Functions.Logger;
 using PZTools.Core.Functions.Zomboid;
 using System.IO;
+using System.Text;
 using System.Windows;
+using System.Windows.Threading;
 
 namespace PZTools.Core.Windows.Dialogs.Project
 {
     public partial class RunProject : Window
     {
-        public string ZomboidRoot { get; set; } = ZomboidGame.GameDirectory;
+        public string ZomboidRoot => ZomboidGame.GameDirectory;
+        private bool showWindow = true;
+        private string? existingBuild = "";
+        private string? existingArgs = "";
 
-        public RunProject()
+        private readonly object _logLock = new();
+        private readonly StringBuilder _logBuffer = new();
+        private DispatcherTimer? _logFlushTimer;
+        private EventHandler<string>? _gameOutputHandler;
+
+        public RunProject(bool showWindow = true)
         {
             InitializeComponent();
+            this.FreeDragThisWindow();
+
             LoadBuilds();
 
             if (ZomboidGame.IsGameRunning())
@@ -30,7 +43,60 @@ namespace PZTools.Core.Windows.Dialogs.Project
                 });
             };
 
-            txtLaunchArgs.Text = "-debug -debugtranslation -modfolders workshop,steam -imgui -windowed";
+            existingArgs = Config.GetVariable(VariableType.user, "lastUsedLaunchArgs");
+            if (string.IsNullOrEmpty(existingArgs))
+                txtLaunchArgs.Text = "-debug";
+            else
+                txtLaunchArgs.Text = existingArgs;
+
+            this.showWindow = showWindow;
+
+            var showWindowSetting = Config.GetVariable(VariableType.user, "showRunWindowBeforeLaunch");
+            if (!string.IsNullOrEmpty(showWindowSetting))
+            {
+                showWindowBeforeRun.IsChecked = bool.Parse(showWindowSetting);
+            }
+            else showWindowBeforeRun.IsChecked = true;
+        }
+
+        private void Window_Loaded(object sender, RoutedEventArgs e)
+        {
+            if (!showWindow)
+            {
+                existingBuild = Config.GetVariable(VariableType.user, "lastUsedGameBuild");
+                if (!string.IsNullOrEmpty(existingBuild) && !string.IsNullOrEmpty(existingArgs))
+                {
+                    LaunchGame(existingBuild, existingArgs);
+                    this.Close();
+                }
+            }
+        }
+
+        private void EnsureLogFlushTimer()
+        {
+            if (_logFlushTimer != null) return;
+
+            _logFlushTimer = new DispatcherTimer(DispatcherPriority.Background)
+            {
+                Interval = TimeSpan.FromMilliseconds(75)
+            };
+
+            _logFlushTimer.Tick += async (_, __) =>
+            {
+                string chunk;
+
+                lock (_logLock)
+                {
+                    if (_logBuffer.Length == 0) return;
+                    chunk = _logBuffer.ToString();
+                    _logBuffer.Clear();
+                }
+
+                await Console.Log(chunk);
+                txtOutputLog.ScrollToEnd();
+            };
+
+            _logFlushTimer.Start();
         }
 
         private void LoadBuilds()
@@ -58,21 +124,17 @@ namespace PZTools.Core.Windows.Dialogs.Project
                 cmbBuilds.SelectedIndex = 0;
         }
 
-        private void BtnLaunch_Click(object sender, RoutedEventArgs e)
+        private void LaunchGame(string build, string args)
         {
-            if (cmbBuilds.SelectedItem == null)
-            {
-                MessageBox.Show("Please select a build to launch.", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
+            Config.StoreVariable(VariableType.user, "lastUsedLaunchArgs", args);
+            Config.StoreVariable(VariableType.user, "lastUsedGameBuild", build);
 
-            string selectedBuild = cmbBuilds.SelectedItem.ToString()!;
             string buildPath = ZomboidRoot;
             string exePath = Path.Combine(buildPath, "ProjectZomboid64.exe");
 
             if (ZomboidGame.GameMode == "managed")
             {
-                buildPath = Path.Combine(ZomboidRoot, "Zomboid", selectedBuild);
+                buildPath = Path.Combine(ZomboidRoot, "Zomboid", build);
                 exePath = Path.Combine(buildPath, "ProjectZomboid64.exe");
             }
 
@@ -82,17 +144,57 @@ namespace PZTools.Core.Windows.Dialogs.Project
                 return;
             }
 
-            string args = txtLaunchArgs.Text;
+            EnsureLogFlushTimer();
 
-            ZomboidGame.OnGameOutput += (s, output) =>
+            // Prevent multiple subscriptions across repeated launches
+            if (_gameOutputHandler != null)
+                ZomboidGame.OnGameOutput -= _gameOutputHandler;
+
+            _gameOutputHandler = (s, output) =>
             {
-                Dispatcher.Invoke(() =>
+                lock (_logLock)
                 {
-                    txtOutputLog.AppendText(output);
-                    txtOutputLog.ScrollToEnd();
-                });
+                    _logBuffer.AppendLine(output);
+                }
+
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    if (_logFlushTimer != null && !_logFlushTimer.IsEnabled)
+                        _logFlushTimer.Start();
+                }), DispatcherPriority.Background);
             };
-            ZomboidGame.StartGame(exePath, args);
+
+            ZomboidGame.OnGameOutput += _gameOutputHandler;
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await ZomboidGame.StartGame(exePath, args);
+                }
+                finally
+                {
+                    // Stop button state back on UI
+                    Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        btnStopGame.IsEnabled = false;
+                    }));
+                }
+            });
+
+            btnStopGame.IsEnabled = true;
+        }
+
+        private void BtnLaunch_Click(object sender, RoutedEventArgs e)
+        {
+            if (cmbBuilds.SelectedItem == null)
+            {
+                MessageBox.Show("Please select a build to launch.", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            string selectedBuild = cmbBuilds.SelectedItem.ToString()!;
+            LaunchGame(selectedBuild, txtLaunchArgs.Text);
         }
 
         private void BtnClose_Click(object sender, RoutedEventArgs e)
@@ -104,22 +206,12 @@ namespace PZTools.Core.Windows.Dialogs.Project
         {
             if (!ZomboidGame.IsGameRunning()) return;
 
-            var gameProcess = ZomboidGame.GetGameProcess();
-            if (gameProcess == null) return;
+            await ZomboidGame.StopGame();
+        }
 
-            try
-            {
-                gameProcess.Kill();
-                gameProcess.WaitForExit();
-                txtOutputLog.AppendText("Game process terminated.\n");
-                await this.Log("Game process terminated by user.");
-                btnStopGame.IsEnabled = false;
-                btnLaunch.IsEnabled = true;
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Failed to stop the game: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
+        private void showWindowBeforeRun_Checked(object sender, RoutedEventArgs e)
+        {
+            Config.StoreVariable(VariableType.user, "showRunWindowBeforeLaunch", showWindowBeforeRun.IsChecked.ToString());
         }
     }
 }

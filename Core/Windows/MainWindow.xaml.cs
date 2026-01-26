@@ -1,19 +1,24 @@
 using PZTools.Core.Functions;
+using PZTools.Core.Functions.Logger;
 using PZTools.Core.Functions.Projects;
 using PZTools.Core.Functions.Tester;
 using PZTools.Core.Functions.Undo;
+using PZTools.Core.Functions.Zomboid;
 using PZTools.Core.Models;
 using PZTools.Core.Models.InputDialog;
 using PZTools.Core.Models.View;
 using PZTools.Core.Windows.Dialogs.Project;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
+using System.IO.Packaging;
 using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Xml;
+using System.Xml.Linq;
 using Application = System.Windows.Application;
 using ContextMenu = System.Windows.Controls.ContextMenu;
 using DataObject = System.Windows.DataObject;
@@ -52,10 +57,16 @@ namespace PZTools.Core.Windows
 
         private const int FolderDebounceMs = 150;
 
+        public bool reloading = false;
+        public bool isClosing { get; private set; } = false;
 
         public MainWindow()
         {
             InitializeComponent();
+            this.FreeDragThisWindow();
+
+            // Apply editor font size from saved AppSettings (will update the DynamicResource EditorFontSize)
+            ApplyAppSettings();
 
             DataContext = new MainViewModel();
             ModProject = ProjectEngine.CurrentProject;
@@ -64,6 +75,37 @@ namespace PZTools.Core.Windows
 
             Title = $"PZ Tools - {ProjectEngine.CurrentProject}";
             LoadLayout();
+        }
+
+        public void ApplyAppSettings()
+        {
+            UpdateFontSize();
+            UpdateWordWrap();
+        }
+
+        private void UpdateFontSize()
+        {
+            try
+            {
+                const int defaultSize = 14;
+
+                var fontSize = Config.GetAppSetting<double>("EditorFontSize");
+                this.Resources["EditorFontSize"] = fontSize;
+
+                // Also apply directly to known controls as a fallback
+                if (LuaEditor != null) LuaEditor.FontSize = fontSize;
+                if (ConsoleOutput != null) ConsoleOutput.FontSize = fontSize;
+            }
+            catch
+            {
+                this.Resources["EditorFontSize"] = 14.0;
+            }
+        }
+
+        private void UpdateWordWrap()
+        {
+            var enableWordWrap = Config.GetAppSetting<bool>("EditorWordWrap");
+            LuaEditor.WordWrap = enableWordWrap;
         }
 
         private async void UndoRedo_CommandExecuted(object? sender, UndoRedoEventArgs e)
@@ -142,6 +184,8 @@ namespace PZTools.Core.Windows
             ProjectTreeView.AddHandler(TreeViewItem.ExpandedEvent, new RoutedEventHandler(ProjectTreeView_ItemExpanded));
             ProjectTreeView.AddHandler(TreeViewItem.CollapsedEvent, new RoutedEventHandler(ProjectTreeView_ItemCollapsed));
 
+            if (ProjectTreeView.ContextMenu == null)
+                ProjectTreeView.ContextMenu = new ContextMenu();
 
             foreach (var target in ModProject.Targets)
             {
@@ -155,7 +199,32 @@ namespace PZTools.Core.Windows
                 await WriteToConsole(msg);
             }
 
-            Console.OnLogMessage += async (s, msg) => await WriteToConsole(msg);
+            Console.OnLogMessage += async (s, msg) => { if (this.IsVisible) { await WriteToConsole(msg); } };
+        }
+
+        private void Window_Closing(object sender, CancelEventArgs e)
+        {
+            isClosing = true;
+            if (Config.GetAppSetting<bool>("ConfirmOnExit") && !reloading)
+            {
+                var result = MessageBox.Show(
+                    "Are you sure you want to exit?",
+                    "Confirm Exit",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question);
+
+                if (result != MessageBoxResult.Yes)
+                {
+                    e.Cancel = true;
+                }
+            }
+
+            if (!e.Cancel && !reloading) App.CloseApp();
+        }
+
+        public void LoadSettings()
+        {
+
         }
 
         public void SaveLayout()
@@ -166,12 +235,12 @@ namespace PZTools.Core.Windows
                 LayoutProperties.ActualWidth,
                 LayoutConsole.ActualHeight);
 
-            Config.StoreObject(VariableType.user, "MainWindowLayout", layoutSetting);
+            Config.StoreObject(VariableType.system, "MainWindowLayout", layoutSetting);
         }
 
         public void LoadLayout()
         {
-            var saved = Config.GetObject<LayoutSettings>(VariableType.user, "MainWindowLayout");
+            var saved = Config.GetObject<LayoutSettings>(VariableType.system, "MainWindowLayout");
             if (saved == null) return;
 
             double total = saved.ExplorerWidth + saved.EditorWidth + saved.PropertiesWidth;
@@ -218,7 +287,7 @@ namespace PZTools.Core.Windows
             if (currentFull != null && string.Equals(currentFull, fullPath, StringComparison.OrdinalIgnoreCase))
                 return current;
 
-            foreach (var c in current.Children)
+            foreach (var c in current.Children.Where(x => !Double.TryParse(x.Name, out _)))
             {
                 var found = FindNodeByPathRecursive(c, fullPath);
                 if (found != null) return found;
@@ -623,7 +692,7 @@ namespace PZTools.Core.Windows
             });
 
             if (ext != null && ext.Equals(".lua", StringComparison.OrdinalIgnoreCase))
-                await LuaTester.Test(text);
+                await LuaTester.Test(text, path);
 
         }
 
@@ -677,7 +746,7 @@ namespace PZTools.Core.Windows
                         LuaEditor.Text = text;
                         LoadHighlighting(extension);
 
-                        if (extension == ".lua") await LuaTester.Test(text);
+                        if (extension == ".lua") await LuaTester.Test(text, OpenedFilePath);
                     }
                     catch
                     {
@@ -708,7 +777,7 @@ namespace PZTools.Core.Windows
             }
             else if (selected is ModTarget target)
             {
-                if (target.Build == 0) txtPropName.Text = ProjectEngine.CurrentProject.Name;
+                if (target.Build == ZomboidGame.latestStableBuild) txtPropName.Text = ProjectEngine.CurrentProject.Name;
                 else txtPropName.Text = $"Build {target.Build}";
 
                 txtPropPath.Text = target.Path;
@@ -753,7 +822,6 @@ namespace PZTools.Core.Windows
             }
         }
 
-
         private void ProjectTreeView_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
             if (ProjectTreeView.SelectedItem is ProjectFileNode node)
@@ -762,7 +830,13 @@ namespace PZTools.Core.Windows
                 {
                     try
                     {
-                        WindowsHelpers.OpenFile(node.Path);
+                        var defaultApp = Config.GetAppSetting<string>("DefaultFileEditorApp");
+                        if (defaultApp == null) defaultApp = "";
+
+                        var defaultAppArgs = Config.GetAppSetting<string>("DefaultFileEditorArgs");
+                        if (defaultAppArgs == null) defaultAppArgs = "";
+
+                        WindowsHelpers.OpenFile(node.Path, defaultApp, defaultAppArgs);
                     }
                     catch (Exception ex)
                     {
@@ -812,66 +886,78 @@ namespace PZTools.Core.Windows
             StopFolderWatcher(full);
         }
 
-
         private void ProjectTreeView_ContextMenuOpening(object sender, ContextMenuEventArgs e)
         {
             var original = e.OriginalSource as DependencyObject;
             var tvi = VisualUpwardSearch<TreeViewItem>(original);
+            ProjectFileNode? fileNode = null;
+            ModTarget? modTargetNode = null;
 
-            if (tvi == null)
+            bool isTreeHeader = false;
+
+            if (tvi?.DataContext is not ProjectFileNode)
             {
-                e.Handled = true;
-                ProjectTreeView.ContextMenu = null;
-                return;
+                isTreeHeader = true;
+                modTargetNode = tvi?.DataContext as ModTarget;
             }
+            else fileNode = tvi?.DataContext as ProjectFileNode;
 
-            var node = tvi.DataContext as ProjectFileNode;
-            if (node == null)
+            tvi.IsSelected = true;
+            tvi.Focus();
+
+            var menu = ProjectTreeView.ContextMenu ??= new ContextMenu();
+            menu.Items.Clear();
+
+            if (isTreeHeader)
             {
-                e.Handled = true;
-                ProjectTreeView.ContextMenu = null;
-                return;
-            }
+                var miAddTarget = new MenuItem { Header = "Add Target", DataContext = modTargetNode };
+                miAddTarget.Click += Context_AddTarget_Click;
+                menu.Items.Add(miAddTarget);
 
-            var menu = new ContextMenu();
-
-            if (node.IsFolder)
-            {
-                var miNewFile = new MenuItem { Header = "New File..." };
-                miNewFile.DataContext = node;
-                miNewFile.Click += Context_NewFile_Click;
-                menu.Items.Add(miNewFile);
-
-                var miNewFolder = new MenuItem { Header = "New Folder..." };
-                miNewFolder.DataContext = node;
-                miNewFolder.Click += Context_NewFolder_Click;
-                menu.Items.Add(miNewFolder);
+                var miRemoveTarget = new MenuItem { Header = "Remove Target", DataContext = modTargetNode };
+                miRemoveTarget.Click += Context_RemoveTarget_Click;
+                menu.Items.Add(miRemoveTarget);
             }
             else
             {
-                var miEdit = new MenuItem { Header = "Edit File" };
-                miEdit.DataContext = node;
-                miEdit.Click += Context_EditFile_Click;
-                menu.Items.Add(miEdit);
-
-                if (node.Name.EndsWith(".lua"))
+                if (fileNode.IsFolder)
                 {
-                    var miTestLua = new MenuItem { Header = "Test LUA File" };
-                    miTestLua.DataContext = node;
-                    miTestLua.Click += Context_TestFile_Click;
-                    menu.Items.Add(miTestLua);
+                    var miNewFile = new MenuItem { Header = "New File...", DataContext = fileNode };
+                    miNewFile.Click += Context_NewFile_Click;
+                    menu.Items.Add(miNewFile);
+
+                    var miNewFolder = new MenuItem { Header = "New Folder...", DataContext = fileNode };
+                    miNewFolder.Click += Context_NewFolder_Click;
+                    menu.Items.Add(miNewFolder);
+                }
+                else
+                {
+                    var miEdit = new MenuItem { Header = "Edit File", DataContext = fileNode };
+                    miEdit.Click += Context_EditFile_Click;
+                    menu.Items.Add(miEdit);
+
+                    if (fileNode.Name.EndsWith(".lua", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var miTestLua = new MenuItem { Header = "Test LUA File", DataContext = fileNode };
+                        miTestLua.Click += Context_TestFile_Click;
+                        menu.Items.Add(miTestLua);
+                    }
+
+                    var miRename = new MenuItem { Header = "Rename File", DataContext = fileNode };
+                    miRename.Click += Context_RenameFile_Click;
+                    menu.Items.Add(miRename);
                 }
 
+                var miShow = new MenuItem { Header = "Show In File Explorer", DataContext = fileNode };
+                miShow.Click += Context_Show_Click;
+                menu.Items.Add(miShow);
 
+                var miDelete = new MenuItem { Header = "Delete", DataContext = fileNode };
+                miDelete.Click += Context_Delete_Click;
+                menu.Items.Add(miDelete);
             }
-
-            var miDelete = new MenuItem { Header = "Delete" };
-            miDelete.DataContext = node;
-            miDelete.Click += Context_Delete_Click;
-            menu.Items.Add(miDelete);
-
-            ProjectTreeView.ContextMenu = menu;
         }
+
 
         private async void Context_NewFile_Click(object sender, RoutedEventArgs e)
         {
@@ -919,13 +1005,21 @@ namespace PZTools.Core.Windows
                     MessageBox.Show("File already exists.", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
+                string initialContent = string.Empty;
 
-                var initialContent = ext.ToLower() switch
+                if (ext.ToLower() == ".lua")
                 {
-                    ".lua" => "-- New Lua file\r\n",
-                    ".info" => $"name={name}\r\nid={name.Replace(" ", "")}\r\ndescription=Created by PZTools\r\n",
-                    _ => string.Empty
-                };
+                    initialContent = "-- A New Lua file\r\n";
+                    var watermark = Config.GetVariable(VariableType.user, $"{ProjectEngine.CurrentProject.Name}-watermark");
+                    if (!string.IsNullOrEmpty(watermark))
+                    {
+                        initialContent = watermark;
+                    }
+                }
+                else if (ext.ToLower() == ".info")
+                {
+                    initialContent = $"name={name}\r\nid={name.Replace(" ", "")}\r\ndescription=Created by PZTools\r\n";
+                }
 
                 var cmd = new FileCreateCommand(targetPath, initialContent);
                 await UndoRedoManager.Instance.ExecuteAsync(cmd);
@@ -949,7 +1043,7 @@ namespace PZTools.Core.Windows
         {
             var fe = sender as FrameworkElement;
             var node = fe?.DataContext as ProjectFileNode;
-            if (node == null || node.IsFolder)
+            if (node == null || !node.IsFolder)
                 return;
 
             var fields = new[]
@@ -1000,6 +1094,85 @@ namespace PZTools.Core.Windows
             }
         }
 
+        private async void Context_AddTarget_Click(object sender, RoutedEventArgs e)
+        {
+            var fields = new[]
+            {
+                new InputFieldDefinition
+                {
+                    Key = "newTargetBuild",
+                    Label = "New Target Build",
+                    IsRequired = true
+                }
+            };
+
+            var inputDialogs = new InputDialogs("Enter new Target Build:", fields, "Add Target Build");
+            if (inputDialogs.ShowDialog() == true)
+            {
+                string newTargetName = inputDialogs.TryGetResponse("newTargetBuild");
+                double newBuild = 0;
+
+                if (!double.TryParse(newTargetName, out newBuild))
+                {
+                    MessageBox.Show("Invalid build target!", "Invalid Build Target", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+
+                if (newBuild < ZomboidGame.latestStableBuild)
+                {
+                    MessageBox.Show($"Older Build Target than latest ({ZomboidGame.latestStableBuild}) is unsupported.", "Old Build Target?", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+
+                if (ProjectEngine.CurrentProject.Targets.Any(x => x.Build == newBuild))
+                {
+                    MessageBox.Show($"Build {newBuild} is already supported within this project.", "Already targeting build!", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+
+                var targetPath = Path.Combine(ProjectEngine.CurrentProjectPath, newTargetName);
+                ProjectEngine.CreateModFolderStructure(targetPath);
+                var modTarget = new ModTarget()
+                {
+                    Build = newBuild,
+                    Path = targetPath
+                };
+
+                ProjectEngine.CurrentProject.Targets.Add(modTarget);
+
+                modTarget.LoadFiles();
+
+                UpdateTreeView();
+            }
+        }
+
+        private async void Context_RemoveTarget_Click(object sender, RoutedEventArgs e)
+        {
+            var fe = sender as FrameworkElement;
+            var node = fe?.DataContext as ModTarget;
+            if (node == null)
+                return;
+
+            if (node.Build == ZomboidGame.latestStableBuild)
+            {
+                MessageBox.Show("You cannot remove the latest stable build target from the project.", "Remove Target", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var result = MessageBox.Show("Are you sure you would like to remove this supported target? \n\n(Warning: This will delete any data under these build within your project)", "Remove Target", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+            if (result == MessageBoxResult.Yes)
+            {
+
+                if (Directory.Exists(node.Path))
+                {
+                    var cmd = new TargetDeleteCommand(node.Build);
+                    await UndoRedoManager.Instance.ExecuteAsync(cmd);
+                }
+            }
+
+            
+        }
+
         private async void Context_TestFile_Click(object sender, RoutedEventArgs e)
         {
             var fe = sender as FrameworkElement;
@@ -1010,6 +1183,16 @@ namespace PZTools.Core.Windows
             await LuaTester.TestFile(node.Path);
         }
 
+        private void Context_Show_Click(object sender, RoutedEventArgs e)
+        {
+            var fe = sender as FrameworkElement;
+            var node = fe?.DataContext as ProjectFileNode;
+            if (node == null)
+                return;
+
+            WindowsHelpers.ShowInExplorer(node.Path);
+        }
+
         private void Context_EditFile_Click(object sender, RoutedEventArgs e)
         {
             var fe = sender as FrameworkElement;
@@ -1017,7 +1200,53 @@ namespace PZTools.Core.Windows
             if (node == null)
                 return;
 
-            WindowsHelpers.OpenFile(node.Path);
+            var defaultApp = Config.GetAppSetting<string>("DefaultFileEditorApp");
+            if (defaultApp == null) defaultApp = "";
+
+            var defaultAppArgs = Config.GetAppSetting<string>("DefaultFileEditorArgs");
+            if (defaultAppArgs == null) defaultAppArgs = "";
+
+            WindowsHelpers.OpenFile(node.Path, defaultApp, defaultAppArgs);
+        }
+
+        private async void Context_RenameFile_Click(object sender, RoutedEventArgs e)
+        {
+            var fe = sender as FrameworkElement;
+            var node = fe?.DataContext as ProjectFileNode;
+            if (node == null)
+                return;
+
+            var fields = new[]
+            {
+                new InputFieldDefinition
+                {
+                    Key = "newFileName",
+                    Label = "File Name",
+                    IsRequired = true,
+                    DefaultValue = new FileInfo(node.Path).Name
+                }
+            };
+
+            var inputDialogs = new InputDialogs("Enter new file name:", fields, "Rename File");
+            if (inputDialogs.ShowDialog() == true)
+            {
+                string newFileName = inputDialogs.TryGetResponse("newFileName");
+                string parentDir = Directory.GetParent(node.Path).FullName;
+                string newPath = Path.Combine(parentDir, newFileName);
+
+                try
+                {
+                    var cmd = new FileMoveCommand(node.Path, newPath);
+                    await UndoRedoManager.Instance.ExecuteAsync(cmd);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Failed to rename file: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+
+                RemoveProjectTreeNode(node);
+                UpdateProjectTreeNodeParent(node, FindNodeByPath(parentDir));
+            }
         }
 
         private async void Context_Delete_Click(object sender, RoutedEventArgs e)
@@ -1035,7 +1264,7 @@ namespace PZTools.Core.Windows
                 if (node.IsFolder)
                 {
                     var confirmFolder = MessageBox.Show($"Are you sure you want to delete this folder '{node.Name}' and all it's contents? (this can't be un-done)", "Delete", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-                    if (confirm != MessageBoxResult.Yes) return;
+                    if (confirmFolder != MessageBoxResult.Yes) return;
 
                     if (Directory.Exists(node.Path))
                     {
@@ -1052,17 +1281,7 @@ namespace PZTools.Core.Windows
                     }
                 }
 
-                var parent = FindParent(node);
-                if (parent != null)
-                    parent.Children.Remove(node);
-                else
-                {
-                    foreach (var t in ModProject.Targets)
-                    {
-                        if (t.FileTree != null && t.FileTree.Children.Remove(node))
-                            break;
-                    }
-                }
+                RemoveProjectTreeNode(node);
             }
             catch (Exception ex)
             {
@@ -1083,6 +1302,16 @@ namespace PZTools.Core.Windows
             {
                 _draggedNode = null;
             }
+        }
+
+        private void ProjectTreeView_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            var dep = e.OriginalSource as DependencyObject;
+            var tvi = VisualUpwardSearch<TreeViewItem>(dep);
+            if (tvi == null) return;
+
+            tvi.IsSelected = true;
+            tvi.Focus();
         }
 
         private void ProjectTreeView_MouseMove(object sender, MouseEventArgs e)
@@ -1168,29 +1397,79 @@ namespace PZTools.Core.Windows
                 }
 
                 // remove from old parent
-                var oldParent = FindParent(dragged);
-                if (oldParent != null)
-                    oldParent.Children.Remove(dragged);
-                else
-                {
-                    foreach (var t in ModProject.Targets)
-                    {
-                        if (t.FileTree != null && t.FileTree.Children.Remove(dragged))
-                            break;
-                    }
-                }
+                RemoveProjectTreeNode(dragged);
 
                 // update node paths and add to destination
                 dragged.Path = destPath;
-                UpdatePathsRecursively(dragged);
-
-                targetNode.Children.Add(dragged);
+                UpdateProjectTreeNodeParent(dragged, targetNode);
             }
             catch (System.Exception ex)
             {
                 MessageBox.Show($"Failed to move: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
+
+        private TreeViewItem? GetTreeViewItemByPath(string path)
+        {
+            var full = SafeFullPath(path);
+            if (full == null)
+                return null;
+
+            foreach (var item in ProjectTreeView.Items)
+            {
+                if (item is ModTarget target)
+                {
+                    if (target.FileTree == null)
+                        continue;
+
+                    var container = ProjectTreeView
+                        .ItemContainerGenerator
+                        .ContainerFromItem(target) as TreeViewItem;
+
+                    if (container == null)
+                        continue;
+
+                    var result = GetTreeViewItemByPathRecursive(container, full);
+                    if (result != null)
+                        return result;
+                }
+            }
+
+            return null;
+        }
+
+        private TreeViewItem? GetTreeViewItemByPathRecursive(TreeViewItem parent, string fullPath)
+        {
+            if (parent.DataContext is ProjectFileNode node)
+            {
+                var nodeFull = SafeFullPath(node.Path);
+                if (nodeFull != null &&
+                    string.Equals(nodeFull, fullPath, StringComparison.OrdinalIgnoreCase))
+                {
+                    return parent;
+                }
+            }
+
+            if (!parent.IsExpanded)
+                return null;
+
+            foreach (var child in parent.Items)
+            {
+                var childContainer = parent
+                    .ItemContainerGenerator
+                    .ContainerFromItem(child) as TreeViewItem;
+
+                if (childContainer == null)
+                    continue;
+
+                var result = GetTreeViewItemByPathRecursive(childContainer, fullPath);
+                if (result != null)
+                    return result;
+            }
+
+            return null;
+        }
+
 
         private TreeViewItem? GetNearestContainer(UIElement? element)
         {
@@ -1244,6 +1523,12 @@ namespace PZTools.Core.Windows
             return false;
         }
 
+        public void UpdateTreeView()
+        {
+            ProjectEngine.CurrentProject.Targets[0].LoadFiles();
+            ProjectTreeView.Items.Refresh();
+        }
+
         private void UpdatePathsRecursively(ProjectFileNode node)
         {
             if (node.IsFolder)
@@ -1252,6 +1537,56 @@ namespace PZTools.Core.Windows
                 {
                     child.Path = Path.Combine(node.Path, child.Name);
                     UpdatePathsRecursively(child);
+                }
+            }
+        }
+
+        private void RemoveProjectTreeNode(ProjectFileNode node)
+        {
+            var parent = FindParent(node);
+            if (parent != null)
+                parent.Children.Remove(node);
+            else
+            {
+                foreach (var t in ModProject.Targets)
+                {
+                    if (t.FileTree != null && t.FileTree.Children.Remove(node))
+                        break;
+                }
+            }
+        }
+
+        private void UpdateProjectTreeNodeParent(ProjectFileNode node, ProjectFileNode parent)
+        {
+            UpdatePathsRecursively(node);
+            parent.Children.Add(node);
+        }
+
+        private void DeployProject_Click(object sender, RoutedEventArgs e)
+        {
+            ProjectDeployer.DeployProject(DeployFolder.Workshop);
+        }
+
+        private async void RunGame_Click(object sender, RoutedEventArgs e)
+        {
+            if (ZomboidGame.IsGameRunning())
+            {
+                await ZomboidGame.StopGame();
+            }
+            else
+            {
+                bool showWindow = true;
+                var showSettingsWindow = Config.GetVariable(VariableType.user, "showRunWindowBeforeLaunch");
+                if (!string.IsNullOrEmpty(showSettingsWindow))
+                {
+                    bool.TryParse(showSettingsWindow, out showWindow);
+                }
+
+                var runGameWindow = new RunProject(showWindow);
+                runGameWindow.ShowDialog();
+                if (ZomboidGame.IsGameRunning())
+                {
+                    RunGameBtn.Content = "Stop Game";
                 }
             }
         }

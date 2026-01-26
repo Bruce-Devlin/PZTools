@@ -1,5 +1,7 @@
 using PZTools.Core.Functions;
 using PZTools.Core.Functions.Logger;
+using PZTools.Core.Functions.Theme;
+using PZTools.Core.Functions.Update;
 using PZTools.Core.Windows.Dialogs;
 using PZTools.Core.Windows.Dialogs.Project;
 using System.IO;
@@ -17,12 +19,19 @@ namespace PZTools.Core.Windows
             InitializeComponent();
         }
 
-
         private async void Window_Loaded(object sender, RoutedEventArgs e)
         {
             bool success = false;
             await this.Log("Started preloading...");
-            if (await CheckDirectories() && await CheckZomboid() && await CheckProjects()) success = true;
+            if (await CheckDirectories()) success = true;
+
+            await Config.PrintAppSettings();
+            await ThemeManager.ApplyThemeFromSettings();
+            await CheckForUpdates();
+
+            if (await CheckProjects()) success = true;
+            else success = false;
+
             DonePreloading(success);
         }
 
@@ -38,15 +47,20 @@ namespace PZTools.Core.Windows
                 await this.Log("App setup and ready for restart.");
 
                 WindowsHelpers.OpenFile(Path.Combine(AppPaths.CurrentDirectoryPath, "PZTools.exe"));
-                Environment.Exit(0);
+                App.CloseApp();
             }
             return true;
         }
 
-        private async Task<bool> CheckZomboid()
+        private async Task CheckForUpdates()
         {
-            await this.Log("Checking Project Zomboid game files...");
-            return true;
+            if (Config.GetAppSetting<bool>("CheckUpdatesOnStartup"))
+            {
+                if (await AppUpdater.CheckForUpdates())
+                {
+                    await AppUpdater.StartUpdate();
+                }
+            }
         }
 
         private async Task<bool> CheckProjects()
@@ -66,7 +80,7 @@ namespace PZTools.Core.Windows
                 await this.Log("Preloading complete, opening main window.");
                 this.Close();
             }
-            else Environment.Exit(0);
+            else App.CloseApp();
         }
     }
 }

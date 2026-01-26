@@ -1,3 +1,4 @@
+using PZTools.Core.Functions;
 using PZTools.Core.Functions.Logger;
 using PZTools.Core.Functions.Projects;
 using PZTools.Core.Models.Commands;
@@ -13,6 +14,8 @@ namespace PZTools
     {
         public static MainWindow MainWindow = null;
         public static bool IsDebug { get; private set; } = false;
+        public static bool IsInHome { get; private set; } = false;
+
         public static string[] CommandLineArgs => Environment.GetCommandLineArgs();
         public static Task cliTask;
         public static CancellationTokenSource cliCancelToken;
@@ -44,17 +47,18 @@ namespace PZTools
         public static void ReloadApp()
         {
             Preloader preloader = new Preloader();
+            MainWindow.reloading = true;
             MainWindow.Close();
             preloader.Show();
             ProjectEngine.Cleanup();
         }
 
-        public static void CloseApp()
+        public static void CloseApp(int exitCode = 0)
         {
             cliCancelToken.Cancel();
-            MainWindow.Close();
+            if (MainWindow != null && !MainWindow.isClosing) MainWindow.Close();
 
-            System.Windows.Application.Current.Shutdown();
+            System.Windows.Application.Current.Shutdown(exitCode);
         }
 
         private async void Application_Startup(object sender, StartupEventArgs e)
@@ -62,12 +66,27 @@ namespace PZTools
             await HandleExceptions();
 
             await this.Log("PZTools launching...");
+            await HandleArgs();
+        }
+
+        private async Task HandleArgs()
+        {
             await this.Log($"Launch args: {string.Join("\", \"", CommandLineArgs)}");
-            if (CommandLineArgs.Contains("--debug"))
+            foreach (var arg in CommandLineArgs)
             {
-                IsDebug = true;
-                LogHelper.Show();
-                await this.Log("Debug Mode Enabled");
+                switch (arg)
+                {
+                    case "--debug":
+                        IsDebug = true;
+                        LogHelper.Show();
+                        await this.Log("Debug Mode Enabled");
+                        break;
+                    case "--isInHome":
+                        IsInHome = true;
+                        Config.SetAppSetting("AppInstallPath", AppPaths.CurrentDirectoryPath);
+                        await this.Log("Flagged this folder as AppPath");
+                        break;
+                }
             }
         }
 
@@ -100,6 +119,11 @@ namespace PZTools
         private static void Application_ThreadException(object sender, System.Threading.ThreadExceptionEventArgs e)
         {
             Console.Log($"Thread Error! - {e.Exception.Message}\r\n{e.Exception.StackTrace}", Console.LogLevel.Error);
+        }
+
+        private void Application_Exit(object sender, ExitEventArgs e)
+        {
+
         }
     }
 

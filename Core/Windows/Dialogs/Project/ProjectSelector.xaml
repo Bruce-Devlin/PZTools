@@ -7,7 +7,8 @@
         WindowStartupLocation="CenterScreen"
         ResizeMode="NoResize"
         Background="{x:Null}"
-        Foreground="{StaticResource Brush.TextPrimary}" WindowStyle="None" AllowsTransparency="True">
+        Foreground="{StaticResource Brush.TextPrimary}" WindowStyle="None" AllowsTransparency="True"
+        Icon="/Core/Assets/Icons/PZToolsIcon.png">
 
     <Grid Margin="18">
         <Border Style="{StaticResource Card}">

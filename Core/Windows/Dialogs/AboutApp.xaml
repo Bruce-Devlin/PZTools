@@ -11,10 +11,11 @@
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
         Background="{x:Null}"
-        Foreground="{StaticResource Brush.TextPrimary}" WindowStyle="None" AllowsTransparency="True">
+        Foreground="{DynamicResource Brush.TextPrimary}" WindowStyle="None" AllowsTransparency="True"
+        Icon="/Core/Assets/Icons/PZToolsIcon.png">
 
     <Grid Margin="18">
-        <Border Style="{StaticResource Card}">
+        <Border Style="{DynamicResource Card}">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
@@ -28,10 +29,10 @@
                     <TextBlock Text="PZ Tools"
                                FontSize="28"
                                FontWeight="SemiBold"
-                               Foreground="{StaticResource Brush.TextPrimary}"/>
+                               Foreground="{DynamicResource Brush.TextPrimary}"/>
 
                     <TextBlock Text="Project Zomboid Modding Toolkit"
-                               Style="{StaticResource Text.Muted}"
+                               Style="{DynamicResource Text.Muted}"
                                FontSize="14"
                                Margin="0,4,0,0"/>
                 </StackPanel>
@@ -40,52 +41,56 @@
                 <StackPanel Grid.Row="1" Margin="0,0,0,12">
 
                     <TextBlock Text="Version"
-                               Foreground="{StaticResource Brush.TextMuted}"
+                               Foreground="{DynamicResource Brush.TextMuted}"
                                FontWeight="Bold"/>
 
                     <!-- If you prefer true accent here, swap Brush.TextInfo -> Brush.Accent -->
                     <TextBlock Text="1.0.0"
-                               Foreground="{StaticResource Brush.TextInfo}"
+                               Foreground="{DynamicResource Brush.TextInfo}"
                                Margin="0,0,0,12"/>
 
                     <TextBlock Text="Description"
-                               Foreground="{StaticResource Brush.TextMuted}"
+                               Foreground="{DynamicResource Brush.TextMuted}"
                                FontWeight="Bold"/>
 
                     <TextBlock Text="PZ Tools is a lightweight development environment designed to simplify Project Zomboid project creation, testing, and file management."
-                               Foreground="{StaticResource Brush.TextPrimary}"
+                               Foreground="{DynamicResource Brush.TextPrimary}"
+                               TextWrapping="Wrap"
+                               Margin="0,0,0,12"/>
+                    <TextBlock Text="As a big fan of Project Zomoid and a game modder, I thought traditional IDE's lacked a lot of the robust support needed for Project Zomboid modding, especially for people looking to learn. Enter PZTools, an app with everything you need at your finger-tips!"
+                               Foreground="{DynamicResource Brush.TextPrimary}"
                                TextWrapping="Wrap"
                                Margin="0,0,0,12"/>
 
                     <TextBlock Text="Developer"
-                               Foreground="{StaticResource Brush.TextMuted}"
+                               Foreground="{DynamicResource Brush.TextMuted}"
                                FontWeight="Bold"/>
 
                     <TextBlock Text="Bruce Devlin"
-                               Foreground="{StaticResource Brush.TextPrimary}"
+                               Foreground="{DynamicResource Brush.TextPrimary}"
                                Margin="0,0,0,12"/>
 
                     <TextBlock Text="Tech Stack"
-                               Foreground="{StaticResource Brush.TextMuted}"
+                               Foreground="{DynamicResource Brush.TextMuted}"
                                FontWeight="Bold"/>
 
                     <TextBlock Text="C# • WPF • AvalonEdit • Lua/MoonSharp • .NET"
-                               Foreground="{StaticResource Brush.TextPrimary}" 
+                               Foreground="{DynamicResource Brush.TextPrimary}" 
                                Margin="0,0,0,12"/>
 
                     <TextBlock Text="The Legal Bit"
-                               Foreground="{StaticResource Brush.TextMuted}"
+                               Foreground="{DynamicResource Brush.TextMuted}"
                                FontWeight="Bold"/>
                     
-                    <TextBlock Text="This application is an independent, unofficial, third-party project and is not affiliated with, endorsed by, or sponsored by The Indie Stone. Project Zomboid, The Indie Stone, and all related names, logos, assets, and trademarks are the property of their respective owners. All rights are reserved. Any references to Project Zomboid or related content are used solely for identification and compatibility purposes. No ownership or association is claimed or implied."
-                               Foreground="{StaticResource Brush.TextPrimary}"
+                    <TextBlock Text="This application is an independent, unofficial, third-party fan project and is not affiliated with, endorsed by, or sponsored by The Indie Stone. Project Zomboid, The Indie Stone, and all related names, logos, assets, and trademarks are the property of their respective owners. All rights are reserved. Any references to Project Zomboid or related content are used solely for identification and compatibility purposes. No ownership or association is claimed or implied. This project will always be free and open source."
+                               Foreground="{DynamicResource Brush.TextPrimary}"
                                TextWrapping="Wrap"
                                Margin="0,0,0,12"/>
 
                 </StackPanel>
 
                 <Border Grid.Row="4"
-                        Background="{StaticResource Brush.Border}"
+                        Background="{DynamicResource Brush.Border}"
                         Height="1"
                         VerticalAlignment="Top"/>
 
@@ -98,12 +103,12 @@
                     <Button Content="GitHub"
                             Width="110"
                             Margin="0,0,10,0"
-                            Style="{StaticResource ModernButton}"
+                            Style="{DynamicResource ModernButton}"
                             Click="GitHub_Click"/>
 
                     <Button Content="Close"
                             Width="110"
-                            Style="{StaticResource PrimaryButton}"
+                            Style="{DynamicResource PrimaryButton}"
                             IsCancel="True"
                             Click="Close_Click"/>
                 </StackPanel>

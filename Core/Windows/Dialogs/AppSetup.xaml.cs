@@ -1,5 +1,6 @@
 using PZTools.Core.Functions;
 using PZTools.Core.Functions.Decompile;
+using PZTools.Core.Functions.Steam;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
@@ -15,6 +16,7 @@ namespace PZTools.Core.Windows.Dialogs
         public AppSetup()
         {
             InitializeComponent();
+            this.FreeDragThisWindow();
         }
 
         private void Window_Loaded(object sender, RoutedEventArgs e)
@@ -54,7 +56,7 @@ namespace PZTools.Core.Windows.Dialogs
         #region Browse Buttons
         private void BrowseAppInstallButton_Click(object sender, RoutedEventArgs e)
         {
-            string path = OpenFolderBrowser("Select installation folder for PZ Tools (this should be a new folder)");
+            string path = WindowsHelpers.OpenFolderBrowser("Select installation folder for PZ Tools (this should be a new folder)");
             if (!string.IsNullOrEmpty(path))
             {
                 if (Directory.GetFiles(path).Length > 0) { MessageBox.Show("The selected folder is not empty. Please select an empty folder for installation.", "Invalid Folder", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
@@ -64,7 +66,7 @@ namespace PZTools.Core.Windows.Dialogs
 
         private void BrowseGameInstallButton_Click(object sender, RoutedEventArgs e)
         {
-            string path = OpenFolderBrowser("Select existing Project Zomboid installation");
+            string path = WindowsHelpers.OpenFolderBrowser("Select existing Project Zomboid installation");
             if (!string.IsNullOrEmpty(path))
             {
                 txtExistingGamePath.Text = path;
@@ -73,25 +75,11 @@ namespace PZTools.Core.Windows.Dialogs
 
         private void BrowseManagedGamePath_Click(object sender, RoutedEventArgs e)
         {
-            string path = OpenFolderBrowser("Select folder for PZ Tools managed installations");
+            string path = WindowsHelpers.OpenFolderBrowser("Select folder for PZ Tools managed installations");
             if (!string.IsNullOrEmpty(path))
             {
                 txtManagedGamePath.Text = path;
             }
-        }
-
-        private string OpenFolderBrowser(string description)
-        {
-            using (var Dialogs = new FolderBrowserDialog())
-            {
-                Dialogs.Description = description;
-                Dialogs.ShowNewFolderButton = true;
-                if (Dialogs.ShowDialog() == System.Windows.Forms.DialogResult.OK)
-                {
-                    return Dialogs.SelectedPath;
-                }
-            }
-            return null;
         }
         #endregion
 
@@ -182,7 +170,7 @@ namespace PZTools.Core.Windows.Dialogs
         private void SaveSettings()
         {
             Functions.Config.SetAppSetting("AppInstallPath", txtAppInstallPath.Text);
-            Functions.Config.SetAppSetting("GameMode", rdoExistingGame.IsChecked == true ? "existing" : "managed");
+            Functions.Config.SetAppSetting("GameMode", rdoExistingGame.IsChecked == true ? "Existing" : "Managed");
 
             if (rdoExistingGame.IsChecked == true)
                 Functions.Config.SetAppSetting("ExistingGamePath", txtExistingGamePath.Text);
@@ -227,45 +215,20 @@ namespace PZTools.Core.Windows.Dialogs
                 await Console.Log($"Start menu shortcut created at {shortcutPath}");
             }
 
-
             if (managed)
             {
                 UpdateSetupStatus("Setting up managed Project Zomboid installations...", 20);
                 string steamCmdDir = Path.Combine(installDir, "SteamCMD");
-                Directory.CreateDirectory(steamCmdDir);
 
-                string steamCmdExe = Path.Combine(steamCmdDir, "steamcmd.exe");
-
-                if (!File.Exists(steamCmdExe))
+                SteamInstaller steamInstaller = new SteamInstaller();
+                steamInstaller.onSteamMessage += (s, msg) =>
                 {
-                    UpdateSetupStatus("Downloading SteamCMD...", 25);
-                    using (var client = new HttpClient())
+                    Dispatcher.Invoke(() =>
                     {
-                        var steamCmdZipUrl = "https://steamcdn-a.akamaihd.net/client/installer/steamcmd.zip";
-                        var zipBytes = await client.GetByteArrayAsync(steamCmdZipUrl);
-                        var zipPath = Path.Combine(steamCmdDir, "steamcmd.zip");
-                        await File.WriteAllBytesAsync(zipPath, zipBytes);
-
-                        System.IO.Compression.ZipFile.ExtractToDirectory(zipPath, steamCmdDir, true);
-                        File.Delete(zipPath);
-
-                        await Console.Log("SteamCMD downloaded and extracted.");
-
-                    }
-                }
-
-                UpdateSetupStatus("Setting up SteamCMD...", 30);
-                var setupSteamCMD = new ProcessStartInfo
-                {
-                    FileName = steamCmdExe,
-                    WorkingDirectory = steamCmdDir,
-                    UseShellExecute = true,
-                    Arguments = "+quit"
+                        UpdateSetupStatus(msg, 30);
+                    });
                 };
-
-                using var setupProc = Process.Start(setupSteamCMD);
-                setupProc.WaitForExit();
-
+                await steamInstaller.SetupSteamCMD(steamCmdDir);
 
                 var zomboidBranches = new Dictionary<string, string>
                 {
@@ -284,30 +247,13 @@ namespace PZTools.Core.Windows.Dialogs
                     string betaName = branch.Value;
 
                     string installDirVersion = Path.Combine(zomboidRoot, branchName);
-                    Directory.CreateDirectory(installDirVersion);
+                    string appId = "108600";
 
-                    await Console.Log($"Installing Project Zomboid [{branchName}]...");
-
-                    var installZomboid = new ProcessStartInfo
-                    {
-                        FileName = steamCmdExe,
-                        WorkingDirectory = steamCmdDir,
-                        UseShellExecute = true,
-                        Arguments =
-                            $"+login {steamUsername} " +
-                            $"+force_install_dir \"{installDirVersion}\" " +
-                            $"+app_update 108600 -beta {betaName} validate " +
-                            $"+quit"
-                    };
-
-                    using var installZombProc = Process.Start(installZomboid);
-                    installZombProc.WaitForExit();
-
-                    bool result = File.Exists(Path.Combine(installDirVersion, "projectzomboid.jar"));
-
-                    if (!result) installFailed = true;
+                    var result = await steamInstaller.InstallApp(appId, installDirVersion, steamUsername, betaName);
 
                     await Console.Log($"Finished installing: [{branchName}] (result={result}");
+
+                    if (!result) installFailed = true;
                 }
 
                 if (installFailed)
@@ -331,21 +277,12 @@ namespace PZTools.Core.Windows.Dialogs
                     return false;
                 }
 
-                try
-                {
-                    await JavaDecompiler.EnsureCfrInstalledAsync();
-                }
-                catch (Exception ex)
-                {
-                    await Console.Log("Failed to install CFR: " + ex.Message, Console.LogLevel.Error);
-                    return false;
-                }
 
                 UpdateSetupStatus("Decompiling source files... (this can take a while)", 65);
                 string sourcePath = Path.Combine(zomboidRoot, "Source");
                 Directory.CreateDirectory(sourcePath);
 
-                JavaDecompilerHelpers.UpdateSetupStatus += (s, status) => UpdateSetupStatus(status);
+                JavaDecompilerHelpers.OnDecompilerMessage += (s, status) => UpdateSetupStatus(status);
                 if (managed)
                 {
                     foreach (var dir in Directory.GetDirectories(zomboidRoot))
@@ -361,7 +298,7 @@ namespace PZTools.Core.Windows.Dialogs
                 {
                     return await JavaDecompilerHelpers.DecompileGame(existingGameDir);
                 }
-                JavaDecompilerHelpers.ClearUpdateStatusEvents();
+                JavaDecompilerHelpers.ClearDecompilerMessageEvents();
             }
 
             UpdateSetupStatus("Setup complete!", 100);

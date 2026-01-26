@@ -1,4 +1,7 @@
-﻿using PZTools.Core.Models.Commands;
+﻿using PZTools.Core.Functions.Projects;
+using PZTools.Core.Models;
+using PZTools.Core.Models.Commands;
+using System.Globalization;
 using System.IO;
 
 namespace PZTools.Core.Functions.Undo
@@ -74,6 +77,63 @@ namespace PZTools.Core.Functions.Undo
                 File.Copy(_backupTemp, Path, true);
                 try { File.Delete(_backupTemp); } catch { }
             }
+            return Task.CompletedTask;
+        }
+    }
+
+    public sealed class TargetDeleteCommand : IUndoableCommand
+    {
+        public double Target { get; }
+        private string TargetFolderName => Target.ToString("0.################", CultureInfo.InvariantCulture);
+
+        private string targetPath => Path.Combine(ProjectEngine.CurrentProjectPath, TargetFolderName);
+
+        private readonly string? _backupDir;
+        public string Description { get; }
+
+        public TargetDeleteCommand(double target)
+        {
+            Target = target;
+            Description = $"Delete build target: {TargetFolderName}";
+
+            if (Directory.Exists(targetPath))
+            {
+                _backupDir = Path.Combine(Path.GetTempPath(), "PZTools_TargetBackup", Guid.NewGuid().ToString("N"));
+                Directory.CreateDirectory(_backupDir);
+                WindowsHelpers.CopyDirectory(targetPath, _backupDir);
+            }
+        }
+
+        public Task ExecuteAsync()
+        {
+            ProjectEngine.CurrentProject.Targets.RemoveAll(t => t.Build == Target);
+
+            if (Directory.Exists(targetPath))
+                WindowsHelpers.DeleteDirectoryRobust(targetPath);
+
+            App.MainWindow.UpdateTreeView();
+
+            return Task.CompletedTask;
+        }
+
+        public Task UndoAsync()
+        {
+            if (!string.IsNullOrEmpty(_backupDir) && Directory.Exists(_backupDir))
+            {
+                if (Directory.Exists(targetPath))
+                    WindowsHelpers.DeleteDirectoryRobust(targetPath);
+
+                Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
+                WindowsHelpers.CopyDirectory(_backupDir, targetPath);
+
+                try { WindowsHelpers.DeleteDirectoryRobust(_backupDir); } catch { /* best-effort */ }
+                var target = new ModTarget { Build = Target, Path = targetPath };
+                ProjectEngine.CurrentProject.Targets.Add(target);
+                target.LoadFiles();
+
+                App.MainWindow.UpdateTreeView();
+            }
+
             return Task.CompletedTask;
         }
     }

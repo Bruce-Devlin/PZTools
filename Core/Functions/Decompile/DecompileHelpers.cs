@@ -5,14 +5,24 @@ namespace PZTools.Core.Functions.Decompile
 {
     internal class JavaDecompilerHelpers
     {
-        public static EventHandler<string> UpdateSetupStatus = new EventHandler<string>(delegate { });
-        public static void ClearUpdateStatusEvents()
+        public static EventHandler<string> OnDecompilerMessage = new EventHandler<string>(delegate { });
+        public static void ClearDecompilerMessageEvents()
         {
-            UpdateSetupStatus = new EventHandler<string>(delegate { });
+            OnDecompilerMessage = new EventHandler<string>(delegate { });
         }
 
         public static async Task<bool> DecompileGame(string gamePath, string build = "")
         {
+            try
+            {
+                await JavaDecompiler.EnsureCfrInstalledAsync();
+            }
+            catch (Exception ex)
+            {
+                await Console.Log("Failed to install CFR: " + ex.Message, Console.LogLevel.Error);
+                return false;
+            }
+
             string existingJarPath = Path.Combine(gamePath, "projectzomboid.jar");
             string zomboidRoot = Path.Combine(AppPaths.CurrentDirectoryPath, "Zomboid");
             if (!Directory.Exists(zomboidRoot)) Directory.CreateDirectory(zomboidRoot);
@@ -27,14 +37,19 @@ namespace PZTools.Core.Functions.Decompile
 
             string managedJar = Path.Combine(sourcePath, "projectzomboid.jar");
             string cfrPath = JavaDecompiler.CfrJarPath;
+            string javaPath = JavaDecompiler.FindJavaExecutable();
+            if (javaPath == null)
+            {
+                await Console.Log("Unable to decompile Jar files without JAVA. Please install Java and then try again.");
+            }
 
-            await JavaDecompiler.DecompileJarAsync(
-                existingJarPath,
+            var success = await JavaDecompiler.DecompileJarAsync(
+                javaPath,
                 cfrPath,
                 managedJar,
                 sourcePath,
-                onOutput: msg => UpdateSetupStatus.Invoke(null, $"Decompiler: {msg}"),
-                onError: msg => UpdateSetupStatus.Invoke(null, $"Decompiler Error: {msg}")
+                onOutput: msg => OnDecompilerMessage.Invoke(null, $"Java Decompiler: {msg}"),
+                onError: msg => OnDecompilerMessage.Invoke(null, $"Java Decompiler: {msg}")
             );
 
             File.Delete(managedJar);

@@ -20,9 +20,23 @@
 			<KeyWords name="Keys" bold="true" italic="false" color="#7FC9FF">
 				<Key word="name"/>
 				<Key word="id"/>
+				<Key word="author"/>
 				<Key word="description"/>
+				<Key word="url"/>
 				<Key word="poster"/>
+				<Key word="icon"/>
+				<Key word="modversion"/>
+				<Key word="require"/>
+				<Key word="incompatible"/>
+				<Key word="loadModAfter"/>
+				<Key word="loadModBefore"/>
+				<Key word="category"/>
+				<Key word="pack"/>
+				<Key word="tiledef"/>
+				<Key word="versionMin"/>
+				<Key word="versionMax"/>
 			</KeyWords>
+
 
 			<!-- Punctuation -->
 			<KeyWords name="Punctuation" bold="false" italic="false" color="White">

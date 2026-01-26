@@ -3,6 +3,7 @@ using PZTools.Core.Functions.Logger;
 using PZTools.Core.Functions.Projects;
 using PZTools.Core.Functions.Tester;
 using PZTools.Core.Functions.Undo;
+using PZTools.Core.Functions.Watermark;
 using PZTools.Core.Functions.Zomboid;
 using PZTools.Core.Models.Commands;
 using PZTools.Core.Windows.Dialogs;
@@ -32,8 +33,8 @@ namespace PZTools.Core.Functions.Menu
                         {
                             Task.Run(async () =>
                             {
-                                JavaDecompilerHelpers.UpdateSetupStatus += async (s, msg) => { await s.Log(msg.ToString()); };
-                                if (ZomboidGame.GameMode == "existing")
+                                JavaDecompilerHelpers.OnDecompilerMessage += async (s, msg) => { await s.Log(msg.ToString()); };
+                                if (ZomboidGame.GameMode == "Existing")
                                     await JavaDecompilerHelpers.DecompileGame(gamePath);
                                 else
                                 {
@@ -43,10 +44,16 @@ namespace PZTools.Core.Functions.Menu
                                         await JavaDecompilerHelpers.DecompileGame(gamePath, buildName);
                                     }
                                 }
-                                JavaDecompilerHelpers.ClearUpdateStatusEvents();
+                                JavaDecompilerHelpers.ClearDecompilerMessageEvents();
                             });
                         }
                         else MessageBox.Show("Game path not set. Please set the game path in App Options first. (File > App Options)", "Error");
+                    });
+
+            public static ICommand Upload_To_Steam_Workshop { get; } =
+                    new RelayCommand(static async () =>
+                    {
+                        
                     });
 
             public static object Separator3 => null;
@@ -59,7 +66,6 @@ namespace PZTools.Core.Functions.Menu
 
         public static class Edit
         {
-            // Use the UndoRedoManager commands so menu state and availability are centralized
             public static ICommand Undo { get; } = UndoRedoManager.Instance.UndoCommand;
 
             public static ICommand Redo { get; } = UndoRedoManager.Instance.RedoCommand;
@@ -72,18 +78,23 @@ namespace PZTools.Core.Functions.Menu
             public static ICommand Decompiled_Game_Files { get; } =
                     new RelayCommand(() =>
                     {
-                        if (Directory.Exists(Path.Combine(AppPaths.CurrentDirectoryPath, "Zomboid", "Source")))
+                        var decompiledSource = Path.Combine(AppPaths.CurrentDirectoryPath, "Zomboid", "Source");
+                        if (Directory.Exists(decompiledSource))
                         {
-
+                            WindowsHelpers.OpenFile(decompiledSource);
                         }
                         else MessageBox.Show("Decompiled game files not found. Please decompile the game files first. (File > Decompile Game Files)", "Error");
                     });
 
-            public static ICommand Game_Logs { get; } =
+            public static ICommand Game_Log { get; } =
                     new RelayCommand(() =>
                     {
                         WindowsHelpers.OpenFile(Path.Combine(ZomboidGame.GameUserDirectory, "console.txt"));
                     });
+
+
+            public static object Separator => null;
+
 
             public static ICommand Save_Window_Layout { get; } =
                     new RelayCommand(() =>
@@ -95,10 +106,10 @@ namespace PZTools.Core.Functions.Menu
 
         public static class Debug
         {
-            public static ICommand Run_Game { get; } =
+            public static ICommand Run_Game_Settings { get; } =
                 new RelayCommand(async () =>
                 {
-                    var runGameWindow = new RunProject();
+                    var runGameWindow = new RunProject(true);
                     runGameWindow.ShowDialog();
                 });
 
@@ -108,10 +119,36 @@ namespace PZTools.Core.Functions.Menu
             public static class Lua_Watermark
             {
                 public static ICommand Apply_Watermark_To_This_File { get; } =
-                    new RelayCommand(() => System.Windows.Application.Current.Shutdown());
+                    new RelayCommand(() =>
+                    {
+                        var watermark = Config.GetVariable(VariableType.user, $"{ProjectEngine.CurrentProject.Name}-watermark");
+                        if (string.IsNullOrEmpty(watermark))
+                        {
+                            MessageBox.Show("No Lua watermark set!?");
+                            return;
+                        }
+
+                        LuaWatermarker.WatermarkFile(App.MainWindow.OpenedFilePath, watermark);
+                    });
 
                 public static ICommand Apply_Watermark_To_All_Files { get; } =
-                    new RelayCommand(() => System.Windows.Application.Current.Shutdown());
+                    new RelayCommand(() =>
+                    {
+                        var watermark = Config.GetVariable(VariableType.user, $"{ProjectEngine.CurrentProject.Name}-watermark");
+                        if (string.IsNullOrEmpty(watermark))
+                        {
+                            MessageBox.Show("No Lua watermark set!?");
+                            return;
+                        }
+                        foreach (var file in Directory.GetFiles(ProjectEngine.CurrentProjectPath, "*.*", SearchOption.AllDirectories))
+                        {
+                            var ext = Path.GetExtension(file);
+                            if (ext == ".lua")
+                            {
+                                LuaWatermarker.WatermarkFile(file, watermark);
+                            }
+                        }
+                    });
             }
 
             public static class Test
@@ -125,7 +162,9 @@ namespace PZTools.Core.Functions.Menu
                             MessageBox.Show("The opened file is not a Lua file.", "Error");
                             return;
                         }
-                        var results = await LuaTester.Test(System.IO.File.ReadAllText(App.MainWindow.OpenedFilePath));
+                        var openFilePath = App.MainWindow.OpenedFilePath;
+
+                        var results = await LuaTester.Test(System.IO.File.ReadAllText(openFilePath), openFilePath);
                     });
 
                 public static ICommand Test_All_Lua_Files { get; } =
@@ -136,7 +175,7 @@ namespace PZTools.Core.Functions.Menu
                             var ext = Path.GetExtension(file);
                             if (ext == ".lua")
                             {
-                                await LuaTester.Test(System.IO.File.ReadAllText(file));
+                                await LuaTester.TestFile(file);
                             }
                         }
                     });
@@ -145,7 +184,13 @@ namespace PZTools.Core.Functions.Menu
 
         public static class Help
         {
-            public static ICommand About { get; } =
+            public static ICommand PZ_Wiki { get; } =
+                new RelayCommand(() =>
+                {
+                    WindowsHelpers.OpenFile("https://pzwiki.net/wiki/Project_Zomboid_Wiki");
+                });
+
+            public static ICommand About_PZTools { get; } =
                     new RelayCommand(() => App.MainWindow.ShowDialog(new AboutApp()));
         }
     }

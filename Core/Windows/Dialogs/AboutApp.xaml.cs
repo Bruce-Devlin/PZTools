@@ -1,3 +1,4 @@
+using PZTools.Core.Functions;
 using System.Diagnostics;
 using System.Windows;
 
@@ -11,6 +12,7 @@ namespace PZTools.Core.Windows.Dialogs
         public AboutApp()
         {
             InitializeComponent();
+            this.FreeDragThisWindow();
         }
 
         private void Close_Click(object sender, RoutedEventArgs e)
@@ -22,7 +24,7 @@ namespace PZTools.Core.Windows.Dialogs
         {
             Process.Start(new ProcessStartInfo
             {
-                FileName = "https://github.com/your-repo",
+                FileName = "https://github.com/Bruce-Devlin/PZTools",
                 UseShellExecute = true
             });
         }

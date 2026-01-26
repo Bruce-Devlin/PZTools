@@ -21,6 +21,7 @@ namespace PZTools.Core.Windows.Dialogs.Project
         public ProjectSelector()
         {
             InitializeComponent();
+            this.FreeDragThisWindow();
 
             var loaded = ProjectEngine.LoadProjects();
             foreach (var project in loaded)

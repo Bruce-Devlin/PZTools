@@ -1,7 +1,11 @@
 ﻿using Newtonsoft.Json;
 using PZTools.Core.Functions;
+using PZTools.Core.Functions.Theme;
+using PZTools.Core.Functions.Update;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Windows;
+using OpenFileDialog = Microsoft.Win32.OpenFileDialog;
 
 namespace PZTools.Core.Models.View
 {
@@ -10,19 +14,16 @@ namespace PZTools.Core.Models.View
         public AppOptionsViewModel()
         {
             var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-            var savedSettings = Config.GetObject<AppSettings>(VariableType.system, "appOptions");
+            var savedSettings = Config.GetAppSettings();
 
-            if (savedSettings == null)
-                Settings = new AppSettings();
-
+            Settings = savedSettings;
             Pages = new ObservableCollection<SettingsPageViewModel>
-            {
-
-                new GeneralSettingsPageViewModel(Settings),
-                new SystemSettingsPageViewModel(Settings),
-                new EditorSettingsPageViewModel(Settings),
-                new UpdatesSettingsPageViewModel(Settings),
-            };
+                {
+                    new GeneralSettingsPageViewModel(Settings),
+                    new SystemSettingsPageViewModel(Settings),
+                    new EditorSettingsPageViewModel(Settings),
+                    new UpdatesSettingsPageViewModel(Settings),
+                };
 
             _filteredPages = new ObservableCollection<SettingsPageViewModel>(Pages);
             SelectedPage = _filteredPages.FirstOrDefault();
@@ -30,6 +31,43 @@ namespace PZTools.Core.Models.View
             ApplyCommand = new RelayCommand(Apply);
             ResetCommand = new RelayCommand(Reset);
             CloseCommand = new RelayCommand(CloseWindow);
+        }
+
+        // Made public so the code-behind can call these (keeps current XAML Click usage)
+        public void AppInstallPathBtn_Click(object sender, RoutedEventArgs e)
+        {
+            WindowsHelpers.OpenFile(Settings.AppInstallPath);
+        }
+
+        public void ExistingGameInstallPathBtn_Click(object sender, RoutedEventArgs e)
+        {
+            string path = WindowsHelpers.OpenFolderBrowser("Select existing Project Zomboid installation");
+            if (!string.IsNullOrEmpty(path))
+            {
+                Settings.ExistingGamePath = path;
+            }
+        }
+
+        public void DefaultFileEditorBtn_Click(object sender, RoutedEventArgs e)
+        {
+            var fileDialog = new OpenFileDialog
+            {
+                Title = "Select Default File Editor",
+                Filter = "Executable Files (*.exe)|*.exe|All Files (*.*)|*.*",
+                CheckFileExists = true,
+                CheckPathExists = true,
+                Multiselect = false
+            };
+
+            if (fileDialog.ShowDialog() == true)
+            {
+                Settings.DefaultFileEditorApp = fileDialog.FileName;
+            }
+        }
+
+        public void ManagedGameInstallPathBtn_Click(object sender, RoutedEventArgs e)
+        {
+            WindowsHelpers.OpenFile(Settings.ManagedGamePath);
         }
 
         public AppSettings Settings { get; private set; }
@@ -93,12 +131,16 @@ namespace PZTools.Core.Models.View
                 SelectedPage = FilteredPages[0];
         }
 
-        private void Apply()
+        private async void Apply()
         {
             try
             {
-                Config.StoreObject(VariableType.system, "appOptions", Settings);
+                Config.StoreObject(VariableType.system, "appSettings", Settings);
                 FooterText = "Saved.";
+                await Config.PrintAppSettings();
+                await ThemeManager.ApplyThemeFromSettings();
+                App.MainWindow.ApplyAppSettings();
+                AppUpdater.SwitchUpdateChannel(AppUpdater.GetChannelFromSettings());
             }
             catch (Exception ex)
             {
@@ -108,12 +150,12 @@ namespace PZTools.Core.Models.View
 
         private void Reset()
         {
-            var defaultSettings = new AppSettings();
-            Settings = defaultSettings;
+            Settings.Reset();
 
             // Rebuild pages with new Settings reference
             Pages.Clear();
             Pages.Add(new GeneralSettingsPageViewModel(Settings));
+            Pages.Add(new SystemSettingsPageViewModel(Settings));
             Pages.Add(new EditorSettingsPageViewModel(Settings));
             Pages.Add(new UpdatesSettingsPageViewModel(Settings));
 

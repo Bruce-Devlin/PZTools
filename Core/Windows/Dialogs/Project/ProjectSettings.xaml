@@ -6,16 +6,21 @@
         xmlns:local="clr-namespace:PZTools.Core.Windows.Dialogs.Project"
         mc:Ignorable="d"
         Title="Project Settings"
-        Height="720"
+        Height="770"
         MinHeight="720"
-        Width="955"
+        Width="1130"
         MinWidth="955"
         WindowStartupLocation="CenterScreen"
         ResizeMode="NoResize"
         Background="{x:Null}"
-        Foreground="{StaticResource Brush.TextPrimary}" WindowStyle="None" AllowsTransparency="True">
+        Foreground="{DynamicResource Brush.TextPrimary}"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Icon="/Core/Assets/Icons/PZToolsIcon.png">
 
-    <Grid Margin="18">
+    <!-- Paint the surface (important with AllowsTransparency=True) -->
+    <Grid Margin="18" Background="{DynamicResource Brush.BgApp}">
+
         <Border Style="{StaticResource Card}">
             <Grid>
                 <Grid.RowDefinitions>
@@ -25,64 +30,217 @@
                 </Grid.RowDefinitions>
 
                 <!-- Header -->
-                <TextBlock Grid.Row="0"
-                           Text="Project Settings"
-                           Style="{StaticResource Text.Title}"
-                           FontSize="20"
-                           Margin="0,0,0,12"/>
+                <DockPanel Grid.Row="0" Margin="0,0,0,12">
+                    <TextBlock Text="Project Settings"
+                               Style="{StaticResource Text.Title}"
+                               FontSize="20"
+                               DockPanel.Dock="Left"/>
+                </DockPanel>
 
                 <!-- Main Content -->
                 <Grid Grid.Row="1">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="2*"/>
+                        <ColumnDefinition Width="2.2*"/>
                         <ColumnDefinition Width="1*"/>
                     </Grid.ColumnDefinitions>
 
-                    <!-- Left Panel: Project Info -->
-                    <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                    <!-- LEFT: Tabs -->
+                    <TabControl Grid.Column="0"
+                                Margin="0,0,16,0"
+                                Style="{StaticResource ProjectSettingsTabControl}"
+                                ItemContainerStyle="{StaticResource ProjectSettingsTabItem}">
 
-                        <TextBlock Text="Name:" FontWeight="SemiBold" Margin="0,0,0,6"/>
-                        <TextBox x:Name="txtModName"
-                                 Style="{StaticResource ModernTextBox}"
-                                 Margin="0,0,0,12"/>
+                        <!-- BASIC -->
+                        <TabItem Header="Basic">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                <Grid Margin="0,10,8,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
 
-                        <TextBlock Text="ID:" FontWeight="SemiBold" Margin="0,0,0,6"/>
-                        <TextBox x:Name="txtModID"
-                                 Style="{StaticResource ModernTextBox}"
-                                 Margin="0,0,0,12"/>
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Name:" FontWeight="SemiBold" Margin="0,0,12,6" VerticalAlignment="Center"/>
+                                    <TextBox   Grid.Row="0" Grid.Column="1" x:Name="txtModName" Style="{StaticResource ModernTextBox}" Margin="0,0,0,12"/>
 
-                        <TextBlock Text="Description:" FontWeight="SemiBold" Margin="0,0,0,6"/>
-                        <TextBox x:Name="txtDescription"
-                                 Style="{StaticResource ModernTextBox}"
-                                 AcceptsReturn="True"
-                                 TextWrapping="Wrap"
-                                 Height="150"
-                                 VerticalScrollBarVisibility="Auto"
-                                 Margin="0,0,0,12"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="ID:" FontWeight="SemiBold" Margin="0,0,12,6" VerticalAlignment="Center"/>
+                                    <TextBox   Grid.Row="1" Grid.Column="1" x:Name="txtModID" Style="{StaticResource ModernTextBox}" Margin="0,0,0,12"/>
 
-                        <TextBlock Text="Lua Watermark:" FontWeight="SemiBold" Margin="0,0,0,6"/>
-                        <TextBox x:Name="txtWatermark"
-                                 Style="{StaticResource ModernTextBox}"
-                                 AcceptsReturn="True"
-                                 TextWrapping="Wrap"
-                                 Height="150"
-                                 VerticalScrollBarVisibility="Auto"
-                                 Margin="0,0,0,6"/>
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Author:" FontWeight="SemiBold" Margin="0,0,12,6" VerticalAlignment="Center"/>
+                                    <TextBox   Grid.Row="2" Grid.Column="1" x:Name="txtAuthor" Style="{StaticResource ModernTextBox}" Margin="0,0,0,12"/>
 
-                        <TextBlock Text="(this can be applied to files via Tools &gt; Lua Watermark)"
-                                   Style="{StaticResource Text.Muted}"
-                                   Margin="0,0,0,0"/>
-                    </StackPanel>
+                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Mod Version:" FontWeight="SemiBold" Margin="0,0,12,6" VerticalAlignment="Center"/>
+                                    <TextBox   Grid.Row="3" Grid.Column="1" x:Name="txtModVersion" Style="{StaticResource ModernTextBox}" Margin="0,0,0,12"/>
 
-                    <!-- Right Panel: Poster Preview -->
+                                    <TextBlock Grid.Row="4" Grid.Column="0" Text="Category:" FontWeight="SemiBold" Margin="0,0,12,6" VerticalAlignment="Center"/>
+                                    <ComboBox  Grid.Row="4" Grid.Column="1"
+                                               x:Name="cmbCategory"
+                                               Style="{StaticResource ModernComboBox}"
+                                               ItemContainerStyle="{StaticResource ModernComboBoxItem}"
+                                               Margin="0,0,0,12">
+                                        <ComboBoxItem Content=""/>
+                                        <ComboBoxItem Content="map"/>
+                                        <ComboBoxItem Content="vehicle"/>
+                                        <ComboBoxItem Content="features"/>
+                                        <ComboBoxItem Content="modpack"/>
+                                    </ComboBox>
+
+                                    <TextBlock Grid.Row="5" Grid.Column="0" Text="URL:" FontWeight="SemiBold" Margin="0,0,12,6" VerticalAlignment="Center"/>
+                                    <TextBox   Grid.Row="5" Grid.Column="1" x:Name="txtUrl" Style="{StaticResource ModernTextBox}" Margin="0,0,0,12"/>
+
+                                    <TextBlock Grid.Row="6" Grid.Column="0" Text="Game Version:" FontWeight="SemiBold" Margin="0,0,12,6" VerticalAlignment="Center"/>
+                                    <StackPanel Grid.Row="6" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,12">
+                                        <TextBox x:Name="txtVersionMin" Style="{StaticResource ModernTextBox}" Width="120" Margin="0,0,10,0"/>
+                                        <TextBlock Text="to" VerticalAlignment="Center" Margin="0,0,10,0" Opacity="0.8"/>
+                                        <TextBox x:Name="txtVersionMax" Style="{StaticResource ModernTextBox}" Width="120"/>
+                                        <TextBlock Text="(e.g. 42.0 – 42.12)" Style="{StaticResource Text.Muted}" VerticalAlignment="Center" Margin="12,0,0,0"/>
+                                    </StackPanel>
+
+                                    <TextBlock Grid.Row="7" Grid.Column="0" Text="Description:" FontWeight="SemiBold" Margin="0,0,12,6" VerticalAlignment="Top"/>
+                                    <TextBox   Grid.Row="7" Grid.Column="1"
+                                               x:Name="txtDescription"
+                                               Style="{StaticResource ModernTextBox}"
+                                               AcceptsReturn="True"
+                                               TextWrapping="Wrap"
+                                               Height="180"
+                                               VerticalScrollBarVisibility="Auto"
+                                               Margin="0,0,0,12"/>
+                                </Grid>
+                            </ScrollViewer>
+                        </TabItem>
+
+                        <!-- MEDIA -->
+                        <TabItem Header="Media">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                <StackPanel Margin="0,10,8,0">
+                                    <TextBlock Text="Posters (one per line):" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                                    <TextBox x:Name="txtPosters"
+                                             Style="{StaticResource ModernTextBox}"
+                                             AcceptsReturn="True"
+                                             TextWrapping="Wrap"
+                                             Height="160"
+                                             VerticalScrollBarVisibility="Auto"
+                                             Margin="0,0,0,12"/>
+
+                                    <TextBlock Text="Icon file:" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                                    <DockPanel Margin="0,0,0,12">
+                                        <TextBox x:Name="txtIcon"
+                                                 Style="{StaticResource ModernTextBox}"
+                                                 Margin="0,0,10,0"
+                                                 VerticalAlignment="Center"/>
+                                        <Button Content="Browse..."
+                                                Width="110"
+                                                Style="{StaticResource ModernButton}"
+                                                Click="BrowseIcon_Click"/>
+                                    </DockPanel>
+
+                                    <TextBlock Text="Packs (one per line):" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                                    <TextBox x:Name="txtPacks"
+                                             Style="{StaticResource ModernTextBox}"
+                                             AcceptsReturn="True"
+                                             TextWrapping="Wrap"
+                                             Height="120"
+                                             VerticalScrollBarVisibility="Auto"
+                                             Margin="0,0,0,12"/>
+
+                                    <TextBlock Text="Tiledefs (one per line, e.g. &quot;Excavation 2112&quot;):"
+                                               FontWeight="SemiBold" Margin="0,0,0,6"/>
+                                    <TextBox x:Name="txtTiledefs"
+                                             Style="{StaticResource ModernTextBox}"
+                                             AcceptsReturn="True"
+                                             TextWrapping="Wrap"
+                                             Height="120"
+                                             VerticalScrollBarVisibility="Auto"
+                                             Margin="0,0,0,12"/>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </TabItem>
+
+                        <!-- DEPENDENCIES -->
+                        <TabItem Header="Dependencies">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                <StackPanel Margin="0,10,8,0">
+                                    <TextBlock Text="Require Mods (one per line, IDs only):" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                                    <TextBox x:Name="txtRequire"
+                                             Style="{StaticResource ModernTextBox}"
+                                             AcceptsReturn="True"
+                                             TextWrapping="Wrap"
+                                             Height="140"
+                                             VerticalScrollBarVisibility="Auto"
+                                             Margin="0,0,0,12"/>
+
+                                    <TextBlock Text="Load Mod After (one per line, IDs only):" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                                    <TextBox x:Name="txtLoadAfter"
+                                             Style="{StaticResource ModernTextBox}"
+                                             AcceptsReturn="True"
+                                             TextWrapping="Wrap"
+                                             Height="140"
+                                             VerticalScrollBarVisibility="Auto"
+                                             Margin="0,0,0,12"/>
+
+                                    <TextBlock Text="Load Mod Before (one per line, IDs only):" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                                    <TextBox x:Name="txtLoadBefore"
+                                             Style="{StaticResource ModernTextBox}"
+                                             AcceptsReturn="True"
+                                             TextWrapping="Wrap"
+                                             Height="140"
+                                             VerticalScrollBarVisibility="Auto"
+                                             Margin="0,0,0,12"/>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </TabItem>
+
+                        <!-- COMPATIBILITY -->
+                        <TabItem Header="Compatibility">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                <StackPanel Margin="0,10,8,0">
+                                    <TextBlock Text="Incompatible Mods (one per line, IDs only):" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                                    <TextBox x:Name="txtIncompatible"
+                                             Style="{StaticResource ModernTextBox}"
+                                             AcceptsReturn="True"
+                                             TextWrapping="Wrap"
+                                             Height="160"
+                                             VerticalScrollBarVisibility="Auto"
+                                             Margin="0,0,0,12"/>
+
+                                    <Separator Opacity="0.4"/>
+
+                                    <TextBlock Text="Lua Watermark:" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                                    <TextBox x:Name="txtWatermark"
+                                             Style="{StaticResource ModernTextBox}"
+                                             AcceptsReturn="True"
+                                             TextWrapping="Wrap"
+                                             Height="180"
+                                             VerticalScrollBarVisibility="Auto"
+                                             Margin="0,0,0,6"/>
+
+                                    <TextBlock Text="(this can be applied to files via Debug &gt; Lua Watermark)"
+                                               Style="{StaticResource Text.Muted}"
+                                               Margin="0,0,0,0"/>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </TabItem>
+
+                    </TabControl>
+
+                    <!-- RIGHT: Preview / Quick actions -->
                     <StackPanel Grid.Column="1" HorizontalAlignment="Center">
 
-                        <TextBlock Text="Poster:"
+                        <TextBlock Text="Poster Preview:"
                                    FontWeight="SemiBold"
                                    Margin="0,0,0,8"/>
 
-                        <Border Background="{StaticResource Brush.BgApp}"
-                                BorderBrush="{StaticResource Brush.Border}"
+                        <Border Background="{DynamicResource Brush.BgApp}"
+                                BorderBrush="{DynamicResource Brush.Border}"
                                 BorderThickness="1"
                                 CornerRadius="10"
                                 Width="200"
@@ -91,22 +249,56 @@
                             <Image x:Name="imgPoster" Stretch="Uniform"/>
                         </Border>
 
-                        <Button Content="Change Poster..."
+                        <StackPanel Orientation="Horizontal" Margin="0,12,0,0" HorizontalAlignment="Center">
+                            <Button Content="Change..."
+                                    Width="95"
+                                    Margin="0,0,10,0"
+                                    Style="{StaticResource ModernButton}"
+                                    Click="ChangePoster_Click"/>
+                            <Button Content="Next"
+                                    Width="55"
+                                    Style="{StaticResource ModernButton}"
+                                    Click="NextPoster_Click"/>
+                        </StackPanel>
+
+                        <TextBlock Text="Main poster is the first entry in Posters."
+                                   Style="{StaticResource Text.Muted}"
+                                   TextAlignment="Center"
+                                   Margin="0,10,0,0"/>
+
+                        <Separator Opacity="0.4" Margin="0,16,0,16"/>
+
+                        <TextBlock Text="Icon Preview:"
+                                   FontWeight="SemiBold"
+                                   Margin="0,0,0,8"/>
+
+                        <Border Background="{DynamicResource Brush.BgApp}"
+                                BorderBrush="{DynamicResource Brush.Border}"
+                                BorderThickness="1"
+                                CornerRadius="10"
+                                Width="72"
+                                Height="72"
+                                Padding="8">
+                            <Image x:Name="imgIcon" Stretch="Uniform"/>
+                        </Border>
+
+                        <Button Content="Browse Icon..."
                                 Width="160"
                                 Margin="0,12,0,0"
                                 Style="{StaticResource ModernButton}"
-                                Click="ChangePoster_Click"/>
+                                Click="BrowseIcon_Click"/>
+
                     </StackPanel>
                 </Grid>
 
                 <!-- Divider -->
                 <Border Grid.Row="2"
-                        Background="{StaticResource Brush.Border}"
+                        Background="{DynamicResource Brush.Border}"
                         Height="1"
                         VerticalAlignment="Top"
                         Margin="0,12,0,0"/>
 
-                <!-- Buttons (overlayed in same row for simple layout) -->
+                <!-- Buttons -->
                 <StackPanel Grid.Row="2"
                             Orientation="Horizontal"
                             HorizontalAlignment="Right"

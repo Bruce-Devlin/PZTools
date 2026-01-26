@@ -13,7 +13,7 @@ namespace PZTools.Core.Functions.Tester
             try
             {
                 var luaCode = await File.ReadAllTextAsync(filePath);
-                return await Test(luaCode);
+                return await Test(luaCode, filePath);
             }
             catch (Exception ex)
             {
@@ -24,39 +24,39 @@ namespace PZTools.Core.Functions.Tester
             }
         }
 
-        public static async Task<LuaTestResult> Test(string luaCode)
+        public static async Task<LuaTestResult> Test(string luaCode, string filePath)
         {
-            var chunkName = GetChunkNameSafe();
+            var fileName = Path.GetFileName(filePath);
 
             try
             {
                 // Compile-only parse. No execution.
                 var script = new Script(CoreModules.Preset_SoftSandbox);
-                script.LoadString(luaCode, null, chunkName);
+                script.LoadString(luaCode, null, fileName);
 
                 var ok = LuaTestResult.Success();
 
                 await Console.Log(
-                    $"Lua Syntax Results for {GetOpenedFileNameSafe()}: (Ok={ok.Ok}) Syntax: OK");
+                    $"Lua Syntax Results for {fileName}: (Ok={ok.Ok}) Syntax: OK");
 
                 return ok;
             }
             catch (SyntaxErrorException ex)
             {
-                var results = BuildResult("Syntax", ex, luaCode, chunkName);
+                var results = BuildResult("Syntax", ex, luaCode, fileName);
 
                 await Console.Log(
-                    $"Lua Syntax Results for {GetOpenedFileNameSafe()}: (Ok={results.Ok}) {results.Type}: {results.Message} " +
+                    $"Lua Syntax Results for {fileName}: (Ok={results.Ok}) {results.Type}: {results.Message} " +
                     $"[Line:{results.Line}, Col:{results.Column}] = {FormatCodeLine(results.CodeLine)}");
 
                 return results;
             }
             catch (InterpreterException ex)
             {
-                var results = BuildResult("Interpreter", ex, luaCode, chunkName);
+                var results = BuildResult("Interpreter", ex, luaCode, fileName);
 
                 await Console.Log(
-                    $"Lua Syntax Results for {GetOpenedFileNameSafe()}: (Ok={results.Ok}) {results.Type}: {results.Message} " +
+                    $"Lua Syntax Results for {fileName}: (Ok={results.Ok}) {results.Type}: {results.Message} " +
                     $"[Line:{results.Line}, Col:{results.Column}] = {FormatCodeLine(results.CodeLine)}");
 
                 return results;
@@ -66,7 +66,7 @@ namespace PZTools.Core.Functions.Tester
                 var fatal = LuaTestResult.Fatal(ex.Message);
 
                 await Console.Log(
-                    $"Lua Syntax Results for {GetOpenedFileNameSafe()}: (Ok={fatal.Ok}) {fatal.Type}: {fatal.Message}");
+                    $"Lua Syntax Results for {fileName}: (Ok={fatal.Ok}) {fatal.Type}: {fatal.Message}");
 
                 return fatal;
             }
@@ -370,36 +370,5 @@ namespace PZTools.Core.Functions.Tester
 
         private static string FormatCodeLine(string codeLine)
             => codeLine == null ? "<unknown>" : $"\"{codeLine}\"";
-
-        // ----------------------------
-        // Filename/chunk helpers
-        // ----------------------------
-
-        private static string GetChunkNameSafe()
-        {
-            try
-            {
-                var file = GetOpenedFileNameSafe();
-                return string.IsNullOrWhiteSpace(file) ? "chunk" : file;
-            }
-            catch
-            {
-                return "chunk";
-            }
-        }
-
-        private static string GetOpenedFileNameSafe()
-        {
-            try
-            {
-                var path = App.MainWindow?.OpenedFilePath;
-                var file = Path.GetFileName(path);
-                return string.IsNullOrWhiteSpace(file) ? "chunk" : file;
-            }
-            catch
-            {
-                return "chunk";
-            }
-        }
     }
 }

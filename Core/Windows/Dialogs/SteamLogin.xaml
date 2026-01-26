@@ -6,10 +6,10 @@
         Width="455"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
-        Foreground="{StaticResource Brush.TextPrimary}" WindowStyle="None" AllowsTransparency="True" Background="{x:Null}">
+        Foreground="{DynamicResource Brush.TextPrimary}" WindowStyle="None" AllowsTransparency="True" Background="{x:Null}" Icon="/Core/Assets/Icons/PZToolsIcon.png">
 
     <Grid Margin="18">
-        <Border Style="{StaticResource Card}">
+        <Border Style="{DynamicResource Card}">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
@@ -21,7 +21,7 @@
                 <!-- Header -->
                 <TextBlock Grid.Row="0"
                            Text="Steam Login"
-                           Style="{StaticResource Text.Title}"
+                           Style="{DynamicResource Text.Title}"
                            FontSize="18"
                            Margin="0,0,0,12"/>
 
@@ -29,21 +29,21 @@
                 <StackPanel Grid.Row="1">
                     <TextBlock Text="Steam Username"
                                FontWeight="SemiBold"
-                               Foreground="{StaticResource Brush.TextPrimary}"/>
+                               Foreground="{DynamicResource Brush.TextPrimary}"/>
 
                     <TextBox x:Name="TxtUsername"
-                             Style="{StaticResource ModernTextBox}"
+                             Style="{DynamicResource ModernTextBox}"
                              Margin="0,8,0,0"/>
 
                     <TextBlock Text="Password and Steam Guard will be requested in SteamCMD."
-                               Style="{StaticResource Text.Muted}"
+                               Style="{DynamicResource Text.Muted}"
                                FontSize="11"
                                Margin="0,10,0,0"
                                TextWrapping="Wrap"/>
                 </StackPanel>
 
                 <Border Grid.Row="2"
-                        Background="{StaticResource Brush.Border}"
+                        Background="{DynamicResource Brush.Border}"
                         Height="1"
                         VerticalAlignment="Top"/>
 
@@ -56,12 +56,12 @@
                     <Button Content="Cancel"
                             Width="100"
                             Margin="0,0,10,0"
-                            Style="{StaticResource ModernButton}"
+                            Style="{DynamicResource ModernButton}"
                             Click="Cancel_Click"/>
 
                     <Button Content="Continue"
                             Width="100"
-                            Style="{StaticResource PrimaryButton}"
+                            Style="{DynamicResource PrimaryButton}"
                             Click="Continue_Click"/>
                 </StackPanel>
             </Grid>

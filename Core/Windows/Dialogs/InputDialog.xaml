@@ -7,11 +7,11 @@
         ResizeMode="NoResize"
         Topmost="True"
         Background="{x:Null}"
-        Foreground="{StaticResource Brush.TextPrimary}"
+        Foreground="{DynamicResource Brush.TextPrimary}"
         FontSize="13"
         Title="Input"
         MinWidth="520"
-        ShowInTaskbar="False" WindowStyle="None" AllowsTransparency="True">
+        ShowInTaskbar="False" WindowStyle="None" AllowsTransparency="True" Icon="/Core/Assets/Icons/PZToolsIcon.png">
 
     <Window.Resources>
 
@@ -27,7 +27,7 @@
                     <!-- Required star -->
                     <TextBlock DockPanel.Dock="Right"
                                Text="*"
-                               Foreground="{StaticResource Brush.TextDanger}">
+                               Foreground="{DynamicResource Brush.TextDanger}">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
                                 <Setter Property="Visibility" Value="Collapsed"/>
@@ -100,7 +100,7 @@
 
                 <!-- Validation -->
                 <TextBlock Margin="0,6,0,0"
-                           Foreground="{StaticResource Brush.TextDanger}"
+                           Foreground="{DynamicResource Brush.TextDanger}"
                            Text="{Binding ValidationMessage}">
                     <TextBlock.Style>
                         <Style TargetType="TextBlock">
@@ -118,7 +118,7 @@
 
     </Window.Resources>
 
-    <Border Style="{StaticResource Card}" Margin="18">
+    <Border Style="{DynamicResource Card}" Margin="18">
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
@@ -128,7 +128,7 @@
             </Grid.RowDefinitions>
 
             <StackPanel Grid.Row="0" Margin="0,0,0,12">
-                <TextBlock Text="{Binding Question}" Style="{StaticResource Text.Title}"/>
+                <TextBlock Text="{Binding Question}" Style="{DynamicResource Text.Title}"/>
                 <TextBlock Text="{Binding Subtext}">
                     <TextBlock.Style>
                         <Style TargetType="TextBlock" BasedOn="{StaticResource Text.Muted}">
@@ -155,21 +155,21 @@
 
             <ScrollViewer Grid.Row="1" MaxHeight="420" VerticalScrollBarVisibility="Auto">
                 <ItemsControl ItemsSource="{Binding Fields}"
-                              ItemTemplate="{StaticResource InputFieldTemplate}"/>
+                              ItemTemplate="{DynamicResource InputFieldTemplate}"/>
             </ScrollViewer>
 
             <Border Grid.Row="2"
-                        Background="{StaticResource Brush.Border}"
+                        Background="{DynamicResource Brush.Border}"
                         Height="1"
                         VerticalAlignment="Top"/>
 
             <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
-                <Button Style="{StaticResource ModernButton}"
+                <Button Style="{DynamicResource ModernButton}"
                         Content="Cancel"
                         IsCancel="True"
                         Click="CancelButton_Click"/>
 
-                <Button Style="{StaticResource PrimaryButton}"
+                <Button Style="{DynamicResource PrimaryButton}"
                         Content="OK"
                         IsDefault="True"
                         IsEnabled="{Binding CanSubmit}"

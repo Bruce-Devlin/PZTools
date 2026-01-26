@@ -1,0 +1,26 @@
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Base -->
+    <SolidColorBrush x:Key="Brush.BgApp" Color="#F6F7FB"/>
+    <SolidColorBrush x:Key="Brush.BgSurface" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="Brush.Border" Color="#D9DEEA"/>
+    <SolidColorBrush x:Key="Brush.BorderStrong" Color="#C7CFDF"/>
+
+    <!-- Text -->
+    <SolidColorBrush x:Key="Brush.TextPrimary" Color="#1A1F2E"/>
+    <SolidColorBrush x:Key="Brush.TextMuted" Color="#1A1F2E" Opacity="0.70"/>
+    <SolidColorBrush x:Key="Brush.TextInfo" Color="#FF2A5E94"/>
+    <SolidColorBrush x:Key="Brush.TextWarn" Color="#8A4B00"/>
+    <SolidColorBrush x:Key="Brush.TextDanger" Color="#B00020"/>
+
+    <!-- Accent -->
+    <SolidColorBrush x:Key="Brush.Accent" Color="#FF8AC4FF"/>
+    <SolidColorBrush x:Key="Brush.AccentBorder" Color="#FF8AC4FF"/>
+    <SolidColorBrush x:Key="Brush.Selection" Color="#DDE6FF"/>
+
+    <!-- Optional surfaces -->
+    <SolidColorBrush x:Key="Brush.BgControl" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="Brush.BgControlHover" Color="#EEF2FF"/>
+    <SolidColorBrush x:Key="Brush.BgControlPressed" Color="#E3E9FF"/>
+</ResourceDictionary>

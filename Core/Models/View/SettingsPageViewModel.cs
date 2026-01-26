@@ -41,7 +41,7 @@ namespace PZTools.Core.Models.View
         public EditorSettingsPageViewModel(AppSettings settings) : base(settings) { }
 
         public override string Title => "Editor";
-        public override string Description => "Font, tabs, wrapping, reload behavior.";
+        public override string Description => "Font, tabs, wrapping, default editor app.";
     }
 
     public sealed class UpdatesSettingsPageViewModel : SettingsPageViewModel

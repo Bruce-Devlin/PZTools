@@ -1,3 +1,4 @@
+using PZTools.Core.Functions;
 using System.Windows;
 
 namespace PZTools.Core.Windows.Dialogs.Project
@@ -10,6 +11,7 @@ namespace PZTools.Core.Windows.Dialogs.Project
         public SearchProject()
         {
             InitializeComponent();
+            this.FreeDragThisWindow();
         }
     }
 }

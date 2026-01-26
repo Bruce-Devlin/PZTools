@@ -11,7 +11,9 @@
         WindowStartupLocation="CenterScreen"
         Background="{x:Null}"
         Foreground="{StaticResource Brush.TextPrimary}"
-        ResizeMode="NoResize" WindowStyle="None" AllowsTransparency="True">
+        ResizeMode="NoResize" WindowStyle="None" AllowsTransparency="True"
+        Icon="/Core/Assets/Icons/PZToolsIcon.png"
+        Loaded="Window_Loaded">
 
     <Grid Margin="18">
         <Border Style="{StaticResource Card}">
@@ -55,7 +57,6 @@
 
                 </StackPanel>
 
-                <!-- Optional Launch Arguments -->
                 <StackPanel Grid.Row="2" Margin="0,0,0,12">
                     <TextBlock Text="Optional Launch Arguments:"
                                Foreground="{StaticResource Brush.TextPrimary}"
@@ -64,13 +65,27 @@
                     <TextBox x:Name="txtLaunchArgs"
                              Style="{StaticResource ModernTextBox}"
                              MinWidth="600"/>
+                    <Separator Height="15"/>
+
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Always show this settings window before running the game:"
+                           Foreground="{StaticResource Brush.TextPrimary}"
+                           Margin="0,0,0,6"/>
+
+                        <CheckBox x:Name="showWindowBeforeRun"
+                           Style="{StaticResource ModernCheckBox}"
+                           Margin="15,0,10,0" Checked="showWindowBeforeRun_Checked" Unchecked="showWindowBeforeRun_Checked"/>
+                        <TextBlock Text="(you can always open this settings window again from Debug > Run Game Settings)"
+                           Foreground="{DynamicResource Brush.TextMuted}"
+                           Margin="0,0,0,6" FontSize="10"/>
+                    </StackPanel>
                 </StackPanel>
 
                 <!-- Output Log -->
                 <Grid Grid.Row="3" Margin="0,0,0,12">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="*" MaxHeight="220"/>
                     </Grid.RowDefinitions>
 
                     <TextBlock Grid.Row="0"

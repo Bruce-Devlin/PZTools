@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
@@ -83,7 +84,19 @@ namespace PZTools.Core.Functions.Decompile
                     onError?.Invoke(e.Data);
             };
 
-            process.Start();
+            try
+            {
+                process.Start();
+            }
+            catch (Win32Exception ex)
+            {
+                onError?.Invoke(
+                    $"Failed to start process. NativeErrorCode={ex.NativeErrorCode}, Message={ex.Message}\n" +
+                    $"FileName: {psi.FileName}\nArguments: {psi.Arguments}\nWorkingDirectory: {psi.WorkingDirectory}"
+                );
+                throw;
+            }
+
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();
 

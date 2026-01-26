@@ -39,7 +39,8 @@ namespace PZTools.Core.Functions.Projects
                 Path = path,
                 IsFolder = Directory.Exists(path)
             };
-            if (root) node.Name = ProjectEngine.CurrentProject.Name;
+            if (root) 
+                node.Name = ProjectEngine.CurrentProject.Name;
 
             if (node.IsFolder)
             {
@@ -154,12 +155,12 @@ namespace PZTools.Core.Functions.Projects
                 }
             }
 
-            newMod.SaveModInfo();
+            newMod.CreateModInfo();
             LoadedProjects.Add(newMod);
             return newMod;
         }
 
-        private static void CreateModFolderStructure(string modPath, bool foldersOnly = false)
+        public static void CreateModFolderStructure(string modPath, bool foldersOnly = false)
         {
             var mediaPath = Path.Combine(modPath, "media");
             var luaPath = Path.Combine(mediaPath, "lua");
@@ -193,31 +194,53 @@ namespace PZTools.Core.Functions.Projects
             }
         }
 
-        public static void SaveModInfo(this ModProject project)
+        public static void CreateModInfo(this ModProject project)
         {
-            if (project == null)
-                throw new ArgumentNullException(nameof(project));
-            var infoPath = Path.Combine(project.RootPath, "mod.info");
-            var lines = new List<string>
-            {
-                $"name={project.Name}",
-                $"id={project.Name.Replace(" ", "")}",
-                $"description=A project created using PZTools"
-            };
-            File.WriteAllLines(infoPath, lines);
+            if (project == null) throw new ArgumentNullException(nameof(project));
 
-            foreach (var supportedBuild in project.Targets.Where(x => x.Build != ZomboidGame.latestStableBuild))
+            var info = BuildDefaultModInfo(project);
+
+            foreach (var target in project.Targets.Where(t => !string.IsNullOrWhiteSpace(t.Path)))
             {
-                var buildPath = Path.Combine(project.RootPath, supportedBuild.Build.ToString());
-                var buildInfoPath = Path.Combine(buildPath, "mod.info");
-                var buildLines = new List<string>
-                {
-                    $"name={project.Name}",
-                    $"id={project.Name.Replace(" ", "")}",
-                    $"description=A project created using PZTools"
-                };
-                File.WriteAllLines(buildInfoPath, buildLines);
+                var infoPath = Path.Combine(target.Path, "mod.info");
+                Directory.CreateDirectory(target.Path);
+
+                File.WriteAllLines(infoPath, info.ToModInfoLines());
             }
+
+            project.ModInfo = info;
+        }
+
+        public static void UpdateModInfo(this ModProject project, ModInfo newInfo)
+        {
+            if (project == null) throw new ArgumentNullException(nameof(project));
+            if (newInfo == null) throw new ArgumentNullException(nameof(newInfo));
+
+            foreach (var target in project.Targets.Where(t => !string.IsNullOrWhiteSpace(t.Path)))
+            {
+                var infoPath = Path.Combine(target.Path, "mod.info");
+                if (!File.Exists(infoPath))
+                    continue;
+                File.WriteAllLines(infoPath, newInfo.ToModInfoLines());
+            }
+
+            project.ModInfo = newInfo;
+        }
+
+        private static ModInfo BuildDefaultModInfo(ModProject project)
+        {
+            var id = ModInfoUtil.NormalizeModId(project.Name);
+            if (string.IsNullOrWhiteSpace(id))
+                id = "MyMod";
+
+            var info = new ModInfo
+            {
+                Name = project.Name,
+                Id = id,
+                Description = "A project created using PZTools"
+            };
+
+            return info;
         }
 
         /// <summary>

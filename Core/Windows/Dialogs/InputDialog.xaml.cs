@@ -1,3 +1,4 @@
+using PZTools.Core.Functions;
 using PZTools.Core.Models.InputDialog;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -28,6 +29,7 @@ namespace PZTools.Core.Windows.Dialogs.Project
             string? subtext = null)
         {
             InitializeComponent();
+            this.FreeDragThisWindow();
 
             Title = title;
             Question = question;
