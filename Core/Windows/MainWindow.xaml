@@ -10,12 +10,12 @@
         xmlns:sys="clr-namespace:System;assembly=mscorlib"
         mc:Ignorable="d"
         Title="PZ Tools"
-        Height="565"
-        Width="895"
+        Height="720"
+        Width="1180"
         WindowState="Maximized"
         Loaded="Window_Loaded"
-        MinWidth="700"
-        MinHeight="420"
+        MinWidth="900"
+        MinHeight="560"
         Background="{DynamicResource Brush.BgApp}"
         Foreground="{DynamicResource Brush.TextPrimary}" Closing="Window_Closing" Icon="/Core/Assets/Icons/PZToolsIcon.png">
     <Window.Resources>
@@ -49,12 +49,7 @@
         </Style>
 
         <!-- MainWindow-local TextBox default: keep consistent with theme -->
-        <Style TargetType="TextBox">
-            <Setter Property="Background" Value="{DynamicResource Brush.BgApp}"/>
-            <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderStrong}"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="6"/>
+        <Style TargetType="TextBox" BasedOn="{StaticResource ModernTextBox}">
             <Setter Property="FontSize" Value="{DynamicResource EditorFontSize}"/>
         </Style>
 
@@ -73,12 +68,12 @@
             <RowDefinition Height="4"/>
             <!-- Splitter -->
             <RowDefinition x:Name="LayoutConsole" Height="160" MinHeight="120"/>
-            <RowDefinition Height="35"/>
+            <RowDefinition Height="52"/>
             <!-- Status bar -->
         </Grid.RowDefinitions>
 
         <!-- Menu -->
-        <Menu Grid.Row="0" ItemsSource="{Binding Menus}" Height="24">
+        <Menu Grid.Row="0" ItemsSource="{Binding Menus}" Height="34">
             <Menu.ItemContainerStyle>
                 <!-- keep your binding + separator logic, but base it on the themed MenuItem -->
                 <Style TargetType="MenuItem"
@@ -107,9 +102,9 @@
         <!-- Main layout -->
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition x:Name="LayoutExplorer" Width="250"/>
-                <ColumnDefinition x:Name="LayoutEditor" Width="*"/>
-                <ColumnDefinition x:Name="LayoutProperties" Width="320"/>
+                <ColumnDefinition x:Name="LayoutExplorer" Width="240" MinWidth="180"/>
+                <ColumnDefinition x:Name="LayoutEditor" Width="*" MinWidth="260"/>
+                <ColumnDefinition x:Name="LayoutProperties" Width="280" MinWidth="220"/>
             </Grid.ColumnDefinitions>
 
             <!-- Project Explorer -->
@@ -117,16 +112,33 @@
                     Background="{DynamicResource Brush.BgSurface}"
                     BorderBrush="{DynamicResource Brush.Border}"
                     BorderThickness="0,0,1,0"
-                    Padding="8">
+                    Padding="0">
 
-                <!-- If you want to keep GroupBox, leave it; otherwise swap to a TextBlock header + content -->
-                <GroupBox Header="Project Explorer"
-                          Foreground="{DynamicResource Brush.TextPrimary}"
-                          Padding="8"
-                          Background="Transparent"
-                          BorderBrush="{DynamicResource Brush.Border}"
-                          BorderThickness="0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <Border Grid.Row="0"
+                            Background="{DynamicResource Brush.BgElevated}"
+                            BorderBrush="{DynamicResource Brush.Border}"
+                            BorderThickness="0,0,0,1"
+                            Padding="12,10">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="3"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Style="{StaticResource AccentBar}"/>
+                            <StackPanel Grid.Column="1" Margin="9,0,0,0">
+                                <TextBlock Text="Project Explorer" Style="{StaticResource Text.Section}" Margin="0"/>
+                                <TextBlock Text="Files and build targets" Style="{StaticResource Text.Muted}" FontSize="11"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
                     <TreeView x:Name="ProjectTreeView"
+                              Grid.Row="1"
+                              Margin="6,8"
                               AllowDrop="True"
                               PreviewMouseLeftButtonDown="ProjectTreeView_PreviewMouseLeftButtonDown"
                               MouseMove="ProjectTreeView_MouseMove"
@@ -139,20 +151,83 @@
 
                             <HierarchicalDataTemplate DataType="{x:Type models:ProjectFileNode}"
                                                       ItemsSource="{Binding Children}">
-                                <TextBlock Text="{Binding Name}"
-                                           Foreground="{DynamicResource Brush.TextPrimary}"/>
+                                <Grid ToolTip="{Binding Name}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="16"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <Grid Width="13" Height="13" VerticalAlignment="Center">
+                                        <Path x:Name="FileIcon"
+                                              Data="M 2,1 L 8,1 L 12,5 L 12,12 L 2,12 Z M 8,1 L 8,5 L 12,5"
+                                              Stroke="{DynamicResource Brush.TextMuted}"
+                                              StrokeThickness="1.2"
+                                              StrokeLineJoin="Round"
+                                              Fill="Transparent">
+                                            <Path.Style>
+                                                <Style TargetType="Path">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsFolder}" Value="True">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Path.Style>
+                                        </Path>
+                                        <Path x:Name="FolderIcon"
+                                              Data="M 1,3 L 5,3 L 6.5,5 L 12,5 L 12,11.5 L 1,11.5 Z"
+                                              Stroke="{DynamicResource Brush.TextInfo}"
+                                              StrokeThickness="1.2"
+                                              StrokeLineJoin="Round"
+                                              Fill="Transparent">
+                                            <Path.Style>
+                                                <Style TargetType="Path">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsFolder}" Value="True">
+                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Path.Style>
+                                        </Path>
+                                    </Grid>
+
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding Name}"
+                                               TextTrimming="CharacterEllipsis"
+                                               VerticalAlignment="Center"
+                                               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TreeViewItem}}"/>
+                                </Grid>
                             </HierarchicalDataTemplate>
 
                             <HierarchicalDataTemplate DataType="{x:Type models:ModTarget}"
                                                       ItemsSource="{Binding FileTree.Children}">
-                                <TextBlock Text="{Binding BuildName}"
-                                           FontWeight="SemiBold"
-                                           Foreground="{DynamicResource Brush.TextInfo}"/>
+                                <Grid ToolTip="{Binding BuildName}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="16"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Path Width="13"
+                                          Height="13"
+                                          Data="M 1,3 L 6.5,0.5 L 12,3 L 6.5,5.5 Z M 1,6.5 L 6.5,9 L 12,6.5 M 1,9.5 L 6.5,12 L 12,9.5"
+                                          Stroke="{DynamicResource Brush.TextInfo}"
+                                          StrokeThickness="1.2"
+                                          StrokeLineJoin="Round"
+                                          StrokeStartLineCap="Round"
+                                          StrokeEndLineCap="Round"/>
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding BuildName}"
+                                               FontWeight="SemiBold"
+                                               TextTrimming="CharacterEllipsis"
+                                               VerticalAlignment="Center"
+                                               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TreeViewItem}}"/>
+                                </Grid>
                             </HierarchicalDataTemplate>
 
                         </TreeView.Resources>
                     </TreeView>
-                </GroupBox>
+                </Grid>
             </Border>
 
             <!-- Left splitter -->
@@ -167,14 +242,46 @@
                     BorderBrush="{DynamicResource Brush.Border}"
                     BorderThickness="1,0,1,0">
 
-                <!-- AvalonEdit: map to theme brushes -->
-                <avalonedit:TextEditor x:Name="LuaEditor"
-                                       ShowLineNumbers="True"
-                                       FontFamily="Consolas"
-                                       FontSize="{DynamicResource EditorFontSize}"
-                                       IsReadOnly="True"
-                                       Background="{DynamicResource Brush.BgApp}"
-                                       Foreground="{DynamicResource Brush.TextPrimary}"/>
+                <Grid>
+                    <!-- AvalonEdit: map to theme brushes -->
+                    <avalonedit:TextEditor x:Name="LuaEditor"
+                                           ShowLineNumbers="True"
+                                           FontFamily="Consolas"
+                                           FontSize="{DynamicResource EditorFontSize}"
+                                           IsReadOnly="True"
+                                           Background="{DynamicResource Brush.BgApp}"
+                                           Foreground="{DynamicResource Brush.TextPrimary}"/>
+
+                    <Border x:Name="EditorEmptyState"
+                            Background="{DynamicResource Brush.BgApp}"
+                            Padding="20">
+                        <StackPanel MaxWidth="320" HorizontalAlignment="Stretch" VerticalAlignment="Center">
+                            <Border Width="54" Height="54" CornerRadius="27"
+                                    Background="{DynamicResource Brush.BgElevated}"
+                                    BorderBrush="{DynamicResource Brush.BorderStrong}"
+                                    BorderThickness="1"
+                                    HorizontalAlignment="Center">
+                                <TextBlock Text="{}{ }" FontFamily="Consolas" FontSize="18"
+                                           FontWeight="SemiBold" Foreground="{DynamicResource Brush.Accent}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <TextBlock x:Name="EditorEmptyTitle" Text="No file selected"
+                                       Style="{StaticResource Text.Title}" Margin="0,18,0,6"
+                                       HorizontalAlignment="Center"/>
+                            <TextBlock x:Name="EditorEmptyBody"
+                                       Text="Select a project file to preview it."
+                                       Style="{StaticResource Text.Muted}" TextAlignment="Center"
+                                       HorizontalAlignment="Center"/>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,18,0,0">
+                                <Button Style="{StaticResource CompactButton}" Content="New PZ File"
+                                        Click="NewModFile_Click" ToolTip="Create a file in the current project"/>
+                                <Button Style="{StaticResource CompactButton}" Content="Project Health"
+                                        Margin="8,0,0,0" Click="ProjectHealth_Click"
+                                        ToolTip="Check this project for common problems"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </Grid>
             </Border>
 
             <!-- Right splitter -->
@@ -188,27 +295,56 @@
                     Background="{DynamicResource Brush.BgSurface}"
                     BorderBrush="{DynamicResource Brush.Border}"
                     BorderThickness="1,0,0,0"
-                    Padding="8">
+                    Padding="0">
 
-                <GroupBox Header="File Properties"
-                          Foreground="{DynamicResource Brush.TextPrimary}"
-                          Background="Transparent"
-                          BorderBrush="{DynamicResource Brush.Border}"
-                          BorderThickness="0">
-                    <StackPanel>
-                        <TextBlock Text="Name:" Foreground="{DynamicResource Brush.TextMuted}"/>
-                        <TextBox x:Name="txtPropName" IsReadOnly="True" Margin="0,0,0,8"/>
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <Border Grid.Row="0" Background="{DynamicResource Brush.BgElevated}"
+                            BorderBrush="{DynamicResource Brush.Border}" BorderThickness="0,0,0,1" Padding="12,10">
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="3"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <Border Style="{StaticResource AccentBar}"/>
+                            <StackPanel Grid.Column="1" Margin="9,0,0,0">
+                                <TextBlock Text="Inspector" Style="{StaticResource Text.Section}" Margin="0"/>
+                                <TextBlock Text="Selected item details" Style="{StaticResource Text.Muted}" FontSize="11"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
 
-                        <TextBlock Text="Full Path:" Foreground="{DynamicResource Brush.TextMuted}"/>
-                        <TextBox x:Name="txtPropPath" IsReadOnly="True" Margin="0,0,0,8"/>
+                    <ScrollViewer x:Name="FilePropertiesContent" Grid.Row="1" Visibility="Collapsed"
+                                  VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel Margin="14">
+                        <TextBlock Text="NAME" Style="{StaticResource Text.Label}" FontSize="10"/>
+                        <TextBox x:Name="txtPropName" IsReadOnly="True" Margin="0,5,0,12"/>
 
-                        <TextBlock Text="Size:" Foreground="{DynamicResource Brush.TextMuted}"/>
-                        <TextBox x:Name="txtPropSize" IsReadOnly="True" Margin="0,0,0,8"/>
+                        <TextBlock Text="FULL PATH" Style="{StaticResource Text.Label}" FontSize="10"/>
+                        <TextBox x:Name="txtPropPath" IsReadOnly="True" Margin="0,5,0,12" TextWrapping="Wrap"/>
 
-                        <TextBlock Text="Encoding:" Foreground="{DynamicResource Brush.TextMuted}"/>
-                        <TextBox x:Name="txtPropEncoding" IsReadOnly="True"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="SIZE" Style="{StaticResource Text.Label}" FontSize="10"/>
+                                <TextBox x:Name="txtPropSize" IsReadOnly="True" Margin="0,5,0,0"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="ENCODING" Style="{StaticResource Text.Label}" FontSize="10"/>
+                                <TextBox x:Name="txtPropEncoding" IsReadOnly="True" Margin="0,5,0,0"/>
+                            </StackPanel>
+                        </Grid>
                     </StackPanel>
-                </GroupBox>
+                    </ScrollViewer>
+
+                    <StackPanel x:Name="EmptyPropertiesState" Grid.Row="1" Margin="26"
+                                HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <TextBlock Text="No item selected" FontSize="15" FontWeight="SemiBold"
+                                   HorizontalAlignment="Center"/>
+                        <TextBlock Text="Select a file or build target."
+                                   Style="{StaticResource Text.Muted}" TextAlignment="Center" Margin="0,7,0,0"/>
+                    </StackPanel>
+                </Grid>
             </Border>
         </Grid>
 
@@ -229,15 +365,19 @@
 
             <Grid>
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="28"/>
+                    <RowDefinition Height="38"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
 
-                <DockPanel Background="{DynamicResource Brush.BgApp}">
+                <DockPanel Background="{DynamicResource Brush.BgControl}">
                     <TextBlock Text="Console"
-                               Foreground="{DynamicResource Brush.TextMuted}"
+                               Style="{DynamicResource Text.Section}"
                                VerticalAlignment="Center"
-                               Margin="10,0"/>
+                               Margin="12,0"/>
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="0,3,8,3">
+                        <Button Style="{DynamicResource CompactButton}" Content="Open game log" Margin="0,0,6,0" Click="OpenGameLog_Click"/>
+                        <Button Style="{DynamicResource CompactButton}" Content="Clear console" Click="ClearConsole_Click"/>
+                    </StackPanel>
                 </DockPanel>
 
                 <ScrollViewer x:Name="ConsoleScroll" Grid.Row="1">
@@ -253,32 +393,58 @@
             </Grid>
         </Border>
 
-        <Grid Grid.Row="4">
+        <Border Grid.Row="4" Background="{DynamicResource Brush.BgSurface}" BorderBrush="{DynamicResource Brush.Border}" BorderThickness="0,1,0,0" Padding="8,7">
+        <Grid>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-            <StatusBar Grid.Column="0"
-               Background="{DynamicResource Brush.BgApp}"
-               BorderThickness="0">
+            <StatusBar Grid.Column="0" BorderThickness="0" Background="Transparent">
                 <TextBlock x:Name="StatusBarText"
                    Foreground="{DynamicResource Brush.TextMuted}"
                    Text="Ready"/>
             </StatusBar>
-            <StackPanel
-                Orientation="Horizontal"
-                HorizontalAlignment="Center"
-                Grid.Column="1" VerticalAlignment="Top">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center"
+                        Grid.Column="1" VerticalAlignment="Center">
 
-                <Button Style="{DynamicResource ModernButton}"
+                <Button Style="{DynamicResource CompactButton}"
+                    Content="New PZ File"
+                    ToolTip="Create a Lua, info, text, XML, or JSON file"
+                    Click="NewModFile_Click"/>
+
+                <Button Style="{DynamicResource CompactButton}"
+                    Content="Content Managers"
+                    Margin="8,0,0,0"
+                    ToolTip="Edit professions, traits, localization, and sandbox options"
+                    Click="ContentManagers_Click"/>
+
+                <Button Style="{DynamicResource CompactButton}"
+                    Content="Project Health"
+                    Margin="8,0,0,0"
+                    ToolTip="Validate project structure and content"
+                    Click="ProjectHealth_Click"/>
+
+                <Border Width="1" Height="24" Background="{DynamicResource Brush.BorderStrong}" Margin="12,0,4,0"/>
+
+                <Button Style="{DynamicResource CompactButton}"
+                    Content="Open in VS Code"
+                    Margin="8,0,0,0"
+                    ToolTip="Open the project workspace in Visual Studio Code"
+                    Click="OpenInVsCode_Click"/>
+
+                <Button Style="{DynamicResource CompactButton}"
                     Content="Deploy Project"
+                    Margin="8,0,0,0"
+                    ToolTip="Validate and deploy the project"
                     Click="DeployProject_Click"/>
 
-                <Button x:Name="RunGameBtn" Style="{DynamicResource PrimaryButton}"
+                <Button x:Name="RunGameBtn" Style="{DynamicResource PrimaryButton}" MinHeight="32"
                     Content="{Binding RunGameButtonText}"
                     Margin="12,0,0,0"
+                    ToolTip="Launch Project Zomboid with this project"
                     Click="RunGame_Click" UseLayoutRounding="False"/>
             </StackPanel>
         </Grid>
+        </Border>
     </Grid>
 </Window>

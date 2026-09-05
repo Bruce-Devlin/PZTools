@@ -1,6 +1,6 @@
+using System.Windows;
 using PZTools.Core.Functions;
 using PZTools.Core.Models.View;
-using System.Windows;
 
 namespace PZTools.Core.Windows.Dialogs
 {

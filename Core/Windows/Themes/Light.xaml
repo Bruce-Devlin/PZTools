@@ -2,25 +2,31 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <!-- Base -->
-    <SolidColorBrush x:Key="Brush.BgApp" Color="#F6F7FB"/>
-    <SolidColorBrush x:Key="Brush.BgSurface" Color="#FFFFFF"/>
-    <SolidColorBrush x:Key="Brush.Border" Color="#D9DEEA"/>
-    <SolidColorBrush x:Key="Brush.BorderStrong" Color="#C7CFDF"/>
+    <SolidColorBrush x:Key="Brush.BgApp" Color="#F5F1E9"/>
+    <SolidColorBrush x:Key="Brush.BgSurface" Color="#FFFCF7"/>
+    <SolidColorBrush x:Key="Brush.BgElevated" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="Brush.Border" Color="#DED5C7"/>
+    <SolidColorBrush x:Key="Brush.BorderStrong" Color="#C6B9A7"/>
 
     <!-- Text -->
-    <SolidColorBrush x:Key="Brush.TextPrimary" Color="#1A1F2E"/>
-    <SolidColorBrush x:Key="Brush.TextMuted" Color="#1A1F2E" Opacity="0.70"/>
-    <SolidColorBrush x:Key="Brush.TextInfo" Color="#FF2A5E94"/>
-    <SolidColorBrush x:Key="Brush.TextWarn" Color="#8A4B00"/>
-    <SolidColorBrush x:Key="Brush.TextDanger" Color="#B00020"/>
+    <SolidColorBrush x:Key="Brush.TextPrimary" Color="#25211C"/>
+    <SolidColorBrush x:Key="Brush.TextMuted" Color="#756B5E"/>
+    <SolidColorBrush x:Key="Brush.TextInfo" Color="#9B531E"/>
+    <SolidColorBrush x:Key="Brush.TextWarn" Color="#9A5B10"/>
+    <SolidColorBrush x:Key="Brush.TextDanger" Color="#B73A32"/>
+    <SolidColorBrush x:Key="Brush.TextSuccess" Color="#367548"/>
+    <SolidColorBrush x:Key="Brush.TextOnAccent" Color="#21160C"/>
 
     <!-- Accent -->
-    <SolidColorBrush x:Key="Brush.Accent" Color="#FF8AC4FF"/>
-    <SolidColorBrush x:Key="Brush.AccentBorder" Color="#FF8AC4FF"/>
-    <SolidColorBrush x:Key="Brush.Selection" Color="#DDE6FF"/>
+    <SolidColorBrush x:Key="Brush.Accent" Color="#F0A14A"/>
+    <SolidColorBrush x:Key="Brush.AccentHover" Color="#F5B568"/>
+    <SolidColorBrush x:Key="Brush.AccentPressed" Color="#DC8731"/>
+    <SolidColorBrush x:Key="Brush.AccentBorder" Color="#C96E24"/>
+    <SolidColorBrush x:Key="Brush.Selection" Color="#F8D6AE"/>
 
     <!-- Optional surfaces -->
-    <SolidColorBrush x:Key="Brush.BgControl" Color="#FFFFFF"/>
-    <SolidColorBrush x:Key="Brush.BgControlHover" Color="#EEF2FF"/>
-    <SolidColorBrush x:Key="Brush.BgControlPressed" Color="#E3E9FF"/>
+    <SolidColorBrush x:Key="Brush.BgControl" Color="#FFFDF9"/>
+    <SolidColorBrush x:Key="Brush.BgControlHover" Color="#F4E9DA"/>
+    <SolidColorBrush x:Key="Brush.BgControlPressed" Color="#E9DAC6"/>
+    <SolidColorBrush x:Key="Brush.BgDanger" Color="#FBE7E4"/>
 </ResourceDictionary>

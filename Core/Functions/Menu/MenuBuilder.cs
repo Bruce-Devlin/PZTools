@@ -1,7 +1,7 @@
-using PZTools.Core.Models.Menu;
 using System.Reflection;
 using System.Windows.Controls;
 using System.Windows.Input;
+using PZTools.Core.Models.Menu;
 using MenuItem = System.Windows.Controls.MenuItem;
 
 namespace PZTools.Core.Functions.Menu
@@ -62,7 +62,8 @@ namespace PZTools.Core.Functions.Menu
             for (int i = 0; i < menu.Items.Count; i++)
             {
                 var container = menu.ItemContainerGenerator.ContainerFromIndex(i) as MenuItem;
-                if (container == null) continue;
+                if (container == null)
+                    continue;
 
                 if (container.DataContext is MenuItemDef def && def.IsSeparator)
                 {

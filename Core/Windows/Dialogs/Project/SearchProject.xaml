@@ -5,9 +5,26 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:PZTools.Core.Windows.Dialogs.Project"
         mc:Ignorable="d"
-        Title="SearchProject" Height="450" Width="800"
+        Title="Search projects" Height="280" Width="560" ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource Brush.BgApp}"
+        Foreground="{DynamicResource Brush.TextPrimary}"
         Icon="/Core/Assets/Icons/PZToolsIcon.png">
-    <Grid>
-        
+    <Grid Margin="18">
+        <Border Style="{DynamicResource Card}">
+            <Grid>
+                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                <StackPanel>
+                    <TextBlock Text="Search projects" Style="{DynamicResource Text.Title}"/>
+                    <TextBlock Text="Find a project by its name or location." Style="{DynamicResource Text.Muted}"/>
+                </StackPanel>
+                <StackPanel Grid.Row="1" VerticalAlignment="Center">
+                    <TextBlock Text="Search" Style="{DynamicResource Text.Label}" Margin="0,0,0,6"/>
+                    <TextBox Style="{DynamicResource ModernTextBox}" IsEnabled="False" ToolTip="Project search is not available yet."/>
+                    <TextBlock Text="Project search is planned for a future update." Style="{DynamicResource Text.Muted}" Margin="0,7,0,0"/>
+                </StackPanel>
+                <Button Grid.Row="2" Content="Close" Style="{DynamicResource ModernButton}" Width="100" HorizontalAlignment="Right" IsCancel="True"/>
+            </Grid>
+        </Border>
     </Grid>
 </Window>

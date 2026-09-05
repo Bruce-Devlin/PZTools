@@ -1,10 +1,11 @@
+using System.Collections.ObjectModel;
+using System.Windows;
+using System.Windows.Controls;
 using PZTools.Core.Functions;
 using PZTools.Core.Functions.Projects;
 using PZTools.Core.Models;
 using PZTools.Core.Models.InputDialog;
-using System.Collections.ObjectModel;
-using System.Windows;
-using System.Windows.Controls;
+using Forms = System.Windows.Forms;
 using TreeView = System.Windows.Controls.TreeView;
 
 
@@ -27,7 +28,7 @@ namespace PZTools.Core.Windows.Dialogs.Project
             foreach (var project in loaded)
                 Projects.Add(project);
 
-            ProjectFolderTxt.Text = "Projects Folder: " + ProjectEngine.ProjectsRootPath;
+            ProjectFolderTxt.Text = ProjectEngine.ProjectsRootPath;
 
             ProjectsTreeView.ItemsSource = Projects;
 
@@ -57,7 +58,8 @@ namespace PZTools.Core.Windows.Dialogs.Project
 
         private void SelectTreeViewItem(TreeView treeView, object itemToSelect)
         {
-            if (itemToSelect == null) return;
+            if (itemToSelect == null)
+                return;
 
             TreeViewItem? treeViewItem = GetTreeViewItem(treeView, itemToSelect);
             if (treeViewItem != null)
@@ -69,20 +71,23 @@ namespace PZTools.Core.Windows.Dialogs.Project
 
         private TreeViewItem? GetTreeViewItem(ItemsControl container, object item)
         {
-            if (container == null) return null;
+            if (container == null)
+                return null;
 
             for (int i = 0; i < container.Items.Count; i++)
             {
                 var currentItem = container.Items[i];
 
                 TreeViewItem? treeViewItem = container.ItemContainerGenerator.ContainerFromItem(currentItem) as TreeViewItem;
-                if (treeViewItem == null) continue;
+                if (treeViewItem == null)
+                    continue;
 
                 if (currentItem == item)
                     return treeViewItem;
 
                 TreeViewItem? child = GetTreeViewItem(treeViewItem, item);
-                if (child != null) return child;
+                if (child != null)
+                    return child;
             }
 
             return null;
@@ -97,12 +102,6 @@ namespace PZTools.Core.Windows.Dialogs.Project
             }
 
             projectName = projectName.Trim();
-
-            if (string.IsNullOrWhiteSpace(targetBuild))
-            {
-                MessageBox.Show("Target build cannot be empty.", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return false;
-            }
 
             targetBuild = targetBuild.Trim();
 
@@ -119,7 +118,7 @@ namespace PZTools.Core.Windows.Dialogs.Project
                 return false;
             }
 
-            if (targetBuild != string.Empty && !double.TryParse(targetBuild, out _))
+            if (targetBuild != string.Empty && !double.TryParse(targetBuild, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out _))
             {
                 MessageBox.Show("Target build must be a valid version number.", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return false;
@@ -144,9 +143,10 @@ namespace PZTools.Core.Windows.Dialogs.Project
                 new InputFieldDefinition
                 {
                     Key = targetBuildKey,
-                    Label = "Target Build",
-                    IsRequired = true,
-                    DefaultValue = string.Empty
+                    Label = "Additional Legacy Build (optional)",
+                    Description = "New projects target the current stable Build 42 family. Add 41 here for a compatibility target.",
+                    IsRequired = false,
+                    DefaultValue = "41"
                 }
             };
 
@@ -158,7 +158,8 @@ namespace PZTools.Core.Windows.Dialogs.Project
 
                 bool isValid = ValidateInputResponses(inputDialogs, projectName, targetBuild);
 
-                if (!isValid) return;
+                if (!isValid)
+                    return;
 
                 try
                 {
@@ -177,6 +178,94 @@ namespace PZTools.Core.Windows.Dialogs.Project
                 {
                     MessageBox.Show($"Failed to create project: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 }
+            }
+        }
+
+        private async void ImportModButton_Click(object sender, RoutedEventArgs e)
+        {
+            using var folderPicker = new Forms.FolderBrowserDialog
+            {
+                Description = "Select the folder containing the existing Project Zomboid mod",
+                UseDescriptionForTitle = true,
+                ShowNewFolderButton = false
+            };
+
+            if (folderPicker.ShowDialog() != Forms.DialogResult.OK)
+                return;
+
+            try
+            {
+                var inspection = ModImportService.Inspect(folderPicker.SelectedPath);
+                const string projectNameKey = "projectName";
+                var input = new InputDialogs(
+                    "Confirm the workspace project name. The source folder will not be changed.",
+                    new[]
+                    {
+                        new InputFieldDefinition
+                        {
+                            Key = projectNameKey,
+                            Label = "Project Name",
+                            Description = "The imported copy will be stored under the PZTools Projects folder.",
+                            IsRequired = true,
+                            DefaultValue = inspection.SuggestedProjectName
+                        }
+                    },
+                    "Import Existing Mod");
+
+                if (input.ShowDialog() != true)
+                    return;
+
+                var result = ModImportService.Import(folderPicker.SelectedPath, input.TryGetResponse(projectNameKey));
+                Projects.Clear();
+                foreach (var project in ProjectEngine.GetAllProjects())
+                    Projects.Add(project);
+
+                SelectedProject = result.Project;
+                SelectedTarget = null;
+                ProjectsTreeView.Items.Refresh();
+                SelectTreeViewItem(ProjectsTreeView, result.Project);
+
+                var details = result.Issues.Count == 0
+                    ? "No layout problems were detected."
+                    : string.Join(Environment.NewLine, result.Issues.Take(12).Select(x =>
+                        $"{(x.Severity == ModImportIssueSeverity.Warning ? "Warning" : "Adjusted")}: {x.Message}"));
+                if (result.Issues.Count > 12)
+                    details += $"{Environment.NewLine}…and {result.Issues.Count - 12} more. Open Project Health for the full project validation.";
+
+                var showWarning = result.WarningCount > 0;
+                string healthDetails;
+                try
+                {
+                    var health = await ProjectHealthService.AnalyzeAsync(result.Project, validateLua: true);
+                    var healthFindings = health.Diagnostics
+                        .Where(x => x.Severity != DiagnosticSeverity.Info)
+                        .Take(6)
+                        .Select(x => $"{x.SeverityIcon} {x.Code}: {x.Message}")
+                        .ToList();
+                    healthDetails = healthFindings.Count == 0
+                        ? "Project Health: no errors or warnings."
+                        : $"Project Health: {health.Summary}{Environment.NewLine}" + string.Join(Environment.NewLine, healthFindings);
+                    if (health.ErrorCount + health.WarningCount > healthFindings.Count)
+                        healthDetails += $"{Environment.NewLine}…and {health.ErrorCount + health.WarningCount - healthFindings.Count} more finding(s).";
+                    showWarning |= health.ErrorCount > 0 || health.WarningCount > 0;
+                }
+                catch (Exception healthException)
+                {
+                    healthDetails = $"Project Health could not finish: {healthException.Message}";
+                    showWarning = true;
+                }
+
+                MessageBox.Show(
+                    $"Imported '{result.Project.Name}' with {result.RepairCount} adjustment(s) and {result.WarningCount} warning(s)." +
+                    Environment.NewLine + Environment.NewLine + details + Environment.NewLine + Environment.NewLine + healthDetails + Environment.NewLine + Environment.NewLine +
+                    "Open Project Health after opening the project to review its files and metadata.",
+                    "Mod Import Complete", MessageBoxButton.OK,
+                    showWarning ? MessageBoxImage.Warning : MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"The mod could not be imported: {ex.Message}", "Import Existing Mod",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 

@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using System.IO;
+using System.Net.Http;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Windows;
 
@@ -8,23 +10,122 @@ namespace PZTools.Core.Functions
 {
     static class WindowsHelpers
     {
-        public static bool ShowDialog(this System.Windows.Window parentWindow, System.Windows.Window child)
+
+        public static void MoveDirectorySmart(string sourceDir, string destDir, bool overwrite = true)
         {
-            System.Windows.Window window = child;
-            window.Owner = parentWindow;
-            var result = window.ShowDialog();
-            if (result.HasValue && result is bool) return (bool)result;
-            else return true;
+            try
+            {
+                if (overwrite && Directory.Exists(destDir))
+                    Directory.Delete(destDir, true);
+
+                Directory.Move(sourceDir, destDir);
+            }
+            catch (IOException ex) when (ex.Message.Contains("identical roots", StringComparison.OrdinalIgnoreCase))
+            {
+                MoveDirectoryCrossVolume(sourceDir, destDir, overwrite);
+            }
+        }
+
+        public static void MoveDirectoryCrossVolume(string sourceDir, string destDir, bool overwrite = true)
+        {
+            if (!Directory.Exists(sourceDir))
+                throw new DirectoryNotFoundException(sourceDir);
+
+            if (Directory.Exists(destDir))
+            {
+                if (!overwrite)
+                    throw new IOException($"Destination directory already exists: {destDir}");
+
+                Directory.Delete(destDir, recursive: true);
+            }
+
+            CopyDirectoryRecursive(sourceDir, destDir);
+
+            Directory.Delete(sourceDir, recursive: true);
+        }
+
+        private static void CopyDirectoryRecursive(string sourceDir, string destDir)
+        {
+            Directory.CreateDirectory(destDir);
+
+            foreach (var file in Directory.GetFiles(sourceDir))
+            {
+                var destFile = Path.Combine(destDir, Path.GetFileName(file));
+                File.Copy(file, destFile, overwrite: true);
+            }
+
+            foreach (var dir in Directory.GetDirectories(sourceDir))
+            {
+                var destSub = Path.Combine(destDir, Path.GetFileName(dir));
+                CopyDirectoryRecursive(dir, destSub);
+            }
+        }
+
+        public static void MoveFileCrossVolume(string sourceFile, string destFile, bool overwrite = true)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(destFile)!);
+
+            if (overwrite && File.Exists(destFile))
+                File.Delete(destFile);
+
+            // Copy across volumes
+            File.Copy(sourceFile, destFile, overwrite);
+
+            // Delete original
+            File.Delete(sourceFile);
+        }
+
+
+
+        public static bool ShowDialog(this System.Windows.Window? parentWindow, System.Windows.Window child)
+        {
+            ArgumentNullException.ThrowIfNull(child);
+            if (parentWindow != null)
+                child.Owner = parentWindow;
+            return child.ShowDialog() == true;
         }
 
         public static void CreateShortcut(string shortcutPath, string targetPath, string description)
         {
-            var shell = new IWshRuntimeLibrary.WshShell();
-            var shortcut = (IWshRuntimeLibrary.IWshShortcut)shell.CreateShortcut(shortcutPath);
-            shortcut.TargetPath = targetPath;
-            shortcut.WorkingDirectory = Path.GetDirectoryName(targetPath);
-            shortcut.Description = description;
-            shortcut.Save();
+            ArgumentException.ThrowIfNullOrWhiteSpace(shortcutPath);
+            ArgumentException.ThrowIfNullOrWhiteSpace(targetPath);
+
+            var shortcutDirectory = Path.GetDirectoryName(Path.GetFullPath(shortcutPath));
+            if (!string.IsNullOrWhiteSpace(shortcutDirectory))
+                Directory.CreateDirectory(shortcutDirectory);
+
+            var shellType = Type.GetTypeFromProgID("WScript.Shell")
+                ?? throw new PlatformNotSupportedException("Windows Script Host is unavailable, so the shortcut could not be created.");
+
+            object? shell = null;
+            object? shortcut = null;
+            try
+            {
+                shell = Activator.CreateInstance(shellType)
+                    ?? throw new InvalidOperationException("Could not start Windows Script Host.");
+                shortcut = shellType.InvokeMember(
+                    "CreateShortcut",
+                    BindingFlags.InvokeMethod,
+                    binder: null,
+                    target: shell,
+                    args: new object[] { Path.GetFullPath(shortcutPath) });
+
+                if (shortcut is null)
+                    throw new InvalidOperationException("Windows Script Host did not create a shortcut object.");
+
+                var shortcutType = shortcut.GetType();
+                shortcutType.InvokeMember("TargetPath", BindingFlags.SetProperty, null, shortcut, new object[] { Path.GetFullPath(targetPath) });
+                shortcutType.InvokeMember("WorkingDirectory", BindingFlags.SetProperty, null, shortcut, new object[] { Path.GetDirectoryName(Path.GetFullPath(targetPath)) ?? string.Empty });
+                shortcutType.InvokeMember("Description", BindingFlags.SetProperty, null, shortcut, new object[] { description ?? string.Empty });
+                shortcutType.InvokeMember("Save", BindingFlags.InvokeMethod, null, shortcut, null);
+            }
+            finally
+            {
+                if (shortcut is not null && Marshal.IsComObject(shortcut))
+                    Marshal.FinalReleaseComObject(shortcut);
+                if (shell is not null && Marshal.IsComObject(shell))
+                    Marshal.FinalReleaseComObject(shell);
+            }
         }
 
         public static bool NotNullOrEmpty(this string value)
@@ -115,7 +216,7 @@ namespace PZTools.Core.Functions
         }
 
 
-        public static string OpenFolderBrowser(string description)
+        public static string? OpenFolderBrowser(string description)
         {
             using (var Dialogs = new FolderBrowserDialog())
             {
@@ -132,7 +233,8 @@ namespace PZTools.Core.Functions
         public static void CopyDirectory(string sourceDir, string destDir)
         {
             var src = new DirectoryInfo(sourceDir);
-            if (!src.Exists) throw new DirectoryNotFoundException(sourceDir);
+            if (!src.Exists)
+                throw new DirectoryNotFoundException(sourceDir);
 
             Directory.CreateDirectory(destDir);
 
@@ -151,7 +253,8 @@ namespace PZTools.Core.Functions
         public static void ClearReadOnlyRecursive(string path)
         {
             var root = new DirectoryInfo(path);
-            if (!root.Exists) return;
+            if (!root.Exists)
+                return;
 
             foreach (var dir in root.EnumerateDirectories("*", SearchOption.AllDirectories))
                 dir.Attributes = FileAttributes.Normal;
@@ -164,7 +267,8 @@ namespace PZTools.Core.Functions
 
         public static void DeleteDirectoryRobust(string path, int retries = 6, int delayMs = 80)
         {
-            if (!Directory.Exists(path)) return;
+            if (!Directory.Exists(path))
+                return;
 
             ClearReadOnlyRecursive(path);
 
@@ -201,8 +305,14 @@ namespace PZTools.Core.Functions
         private static bool draggingWindow = false;
         public static void FreeDragThisWindow(this Window window)
         {
-            window.MouseLeftButtonDown += delegate { DraggyWindows(window); };
-            window.MouseLeftButtonUp += delegate { DoneDragWindow(window); };
+            window.MouseLeftButtonDown += delegate
+            {
+                DraggyWindows(window);
+            };
+            window.MouseLeftButtonUp += delegate
+            {
+                DoneDragWindow(window);
+            };
         }
 
         private static void DraggyWindows(Window window)
@@ -349,13 +459,17 @@ namespace PZTools.Core.Functions
         public static string GetTargetFrameworkMoniker()
         {
             var assembly = Assembly.GetEntryAssembly();
+            if (assembly is null)
+                return "unknown";
             var attribute = assembly.GetCustomAttribute<TargetFrameworkAttribute>();
-            if (attribute == null) return "unknown";
+            if (attribute == null)
+                return "unknown";
 
             string frameworkName = attribute.FrameworkName;
 
             var parts = frameworkName.Split(',');
-            if (parts.Length < 2) return "unknown";
+            if (parts.Length < 2)
+                return "unknown";
 
             string baseFramework = parts[0].Trim();
             string tfm = "";
@@ -394,6 +508,16 @@ namespace PZTools.Core.Functions
             }
 
             return tfm;
+        }
+
+        public static void TryKillProcessTree(this Process proc)
+        {
+            try
+            {
+                if (!proc.HasExited)
+                    proc.Kill(entireProcessTree: true);
+            }
+            catch { }
         }
     }
 }

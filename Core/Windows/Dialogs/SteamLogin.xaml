@@ -2,11 +2,11 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Steam Login"
-        Height="260"
+        Height="290"
         Width="455"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
-        Foreground="{DynamicResource Brush.TextPrimary}" WindowStyle="None" AllowsTransparency="True" Background="{x:Null}" Icon="/Core/Assets/Icons/PZToolsIcon.png">
+        Foreground="{DynamicResource Brush.TextPrimary}" Background="{DynamicResource Brush.BgApp}" Icon="/Core/Assets/Icons/PZToolsIcon.png">
 
     <Grid Margin="18">
         <Border Style="{DynamicResource Card}">
@@ -19,17 +19,14 @@
                 </Grid.RowDefinitions>
 
                 <!-- Header -->
-                <TextBlock Grid.Row="0"
-                           Text="Steam Login"
-                           Style="{DynamicResource Text.Title}"
-                           FontSize="18"
-                           Margin="0,0,0,12"/>
+                <StackPanel Grid.Row="0" Margin="0,0,0,16">
+                    <TextBlock Text="Sign in to Steam" Style="{DynamicResource Text.Title}" Margin="0"/>
+                    <TextBlock Text="Your credentials are handled by SteamCMD and are not stored by PZ Tools." Style="{DynamicResource Text.Muted}" Margin="0,4,0,0"/>
+                </StackPanel>
 
                 <!-- Content -->
                 <StackPanel Grid.Row="1">
-                    <TextBlock Text="Steam Username"
-                               FontWeight="SemiBold"
-                               Foreground="{DynamicResource Brush.TextPrimary}"/>
+                    <TextBlock Text="Steam username" Style="{DynamicResource Text.Label}"/>
 
                     <TextBox x:Name="TxtUsername"
                              Style="{DynamicResource ModernTextBox}"

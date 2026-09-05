@@ -16,7 +16,12 @@ namespace PZTools.Core.Models.InputDialog
         public string? Value
         {
             get => _value;
-            set { _value = value; OnPropertyChanged(); OnPropertyChanged(nameof(IsValid)); }
+            set
+            {
+                _value = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(IsValid));
+            }
         }
 
         public Func<string?, bool>? Validator { get; }
@@ -26,8 +31,10 @@ namespace PZTools.Core.Models.InputDialog
         {
             get
             {
-                if (IsRequired && string.IsNullOrWhiteSpace(Value)) return false;
-                if (Validator is null) return true;
+                if (IsRequired && string.IsNullOrWhiteSpace(Value))
+                    return false;
+                if (Validator is null)
+                    return true;
                 return Validator(Value);
             }
         }

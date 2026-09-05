@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 
 namespace PZTools.Core.Models
 {
@@ -26,6 +26,7 @@ namespace PZTools.Core.Models
         public List<string> LoadModBefore { get; } = new();
         public List<string> Packs { get; } = new();
         public List<string> Tiledefs { get; } = new();
+        public List<KeyValuePair<string, string>> AdditionalEntries { get; } = new();
 
         public IEnumerable<string> ToModInfoLines()
         {
@@ -69,6 +70,12 @@ namespace PZTools.Core.Models
             AddKV("versionMin", NormalizeBuildVersion(VersionMin));
             AddKV("versionMax", NormalizeBuildVersion(VersionMax));
 
+            foreach (var entry in AdditionalEntries)
+            {
+                if (!string.IsNullOrWhiteSpace(entry.Key))
+                    lines.Add($"{entry.Key.Trim()}={entry.Value}");
+            }
+
             return lines;
 
             void AddList(string key, List<string> values)
@@ -79,7 +86,8 @@ namespace PZTools.Core.Models
                     .Distinct(StringComparer.OrdinalIgnoreCase)
                     .ToList();
 
-                if (cleaned.Count == 0) return;
+                if (cleaned.Count == 0)
+                    return;
 
                 var joined = string.Join(",", cleaned.Select(x => x.StartsWith("\\") ? x : "\\" + x));
                 lines.Add($"{key}={joined}");
@@ -87,7 +95,8 @@ namespace PZTools.Core.Models
 
             static string? NormalizeBuildVersion(string? v)
             {
-                if (string.IsNullOrWhiteSpace(v)) return null;
+                if (string.IsNullOrWhiteSpace(v))
+                    return null;
 
                 var s = v.Trim();
 
@@ -106,7 +115,8 @@ namespace PZTools.Core.Models
     {
         public static string NormalizeModId(string input)
         {
-            if (string.IsNullOrWhiteSpace(input)) return "";
+            if (string.IsNullOrWhiteSpace(input))
+                return "";
 
             var chars = input
                 .Trim()

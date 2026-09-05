@@ -10,7 +10,7 @@ namespace PZTools
         {
             get
             {
-                string path = Assembly.GetEntryAssembly()?.Location;
+                string? path = Assembly.GetEntryAssembly()?.Location;
 
                 if (string.IsNullOrEmpty(path))
                 {
@@ -31,7 +31,8 @@ namespace PZTools
             get
             {
                 var dir = new DirectoryInfo(Path.Combine(CurrentDirectory.FullName, "Configs"));
-                if (!dir.Exists) dir.Create();
+                if (!dir.Exists)
+                    dir.Create();
                 return dir;
             }
         }

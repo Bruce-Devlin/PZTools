@@ -1,4 +1,4 @@
-﻿using System.IO;
+using System.IO;
 using System.Windows;
 
 namespace PZTools.Core.Functions.Decompile
@@ -8,14 +8,16 @@ namespace PZTools.Core.Functions.Decompile
         public static EventHandler<string> OnDecompilerMessage = new EventHandler<string>(delegate { });
         public static void ClearDecompilerMessageEvents()
         {
-            OnDecompilerMessage = new EventHandler<string>(delegate { });
+            OnDecompilerMessage = new EventHandler<string>(delegate
+            {
+            });
         }
 
         public static async Task<bool> DecompileGame(string gamePath, string build = "", CancellationToken cancellationToken = default)
         {
             try
             {
-                await JavaDecompiler.EnsureCfrInstalledAsync();
+                await JavaDecompiler.EnsureCfrInstalledAsync(cancellationToken);
             }
             catch (Exception ex)
             {
@@ -26,6 +28,11 @@ namespace PZTools.Core.Functions.Decompile
             cancellationToken.ThrowIfCancellationRequested();
 
             string existingJarPath = Path.Combine(gamePath, "projectzomboid.jar");
+            if (!File.Exists(existingJarPath))
+            {
+                await Console.Log($"Project Zomboid jar not found: {existingJarPath}", Console.LogLevel.Error);
+                return false;
+            }
             string zomboidRoot = Path.Combine(AppPaths.CurrentDirectoryPath, "Zomboid");
             Directory.CreateDirectory(zomboidRoot);
 
@@ -62,7 +69,8 @@ namespace PZTools.Core.Functions.Decompile
                     cancellationToken: cancellationToken
                 );
 
-                if (!success) return false;
+                if (!success)
+                    return false;
             }
             catch (OperationCanceledException)
             {
@@ -71,7 +79,12 @@ namespace PZTools.Core.Functions.Decompile
             }
             finally
             {
-                try { if (File.Exists(managedJar)) File.Delete(managedJar); } catch { }
+                try
+                {
+                    if (File.Exists(managedJar))
+                        File.Delete(managedJar);
+                }
+                catch { }
             }
 
             if (!Directory.Exists(Path.Combine(sourcePath, "zombie")))
@@ -83,6 +96,27 @@ namespace PZTools.Core.Functions.Decompile
                     MessageBoxImage.Error);
 
                 return false;
+            }
+
+            try
+            {
+                OnDecompilerMessage.Invoke(null, "Building the game-code knowledge base...");
+                var progress = new Progress<string>(message => OnDecompilerMessage.Invoke(null, message));
+                await GameKnowledgeBase.LoadOrBuildAsync(
+                    sourcePath,
+                    string.IsNullOrWhiteSpace(build) ? "Current game" : build,
+                    force: true,
+                    progress,
+                    cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                await Console.Log("Knowledge-base indexing cancelled.", Console.LogLevel.Warning);
+                return false;
+            }
+            catch (Exception ex)
+            {
+                await Console.Log($"Game files were decompiled, but the knowledge base could not be built: {ex.Message}", Console.LogLevel.Warning);
             }
 
             return true;

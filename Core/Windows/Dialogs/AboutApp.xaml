@@ -10,8 +10,8 @@
         Width="720"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
-        Background="{x:Null}"
-        Foreground="{DynamicResource Brush.TextPrimary}" WindowStyle="None" AllowsTransparency="True"
+        Background="{DynamicResource Brush.BgApp}"
+        Foreground="{DynamicResource Brush.TextPrimary}"
         Icon="/Core/Assets/Icons/PZToolsIcon.png">
 
     <Grid Margin="18">
@@ -25,26 +25,28 @@
                 </Grid.RowDefinitions>
 
                 <!-- Header -->
-                <StackPanel Grid.Row="0" Margin="0,0,0,16">
-                    <TextBlock Text="PZ Tools"
-                               FontSize="28"
-                               FontWeight="SemiBold"
-                               Foreground="{DynamicResource Brush.TextPrimary}"/>
-
-                    <TextBlock Text="Project Zomboid Modding Toolkit"
-                               Style="{DynamicResource Text.Muted}"
-                               FontSize="14"
-                               Margin="0,4,0,0"/>
-                </StackPanel>
+                <Grid Grid.Row="0" Margin="0,0,0,16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="64"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Width="52" Height="52" CornerRadius="12" Background="{DynamicResource Brush.BgControl}" BorderBrush="{DynamicResource Brush.Border}" BorderThickness="1" Padding="4">
+                        <Image Source="/Core/Assets/Icons/PZToolsIcon.png" Stretch="Uniform"/>
+                    </Border>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="PZ Tools" Style="{DynamicResource Text.Display}"/>
+                        <TextBlock Text="Project Zomboid Modding Toolkit" Style="{DynamicResource Text.Muted}" FontSize="14" Margin="0,3,0,0"/>
+                    </StackPanel>
+                </Grid>
 
                 <!-- Content -->
-                <StackPanel Grid.Row="1" Margin="0,0,0,12">
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,0,0,12">
+                <StackPanel Margin="0,0,8,0">
 
                     <TextBlock Text="Version"
                                Foreground="{DynamicResource Brush.TextMuted}"
                                FontWeight="Bold"/>
 
-                    <!-- If you prefer true accent here, swap Brush.TextInfo -> Brush.Accent -->
                     <TextBlock Text="1.0.0"
                                Foreground="{DynamicResource Brush.TextInfo}"
                                Margin="0,0,0,12"/>
@@ -57,7 +59,7 @@
                                Foreground="{DynamicResource Brush.TextPrimary}"
                                TextWrapping="Wrap"
                                Margin="0,0,0,12"/>
-                    <TextBlock Text="As a big fan of Project Zomoid and a game modder, I thought traditional IDE's lacked a lot of the robust support needed for Project Zomboid modding, especially for people looking to learn. Enter PZTools, an app with everything you need at your finger-tips!"
+                    <TextBlock Text="Built by a Project Zomboid modder, PZ Tools brings the game-specific workflows that traditional IDEs lack into one approachable workspace."
                                Foreground="{DynamicResource Brush.TextPrimary}"
                                TextWrapping="Wrap"
                                Margin="0,0,0,12"/>
@@ -88,8 +90,9 @@
                                Margin="0,0,0,12"/>
 
                 </StackPanel>
+                </ScrollViewer>
 
-                <Border Grid.Row="4"
+                <Border Grid.Row="2"
                         Background="{DynamicResource Brush.Border}"
                         Height="1"
                         VerticalAlignment="Top"/>

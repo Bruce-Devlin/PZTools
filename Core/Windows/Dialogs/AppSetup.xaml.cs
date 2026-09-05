@@ -1,8 +1,8 @@
+using System.IO;
+using System.Windows;
 using PZTools.Core.Functions;
 using PZTools.Core.Functions.Decompile;
 using PZTools.Core.Functions.Steam;
-using System.IO;
-using System.Windows;
 
 namespace PZTools.Core.Windows.Dialogs
 {
@@ -12,6 +12,14 @@ namespace PZTools.Core.Windows.Dialogs
     public partial class AppSetup : Window
     {
         private CancellationTokenSource cancelSetupSource = new CancellationTokenSource();
+        private Task<bool>? _setupTask;
+        private bool _isFinishing;
+        private bool _allowClose;
+        private string? _stagingDirectory;
+        private string? _managedGameStagingDirectory;
+        private string? _partiallyInstalledAppDirectory;
+        private string? _partiallyInstalledGameDirectory;
+        private readonly string _originalWorkingDirectory = AppPaths.CurrentDirectoryPath;
 
         public AppSetup()
         {
@@ -56,17 +64,22 @@ namespace PZTools.Core.Windows.Dialogs
         #region Browse Buttons
         private void BrowseAppInstallButton_Click(object sender, RoutedEventArgs e)
         {
-            string path = WindowsHelpers.OpenFolderBrowser("Select installation folder for PZ Tools (this should be a new folder)");
+            string? path = WindowsHelpers.OpenFolderBrowser("Select installation folder for PZ Tools (this should be a new folder)");
             if (!string.IsNullOrEmpty(path))
             {
-                if (Directory.GetFiles(path).Length > 0) { MessageBox.Show("The selected folder is not empty. Please select an empty folder for installation.", "Invalid Folder", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
+                if (Directory.GetFiles(path).Length > 0)
+                {
+                    MessageBox.Show("The selected folder is not empty. Please select an empty folder for installation.", "Invalid Folder", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
                 txtAppInstallPath.Text = path;
+                UpdateGameInstallOption();
             }
         }
 
         private void BrowseGameInstallButton_Click(object sender, RoutedEventArgs e)
         {
-            string path = WindowsHelpers.OpenFolderBrowser("Select existing Project Zomboid installation");
+            string? path = WindowsHelpers.OpenFolderBrowser("Select existing Project Zomboid installation");
             if (!string.IsNullOrEmpty(path))
             {
                 txtExistingGamePath.Text = path;
@@ -75,7 +88,7 @@ namespace PZTools.Core.Windows.Dialogs
 
         private void BrowseManagedGamePath_Click(object sender, RoutedEventArgs e)
         {
-            string path = WindowsHelpers.OpenFolderBrowser("Select folder for PZ Tools managed installations");
+            string? path = WindowsHelpers.OpenFolderBrowser("Select folder for PZ Tools managed installations");
             if (!string.IsNullOrEmpty(path))
             {
                 txtManagedGamePath.Text = path;
@@ -84,21 +97,29 @@ namespace PZTools.Core.Windows.Dialogs
         #endregion
 
         #region Buttons
-        private void CancelButton_Click(object sender, RoutedEventArgs e)
+        private async void CancelButton_Click(object sender, RoutedEventArgs e)
         {
-            var result = MessageBox.Show("Are you sure you want to cancel the setup? The application will exit.", "Cancel Setup", MessageBoxButton.YesNo, MessageBoxImage.Question);
-            if (result == MessageBoxResult.Yes)
-            {
-                DialogResult = false;
-                this.Close();
-            }
+            var result = MessageBox.Show(
+                            "Are you sure you want to cancel the setup? The application will exit.",
+                            "Cancel Setup",
+                            MessageBoxButton.YesNo,
+                            MessageBoxImage.Question);
+
+            if (result != MessageBoxResult.Yes)
+                return;
+
+            await RequestCancelAndCloseAsync();
         }
 
         private async void FinishButton_Click(object sender, RoutedEventArgs e)
         {
+            if (_isFinishing)
+                return;
+
             if (string.IsNullOrWhiteSpace(txtAppInstallPath.Text) || !Directory.Exists(txtAppInstallPath.Text))
             {
-                MessageBox.Show("Please select a valid installation folder for PZ Tools.", "Invalid Path", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show("Please select a valid installation folder for PZ Tools.", "Invalid Path",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
@@ -106,7 +127,8 @@ namespace PZTools.Core.Windows.Dialogs
             {
                 if (string.IsNullOrWhiteSpace(txtExistingGamePath.Text) || !Directory.Exists(txtExistingGamePath.Text))
                 {
-                    MessageBox.Show("Please select a valid Project Zomboid installation folder.", "Invalid Path", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    MessageBox.Show("Please select a valid Project Zomboid installation folder.", "Invalid Path",
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
             }
@@ -114,14 +136,27 @@ namespace PZTools.Core.Windows.Dialogs
             {
                 if (string.IsNullOrWhiteSpace(txtManagedGamePath.Text))
                 {
-                    MessageBox.Show("Please select a valid folder for managed installations.", "Invalid Path", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    MessageBox.Show("Please select a valid folder for managed installations.", "Invalid Path",
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
             }
 
-            AppPaths.SetCurrentDirectory(txtAppInstallPath.Text);
+            string finalInstallDir = Path.GetFullPath(txtAppInstallPath.Text.Trim());
+            string? installParent = Path.GetDirectoryName(finalInstallDir);
+            if (string.IsNullOrWhiteSpace(installParent))
+            {
+                MessageBox.Show("Please select a valid installation folder.", "Invalid Path",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            if (Directory.EnumerateFileSystemEntries(txtAppInstallPath.Text).Any())
+            {
+                MessageBox.Show("The PZTools installation folder must be empty.", "Folder Not Empty",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
 
-            string installDir = txtAppInstallPath.Text;
             bool managed = rdoManagedGame.IsChecked == true;
             string existingGameDir = txtExistingGamePath.Text;
             bool createDesktopShortcut = chkDesktopShortcut.IsChecked == true;
@@ -131,38 +166,127 @@ namespace PZTools.Core.Windows.Dialogs
 
             if (managed)
             {
-                var dlg = new SteamLogin { Owner = this };
+                var managedPath = Path.GetFullPath(txtManagedGamePath.Text.Trim());
+                if (Directory.Exists(managedPath) && Directory.EnumerateFileSystemEntries(managedPath).Any())
+                {
+                    MessageBox.Show("The managed game folder must be empty for a new setup.", "Folder Not Empty",
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+                if (!File.Exists(Path.Combine(txtExistingGamePath.Text, "ProjectZomboid64.exe")))
+                {
+                    MessageBox.Show("The selected folder does not contain ProjectZomboid64.exe.", "Invalid Game Folder",
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
 
+                var dlg = new SteamLogin { Owner = this };
                 if (dlg.ShowDialog() != true)
                 {
-                    MessageBox.Show("Steam username is required for managed installations. Setup will be cancelled.", "Setup Cancelled", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    MessageBox.Show("Steam username is required for managed installations. Setup will be cancelled.",
+                        "Setup Cancelled", MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
 
                 steamUsername = dlg.Username;
             }
 
+            _isFinishing = true;
+            Directory.CreateDirectory(installParent);
+            string installDir = Path.Combine(installParent, $".PZTools-install-{Guid.NewGuid():N}");
+            Directory.CreateDirectory(installDir);
+            _stagingDirectory = installDir;
+            AppPaths.SetCurrentDirectory(installDir);
+
+            string managedGameInstallDir = Path.Combine(installDir, "Zomboid");
+            if (managed)
+            {
+                var finalManagedDir = Path.GetFullPath(txtManagedGamePath.Text.Trim());
+                var relativeManagedDir = Path.GetRelativePath(finalInstallDir, finalManagedDir);
+                var isInsideInstall = relativeManagedDir != ".." &&
+                    !relativeManagedDir.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal) &&
+                    !Path.IsPathRooted(relativeManagedDir);
+
+                if (isInsideInstall)
+                {
+                    managedGameInstallDir = Path.Combine(installDir, relativeManagedDir);
+                }
+                else
+                {
+                    var managedParent = Path.GetDirectoryName(finalManagedDir)
+                        ?? throw new InvalidOperationException("The managed game path is invalid.");
+                    Directory.CreateDirectory(managedParent);
+                    managedGameInstallDir = Path.Combine(managedParent, $".PZTools-games-{Guid.NewGuid():N}");
+                    Directory.CreateDirectory(managedGameInstallDir);
+                    _managedGameStagingDirectory = managedGameInstallDir;
+                }
+            }
+
             ShowSetupOverlay("Starting setup...", false);
 
-            bool installResult = false;
+            _setupTask = StartSetupTasks(
+                installDir, managedGameInstallDir, managed, existingGameDir,
+                decompileGameFiles, steamUsername,
+                cancelSetupSource.Token);
 
-            await Task.Run(async () =>
+            bool installResult;
+            try
             {
-                installResult = await StartSetupTasks(installDir, managed, existingGameDir, createDesktopShortcut, createStartMenuShortcut, decompileGameFiles, steamUsername);
-            });
-
-            if (installResult)
-            {
-                SaveSettings();
-
-                HideSetupOverlay();
-                this.DialogResult = true;
-                this.Close();
+                installResult = await _setupTask;
             }
-            else
+            catch (OperationCanceledException)
             {
-                MessageBox.Show("Setup encountered errors. Please check the logs for details.", "Setup Failed", MessageBoxButton.OK, MessageBoxImage.Error);
+                installResult = false;
+            }
+            catch (Exception ex)
+            {
+                await Console.Log("Setup failed: " + ex.Message, Console.LogLevel.Warning);
+                installResult = false;
+            }
+
+            if (!installResult)
+            {
+                AppPaths.SetCurrentDirectory(_originalWorkingDirectory);
                 HideSetupOverlay();
+                MessageBox.Show(
+                    "Setup could not be completed. The partial installation has been removed; review PZTools.log and try again.",
+                    "Setup Incomplete",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                CleanupFailedInstall();
+                _isFinishing = false;
+                return;
+            }
+
+            try
+            {
+                AppPaths.SetCurrentDirectory(_originalWorkingDirectory);
+                WindowsHelpers.MoveDirectorySmart(installDir, finalInstallDir);
+                _stagingDirectory = null;
+                _partiallyInstalledAppDirectory = finalInstallDir;
+                if (_managedGameStagingDirectory != null)
+                {
+                    var finalManagedDirectory = Path.GetFullPath(txtManagedGamePath.Text.Trim());
+                    WindowsHelpers.MoveDirectorySmart(_managedGameStagingDirectory, finalManagedDirectory);
+                    _managedGameStagingDirectory = null;
+                    _partiallyInstalledGameDirectory = finalManagedDirectory;
+                }
+                AppPaths.SetCurrentDirectory(finalInstallDir);
+                SaveSettings();
+                CreateRequestedShortcuts(finalInstallDir, createDesktopShortcut, createStartMenuShortcut);
+                _partiallyInstalledAppDirectory = null;
+                _partiallyInstalledGameDirectory = null;
+                HideSetupOverlay();
+                _allowClose = true;
+                DialogResult = true;
+            }
+            catch (Exception ex)
+            {
+                AppPaths.SetCurrentDirectory(_originalWorkingDirectory);
+                HideSetupOverlay();
+                CleanupFailedInstall();
+                _isFinishing = false;
+                await Console.Log($"Could not finalise setup: {ex.Message}", Console.LogLevel.Error);
             }
         }
         #endregion
@@ -178,57 +302,40 @@ namespace PZTools.Core.Windows.Dialogs
                 Functions.Config.SetAppSetting("ManagedGamePath", txtManagedGamePath.Text);
         }
 
-        private async Task<bool> StartSetupTasks(string installDir, bool managed, string existingGameDir, bool createDesktopShortcut, bool createStartMenuShortcut, bool decompileGameFiles, string steamUsername)
+        private async Task<bool> StartSetupTasks(
+            string installDir,
+            string managedGameInstallDir,
+            bool managed,
+            string existingGameDir,
+            bool decompileGameFiles,
+            string steamUsername,
+            CancellationToken ct)
         {
-            string destExe = Path.Combine(installDir, "PZTools.exe");
+            ct.ThrowIfCancellationRequested();
 
             UpdateSetupStatus("Setting up application files...", 5);
-            File.Copy(AppPaths.CurrentFilePath, destExe, true);
+            CopyApplicationFiles(AppContext.BaseDirectory, installDir, ct);
             Directory.CreateDirectory(Path.Combine(installDir, "Configs"));
             Directory.CreateDirectory(Path.Combine(installDir, "Projects"));
 
-            string zomboidRoot = Path.Combine(installDir, "Zomboid");
-            if (managed || decompileGameFiles) Directory.CreateDirectory(zomboidRoot);
+            string zomboidRoot = managed ? managedGameInstallDir : Path.Combine(installDir, "Zomboid");
+            if (managed || decompileGameFiles)
+                Directory.CreateDirectory(zomboidRoot);
 
-            if (createDesktopShortcut)
-            {
-                UpdateSetupStatus("Creating shortcuts...", 10);
-
-                string shortcutPath = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.Desktop),
-                    "PZTools.lnk"
-                );
-                WindowsHelpers.CreateShortcut(shortcutPath, destExe, "Project Zomboid Tools");
-                await Console.Log($"Desktop shortcut created at {shortcutPath}");
-            }
-
-            if (createStartMenuShortcut)
-            {
-                UpdateSetupStatus("Creating shortcuts...", 15);
-                string startMenuDir = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.StartMenu),
-                    "PZTools"
-                );
-                Directory.CreateDirectory(startMenuDir);
-                string shortcutPath = Path.Combine(startMenuDir, "PZTools.lnk");
-                WindowsHelpers.CreateShortcut(shortcutPath, destExe, "Project Zomboid Tools");
-                await Console.Log($"Start menu shortcut created at {shortcutPath}");
-            }
+            ct.ThrowIfCancellationRequested();
 
             if (managed)
             {
                 UpdateSetupStatus("Setting up managed Project Zomboid installations...", 20);
                 string steamCmdDir = Path.Combine(installDir, "SteamCMD");
 
-                SteamInstaller steamInstaller = new SteamInstaller();
-                steamInstaller.onSteamMessage += (s, msg) =>
+                var steamInstaller = new SteamInstaller();
+                steamInstaller.SteamMessage += (_, msg) =>
                 {
-                    Dispatcher.Invoke(() =>
-                    {
-                        UpdateSetupStatus(msg, 30);
-                    });
+                    Dispatcher.Invoke(() => UpdateSetupStatus(msg, 30));
                 };
-                await steamInstaller.SetupSteamCMD(steamCmdDir);
+
+                await steamInstaller.SetupSteamCmdAsync(steamCmdDir, ct);
 
                 var zomboidBranches = new Dictionary<string, string>
                 {
@@ -238,29 +345,31 @@ namespace PZTools.Core.Windows.Dialogs
                 };
 
                 UpdateSetupStatus("Installing Project Zomboid versions...", 35);
-                bool installFailed = false;
 
                 foreach (var branch in zomboidBranches)
                 {
-                    UpdateSetupStatus($"Installing Project Zomboid {branch.Key}... \r\nThis will be done by SteamCMD, it will ask for your password.\r\n(PZTools won't save this).\r\n\r\nThis will take some time as this must download all the game files and workshop mods subscribed, progress can be tracked within the opened console window.", 40);
-                    string branchName = branch.Key;
-                    string betaName = branch.Value;
+                    ct.ThrowIfCancellationRequested();
 
-                    string installDirVersion = Path.Combine(zomboidRoot, branchName);
-                    string appId = "108600";
+                    UpdateSetupStatus(
+                        $"Installing Project Zomboid {branch.Key}...\r\n" +
+                        "This will be done by SteamCMD, it will ask for your password.\r\n" +
+                        "(PZTools won't save this).\r\n\r\n" +
+                        "Progress can be tracked within the opened console window.",
+                        40);
 
-                    var result = await steamInstaller.InstallApp(appId, installDirVersion, steamUsername, betaName, cancelSetupSource.Token);
+                    string installDirVersion = Path.Combine(zomboidRoot, branch.Key);
 
-                    await Console.Log($"Finished installing: [{branchName}] (result={result}");
+                    var ok = await steamInstaller.InstallAppAsync(
+                        appId: "108600",
+                        installDirectory: installDirVersion,
+                        username: steamUsername,
+                        beta: branch.Value,
+                        cancellationToken: ct);
 
-                    if (!result) installFailed = true;
-                }
+                    await Console.Log($"Finished installing: [{branch.Key}] (result={ok})");
 
-                if (installFailed)
-                {
-                    await Console.Log("One or more Project Zomboid versions failed to install. Please check the logs for details.", Console.LogLevel.Error);
-                    MessageBox.Show("One or more Project Zomboid versions failed to install. Please check the logs for details.", "Installation Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                    return false;
+                    if (!ok)
+                        return false;
                 }
 
                 await Console.Log("All Project Zomboid versions installed.");
@@ -268,6 +377,8 @@ namespace PZTools.Core.Windows.Dialogs
 
             if (decompileGameFiles)
             {
+                ct.ThrowIfCancellationRequested();
+
                 UpdateSetupStatus("Checking CFR decompiler...", 60);
 
                 string? javaExe = JavaDecompiler.FindJavaExecutable();
@@ -277,28 +388,36 @@ namespace PZTools.Core.Windows.Dialogs
                     return false;
                 }
 
-
                 UpdateSetupStatus("Decompiling source files... (this can take a while)", 65);
-                string sourcePath = Path.Combine(zomboidRoot, "Source");
-                Directory.CreateDirectory(sourcePath);
 
-                JavaDecompilerHelpers.OnDecompilerMessage += (s, status) => UpdateSetupStatus(status);
-                if (managed)
+                JavaDecompilerHelpers.OnDecompilerMessage += (_, status) => UpdateSetupStatus(status);
+
+                try
                 {
-                    foreach (var dir in Directory.GetDirectories(zomboidRoot))
+                    if (managed)
                     {
-                        string existingJarPath = Path.Combine(dir, "projectzomboid.jar");
-                        if (File.Exists(existingJarPath))
+                        foreach (var dir in Directory.GetDirectories(zomboidRoot))
                         {
-                            return await JavaDecompilerHelpers.DecompileGame(dir, Path.GetFileName(dir));
+                            ct.ThrowIfCancellationRequested();
+
+                            string existingJarPath = Path.Combine(dir, "projectzomboid.jar");
+                            if (File.Exists(existingJarPath))
+                            {
+                                if (!await JavaDecompilerHelpers.DecompileGame(dir, Path.GetFileName(dir), ct))
+                                    return false;
+                            }
                         }
                     }
+                    else
+                    {
+                        if (!await JavaDecompilerHelpers.DecompileGame(existingGameDir, cancellationToken: ct))
+                            return false;
+                    }
                 }
-                else
+                finally
                 {
-                    return await JavaDecompilerHelpers.DecompileGame(existingGameDir);
+                    JavaDecompilerHelpers.ClearDecompilerMessageEvents();
                 }
-                JavaDecompilerHelpers.ClearDecompilerMessageEvents();
             }
 
             UpdateSetupStatus("Setup complete!", 100);
@@ -337,16 +456,131 @@ namespace PZTools.Core.Windows.Dialogs
             IsEnabled = true;
         }
 
-        private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+        private async void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
-            var result = MessageBox.Show("Are you sure you want to exit and cancel the setup? The application will exit.", "Exit Setup", MessageBoxButton.YesNo, MessageBoxImage.Question);
-            if (result != MessageBoxResult.No)
+            if (_allowClose)
+                return;
+
+            var result = MessageBox.Show(
+                "Are you sure you want to exit and cancel the setup? The application will exit.",
+                "Exit Setup",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+
+            if (result == MessageBoxResult.No)
             {
                 e.Cancel = true;
+                return;
             }
-            else
+
+            e.Cancel = true;
+            cancelSetupSource.Cancel();
+            await RequestCancelAndCloseAsync();
+        }
+
+        private void CleanupFailedInstall()
+        {
+            var staging = _stagingDirectory;
+            if (!string.IsNullOrWhiteSpace(staging) && Directory.Exists(staging))
+            {
+                var fullStaging = Path.GetFullPath(staging);
+                var name = Path.GetFileName(fullStaging);
+                if (!name.StartsWith(".PZTools-install-", StringComparison.Ordinal))
+                    throw new InvalidOperationException("Refusing to remove an unexpected setup path.");
+
+                WindowsHelpers.DeleteDirectoryRobust(fullStaging);
+                _stagingDirectory = null;
+            }
+
+            if (_managedGameStagingDirectory != null && Directory.Exists(_managedGameStagingDirectory))
+            {
+                var managedStagingName = Path.GetFileName(_managedGameStagingDirectory);
+                if (managedStagingName.StartsWith(".PZTools-games-", StringComparison.Ordinal))
+                    WindowsHelpers.DeleteDirectoryRobust(_managedGameStagingDirectory);
+                _managedGameStagingDirectory = null;
+            }
+
+            if (_partiallyInstalledAppDirectory != null && Directory.Exists(_partiallyInstalledAppDirectory))
+                WindowsHelpers.DeleteDirectoryRobust(_partiallyInstalledAppDirectory);
+            if (_partiallyInstalledGameDirectory != null && Directory.Exists(_partiallyInstalledGameDirectory))
+                WindowsHelpers.DeleteDirectoryRobust(_partiallyInstalledGameDirectory);
+            _partiallyInstalledAppDirectory = null;
+            _partiallyInstalledGameDirectory = null;
+        }
+
+        private async Task RequestCancelAndCloseAsync()
+        {
+            if (!cancelSetupSource.IsCancellationRequested)
             {
                 cancelSetupSource.Cancel();
+                UpdateSetupStatus("Cancelling setup...", null);
+            }
+
+            await WaitSetupTaskOrTimeoutAsync(TimeSpan.FromSeconds(3));
+            AppPaths.SetCurrentDirectory(_originalWorkingDirectory);
+            CleanupFailedInstall();
+            _allowClose = true;
+            DialogResult = false;
+        }
+
+        private async Task WaitSetupTaskOrTimeoutAsync(TimeSpan timeout)
+        {
+            var t = _setupTask;
+            if (t is null)
+                return;
+
+            try
+            {
+                var completed = await Task.WhenAny(t, Task.Delay(timeout));
+                if (completed == t)
+                    await t;
+            }
+            catch
+            {
+            }
+        }
+
+        private static void CopyApplicationFiles(string sourceDirectory, string destinationDirectory, CancellationToken ct)
+        {
+            var sourceRoot = Path.GetFullPath(sourceDirectory)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            var destinationRoot = Path.GetFullPath(destinationDirectory)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+            foreach (var directory in Directory.EnumerateDirectories(sourceRoot, "*", SearchOption.AllDirectories))
+            {
+                ct.ThrowIfCancellationRequested();
+                var fullDirectory = Path.GetFullPath(directory);
+                if (fullDirectory.StartsWith(destinationRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                    continue;
+                Directory.CreateDirectory(Path.Combine(destinationRoot, Path.GetRelativePath(sourceRoot, fullDirectory)));
+            }
+
+            foreach (var file in Directory.EnumerateFiles(sourceRoot, "*", SearchOption.AllDirectories))
+            {
+                ct.ThrowIfCancellationRequested();
+                var fullFile = Path.GetFullPath(file);
+                if (fullFile.StartsWith(destinationRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                    continue;
+                File.Copy(fullFile, Path.Combine(destinationRoot, Path.GetRelativePath(sourceRoot, fullFile)), overwrite: true);
+            }
+        }
+
+        private static void CreateRequestedShortcuts(string installDirectory, bool desktop, bool startMenu)
+        {
+            var executable = Path.Combine(installDirectory, "PZTools.exe");
+            if (desktop)
+            {
+                WindowsHelpers.CreateShortcut(
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "PZTools.lnk"),
+                    executable, "Project Zomboid Tools");
+            }
+
+            if (startMenu)
+            {
+                WindowsHelpers.CreateShortcut(
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.StartMenu), "PZTools", "PZTools.lnk"),
+                    executable, "Project Zomboid Tools");
             }
         }
     }

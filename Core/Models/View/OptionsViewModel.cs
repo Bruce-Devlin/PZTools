@@ -1,4 +1,4 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
 
@@ -10,7 +10,8 @@ namespace PZTools.Core.Models.View
 
         protected bool Set<T>(ref T field, T value, [CallerMemberName] string? name = null)
         {
-            if (Equals(field, value)) return false;
+            if (Equals(field, value))
+                return false;
             field = value;
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
             return true;

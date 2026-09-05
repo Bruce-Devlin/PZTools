@@ -65,7 +65,7 @@
                     <StackPanel>
                         <TextBlock Text="Notes" Opacity="0.85"/>
                         <TextBlock Style="{DynamicResource Text.Muted}"
-                                   Text="Settings are applied immediately. Use Apply if you want to force-save without closing."
+                                   Text="Changes save automatically."
                                    Margin="0,6,0,0"/>
                     </StackPanel>
                 </Border>
@@ -93,6 +93,7 @@
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="220"/>
                             <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
 
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="App Install Path"
@@ -100,7 +101,7 @@
                         <TextBox Grid.Row="0" IsReadOnly="True" Grid.Column="1"
                           Style="{DynamicResource ModernTextBox}"
                           Text="{Binding Settings.AppInstallPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-                        <Button x:Name="AppInstallPathBtn" Grid.Row="0" Grid.Column="1" Click="AppInstallPathBtn_Click" Background="Transparent" Style="{DynamicResource ModernButton}"/>
+                        <Button x:Name="AppInstallPathBtn" Grid.Row="0" Grid.Column="2" Content="Browse..." Margin="8,0,0,0" Click="AppInstallPathBtn_Click" Style="{DynamicResource ModernButton}"/>
 
                         <TextBlock Grid.Row="1" Grid.Column="0" Text="Game Management Mode"
                            Opacity="0.85" VerticalAlignment="Center" Margin="0,10,0,0"/>
@@ -109,19 +110,26 @@
                           ItemsSource="{Binding GameModeOptions}"
                           SelectedItem="{Binding Settings.GameMode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
 
-                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Exisitng Game Install Path"
-                           Opacity="0.85" VerticalAlignment="Center"/>
-                        <TextBox x:Name="ExistingGameInstallPath" Grid.Row="2" IsReadOnly="True" Grid.Column="1"
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Existing Game Install Path"
+                           Opacity="0.85" VerticalAlignment="Center" Margin="0,10,0,0"/>
+                        <TextBox x:Name="ExistingGameInstallPath" Grid.Row="2" IsReadOnly="True" Grid.Column="1" Margin="0,10,0,0"
                           Style="{DynamicResource ModernTextBox}"
                           Text="{Binding Settings.ExistingGamePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-                        <Button x:Name="ExistingGameInstallPathBtn" Grid.Row="2" Grid.Column="1" Click="ExistingGameInstallPathBtn_Click" Background="Transparent" Style="{DynamicResource ModernButton}"/>
+                        <Button x:Name="ExistingGameInstallPathBtn" Grid.Row="2" Grid.Column="2" Content="Browse..." Margin="8,10,0,0" Click="ExistingGameInstallPathBtn_Click" Style="{DynamicResource ModernButton}"/>
 
                         <TextBlock Grid.Row="3" Grid.Column="0" Text="Managed Game Install Path"
-                           Opacity="0.85" VerticalAlignment="Center"/>
-                        <TextBox x:Name="ManagedGameInstallPath" Grid.Row="3" IsReadOnly="True" Grid.Column="1"
+                           Opacity="0.85" VerticalAlignment="Center" Margin="0,10,0,0"/>
+                        <TextBox x:Name="ManagedGameInstallPath" Grid.Row="3" IsReadOnly="True" Grid.Column="1" Margin="0,10,0,0"
                           Style="{DynamicResource ModernTextBox}"
                           Text="{Binding Settings.ManagedGamePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-                        <Button x:Name="ManagedGameInstallPathBtn" Grid.Row="3" Grid.Column="1" Click="ManagedGameInstallPathBtn_Click" Background="Transparent" Style="{DynamicResource ModernButton}"/>
+                        <Button x:Name="ManagedGameInstallPathBtn" Grid.Row="3" Grid.Column="2" Content="Browse..." Margin="8,10,0,0" Click="ManagedGameInstallPathBtn_Click" Style="{DynamicResource ModernButton}"/>
+
+                        <TextBlock Grid.Row="4" Grid.Column="0" Text="Current Stable Build"
+                           Opacity="0.85" VerticalAlignment="Center" Margin="0,10,0,0"/>
+                        <TextBox Grid.Row="4" Grid.Column="1" Margin="0,10,0,0"
+                          Style="{DynamicResource ModernTextBox}"
+                          ToolTip="Used for the unversioned project root. Legacy build targets remain supported."
+                          Text="{Binding Settings.StableBuild, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                     </Grid>
                 </Border>
 
@@ -129,7 +137,7 @@
                     <StackPanel>
                         <TextBlock Text="Notes" Opacity="0.85"/>
                         <TextBlock Style="{DynamicResource Text.Muted}"
-                           Text="Settings are applied immediately. Use Apply if you want to force-save without closing."
+                           Text="Changes save automatically."
                            Margin="0,6,0,0"/>
                     </StackPanel>
                 </Border>
@@ -157,6 +165,7 @@
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="220"/>
                             <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
 
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Font size"
@@ -178,7 +187,7 @@
                         <TextBox x:Name="DefaultFileEditor" Grid.Row="3" IsReadOnly="True" Grid.Column="1"
                               Style="{DynamicResource ModernTextBox}"
                               Text="{Binding Settings.DefaultFileEditorApp, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-                        <Button x:Name="DefaultFileEditorBtn" Grid.Row="3" Grid.Column="1" Click="DefaultFileEditorBtn_Click" Background="Transparent" Style="{DynamicResource ModernButton}"/>
+                        <Button x:Name="DefaultFileEditorBtn" Grid.Row="3" Grid.Column="2" Content="Browse..." Margin="8,0,0,0" Click="DefaultFileEditorBtn_Click" Style="{DynamicResource ModernButton}"/>
 
                         <TextBlock Grid.Row="4" Grid.Column="0" Text="Default File Editor Args"
                                    Opacity="0.85" VerticalAlignment="Center"/>
@@ -194,6 +203,51 @@
                         <TextBlock Style="{DynamicResource Text.Muted}"
                                    Text="If you enable auto-reload, consider handling merge prompts when there are unsaved edits."
                                    Margin="0,6,0,0"/>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </DataTemplate>
+
+        <DataTemplate DataType="{x:Type vm:AgentSettingsPageViewModel}">
+            <StackPanel>
+                <TextBlock Text="Agent MCP" Style="{DynamicResource Text.Title}"/>
+
+                <Border Style="{DynamicResource Card}" Margin="0,0,0,12">
+                    <StackPanel>
+                        <CheckBox Style="{DynamicResource ModernCheckBox}"
+                                  Content="Enable the PZ Tools MCP server"
+                                  IsChecked="{Binding Settings.AgentMcpEnabled, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                        <TextBlock Style="{DynamicResource Text.Muted}" TextWrapping="Wrap" Margin="0,6,0,12"
+                                   Text="The server is local to your Windows account and only connects to the project currently open in PZ Tools."/>
+
+                        <TextBlock Text="Capabilities" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                        <CheckBox Style="{DynamicResource ModernCheckBox}" Margin="0,0,0,6"
+                                  Content="Inspect and control the live editor"
+                                  IsChecked="{Binding Settings.AgentMcpAllowEditorControl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                        <CheckBox Style="{DynamicResource ModernCheckBox}" Margin="0,0,0,6"
+                                  Content="Create and update project files"
+                                  IsChecked="{Binding Settings.AgentMcpAllowProjectWrites, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                        <CheckBox Style="{DynamicResource ModernCheckBox}" Margin="0,0,0,6"
+                                  Content="Run Lua tests and full Project Health checks"
+                                  IsChecked="{Binding Settings.AgentMcpAllowTesting, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                        <CheckBox Style="{DynamicResource ModernCheckBox}" Margin="0,0,0,6"
+                                  Content="Deploy the active project to the local Mods folder"
+                                  IsChecked="{Binding Settings.AgentMcpAllowDeployment, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                        <CheckBox Style="{DynamicResource ModernCheckBox}"
+                                  Content="Start, debug, stop, and inspect Project Zomboid"
+                                  IsChecked="{Binding Settings.AgentMcpAllowGameControl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{DynamicResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="Codex setup" FontWeight="SemiBold"/>
+                        <TextBlock Style="{DynamicResource Text.Muted}" TextWrapping="Wrap" Margin="0,6,0,10"
+                                   Text="Writes a managed pztools server block to the active project's .codex/config.toml. Existing Codex settings are preserved."/>
+                        <Button Style="{DynamicResource PrimaryButton}" HorizontalAlignment="Left"
+                                Content="Configure Current Project for Codex"
+                                Command="{Binding ConfigureCodexCommand}"/>
+                        <TextBlock Text="{Binding StatusText}" TextWrapping="Wrap" Opacity="0.75" Margin="0,10,0,0"/>
                     </StackPanel>
                 </Border>
             </StackPanel>
@@ -270,8 +324,8 @@
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <StackPanel>
-                                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold"/>
-                                    <TextBlock Text="{Binding Description}" Opacity="0.7" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold" Foreground="{TemplateBinding Foreground}"/>
+                                    <TextBlock Text="{Binding Description}" Foreground="{TemplateBinding Foreground}" Opacity="0.72" Margin="0,4,0,0" TextWrapping="Wrap"/>
                                 </StackPanel>
                                 
                             </Grid>
@@ -283,6 +337,7 @@
                             </Trigger>
                             <Trigger Property="IsSelected" Value="True">
                                 <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource Brush.Accent}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource Brush.TextOnAccent}"/>
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter Property="Opacity" Value="0.5"/>
@@ -316,20 +371,16 @@
                 </Grid.ColumnDefinitions>
 
                 <StackPanel>
-                    <TextBlock Text="Settings" FontSize="18" FontWeight="SemiBold"/>
-                    <TextBlock Text="(this does nothing yet) Configure PZ Tools behavior and defaults." Opacity="0.7" Margin="0,4,0,0"/>
+                    <TextBlock Text="Settings" Style="{DynamicResource Text.Title}" Margin="0"/>
+                    <TextBlock Text="Personalise the editor, game paths, and update behaviour." Style="{DynamicResource Text.Muted}" Margin="0,4,0,0"/>
                 </StackPanel>
 
-                <TextBox Grid.Column="1"
-                         Style="{DynamicResource ModernTextBox}"
-                         Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                         VerticalAlignment="Center">
-                    <TextBox.ToolTip>
-                        <ToolTip Style="{DynamicResource ModernToolTip}">
-                            <TextBlock Text="Filter settings pages by title/description."/>
-                        </ToolTip>
-                    </TextBox.ToolTip>
-                </TextBox>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Text="Search settings" Style="{DynamicResource Text.Label}" Margin="0,0,0,5"/>
+                    <TextBox Style="{DynamicResource ModernTextBox}"
+                             Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="Filter settings pages by title or description."/>
+                </StackPanel>
             </Grid>
         </Border>
 
@@ -341,7 +392,7 @@
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
 
-                <TextBlock Text="Categories" Opacity="0.75" Margin="0,0,0,10"/>
+                <TextBlock Text="Categories" Style="{DynamicResource Text.Section}"/>
                 <ListBox Grid.Row="1"
                          Style="{DynamicResource ModernListBox}"
                          ItemContainerStyle="{DynamicResource SettingsNavItem}"

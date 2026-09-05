@@ -1,10 +1,11 @@
+using System.Text.RegularExpressions;
 using PZTools.Core.Models.Commands;
 
 namespace PZTools.Core.Functions.Logger
 {
     internal class Commands
     {
-        public static bool TryParseCommand(string command, out Command parsedCommand, bool CLI = false)
+        public static bool TryParseCommand(string? command, out Command? parsedCommand, bool CLI = false)
         {
             if (command == null)
             {
@@ -50,9 +51,10 @@ namespace PZTools.Core.Functions.Logger
                     else
                         return false;
                 }
-                else return false;
+                else
+                    return false;
             }
-            catch (Exception ex)
+            catch
             {
                 parsedCommand = null;
                 return false;
@@ -61,7 +63,12 @@ namespace PZTools.Core.Functions.Logger
 
         public static Command ParseCommand(string arg)
         {
-            string[] argParts = arg.Split(" ");
+            string[] argParts = Regex.Matches(arg, "(?:[^\\s\\\"]+|\\\"[^\\\"]*\\\")+")
+                .Select(m => m.Value.Trim().Trim('"'))
+                .Where(v => v.Length > 0)
+                .ToArray();
+            if (argParts.Length == 0)
+                throw new ArgumentException("Command cannot be empty.", nameof(arg));
             Command parsedCommand = new Command(argParts[0], argParts.Skip(1).ToArray());
             return parsedCommand;
         }
@@ -81,8 +88,7 @@ namespace PZTools.Core.Functions.Logger
             List<Command> parsedCommands = new List<Command>();
             foreach (string command in commands)
             {
-                Command parsedCommand;
-                if (TryParseCommand(command, out parsedCommand))
+                if (TryParseCommand(command, out var parsedCommand) && parsedCommand != null)
                 {
                     parsedCommands.Add(parsedCommand);
                 }

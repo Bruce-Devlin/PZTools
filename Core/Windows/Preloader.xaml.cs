@@ -1,11 +1,11 @@
+using System.IO;
+using System.Windows;
 using PZTools.Core.Functions;
 using PZTools.Core.Functions.Logger;
 using PZTools.Core.Functions.Theme;
 using PZTools.Core.Functions.Update;
 using PZTools.Core.Windows.Dialogs;
 using PZTools.Core.Windows.Dialogs.Project;
-using System.IO;
-using System.Windows;
 
 namespace PZTools.Core.Windows
 {
@@ -21,37 +21,46 @@ namespace PZTools.Core.Windows
 
         private async void Window_Loaded(object sender, RoutedEventArgs e)
         {
-            bool directoriesSuccess = false;
-            bool projectsSuccess = false;
-
-
             await this.Log("Started preloading...");
-            if (await CheckDirectories()) directoriesSuccess = true;
+            if (!await CheckDirectories())
+            {
+                DonePreloading(false);
+                return;
+            }
 
             await Config.PrintAppSettings();
             await ThemeManager.ApplyThemeFromSettings();
             await CheckForUpdates();
 
-            if (await CheckProjects()) projectsSuccess = true;
+            if (!await CheckProjects())
+            {
+                DonePreloading(false);
+                return;
+            }
 
-
-            bool success = directoriesSuccess && projectsSuccess;
-            DonePreloading(success);
+            DonePreloading(true);
         }
 
         private async Task<bool> CheckDirectories()
         {
             await this.Log("Checking application directories...");
-            string folderName = AppPaths.CurrentDirectory.Name;
-            await this.Log($"Current Directory: {folderName}");
-            if (folderName != "PZTools" && !App.CommandLineArgs.Contains("--skipSetup"))
+            string currentDirectory = AppPaths.CurrentDirectoryPath;
+            string configuredInstall = Config.GetAppSetting<string>("AppInstallPath") ?? string.Empty;
+            bool configuredHere = !string.IsNullOrWhiteSpace(configuredInstall) &&
+                string.Equals(Path.GetFullPath(configuredInstall), Path.GetFullPath(currentDirectory), StringComparison.OrdinalIgnoreCase);
+            await this.Log($"Current Directory: {currentDirectory}");
+            if (!configuredHere && !App.CommandLineArgs.Contains("--skipSetup"))
             {
                 await this.Log("PZTools isn't within it's usual folder, assuming fresh install.");
-                if (!this.ShowDialog(new AppSetup())) return false;
+                var appSetupResult = this.ShowDialog(new AppSetup());
+                if (!appSetupResult)
+                    return false;
+
                 await this.Log("App setup and ready for restart.");
 
                 WindowsHelpers.OpenFile(Path.Combine(AppPaths.CurrentDirectoryPath, "PZTools.exe"));
                 App.CloseApp();
+                return false;
             }
             return true;
         }
@@ -70,7 +79,8 @@ namespace PZTools.Core.Windows
         private async Task<bool> CheckProjects()
         {
             await this.Log("Checking Projects...");
-            if (!this.ShowDialog(new ProjectSelector())) return false;
+            if (!this.ShowDialog(new ProjectSelector()))
+                return false;
             return true;
         }
 
@@ -84,7 +94,10 @@ namespace PZTools.Core.Windows
                 await this.Log("Preloading complete, opening main window.");
                 this.Close();
             }
-            else App.CloseApp();
+            else
+            {
+                App.CloseApp();
+            }
         }
     }
 }

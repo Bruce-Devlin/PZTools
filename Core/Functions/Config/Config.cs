@@ -1,7 +1,7 @@
-using Newtonsoft.Json;
-using PZTools.Core.Models;
 using System.Configuration;
 using System.IO;
+using Newtonsoft.Json;
+using PZTools.Core.Models;
 
 namespace PZTools.Core.Functions
 {
@@ -12,32 +12,50 @@ namespace PZTools.Core.Functions
             await Console.Log("PZTools App Settings:");
             bool appSettingsExisted = false;
             var appSettings = Config.GetAppSettings(out appSettingsExisted);
-            if (appSettingsExisted) await Console.Log("App settings existed!");
+            if (appSettingsExisted)
+                await Console.Log("App settings existed!");
 
             foreach (var appSetting in appSettings.GetAll())
             {
                 await Console.Log($"- Setting: {appSetting.Name} = {appSetting.Value}");
             }
         }
-        public static AppSettings GetAppSettings() { var didExist = false; return GetAppSettings(out didExist); }
+        public static AppSettings GetAppSettings()
+        {
+            var didExist = false;
+            return GetAppSettings(out didExist);
+        }
 
         public static AppSettings GetAppSettings(out bool didExist)
         {
-            var result = new AppSettings();
+            AppSettings? appSetting = null;
             didExist = false;
 
             var savedSettings = GetVariable(VariableType.system, "appSettings");
             if (savedSettings != null)
             {
-                result = JsonConvert.DeserializeObject<AppSettings>(savedSettings);
-                didExist = true;
+                try
+                {
+                    appSetting = JsonConvert.DeserializeObject<AppSettings>(savedSettings);
+                    didExist = appSetting != null;
+                }
+                catch (JsonException ex)
+                {
+                    Console.Log($"App settings are invalid and defaults will be used: {ex.Message}", Console.LogLevel.Warning);
+                }
             }
-            else Console.Log("No App Settings config found, providing a default.");
+            else
+                Console.Log("No app settings config found; using defaults.");
 
-            return result;
+            if (appSetting == null)
+            {
+                appSetting = new AppSettings();
+            }
+
+            return appSetting;
         }
 
-        public static T GetAppSetting<T>(string name)
+        public static T? GetAppSetting<T>(string name)
         {
             var appSettings = GetAppSettings();
             if (appSettings == null)
@@ -49,19 +67,27 @@ namespace PZTools.Core.Functions
 
             var value = property.GetValue(appSettings);
 
-            return (T)Convert.ChangeType(value, typeof(T));
+            if (value is null)
+                return default;
+            if (value is T typed)
+                return typed;
+            return (T?)Convert.ChangeType(value, Nullable.GetUnderlyingType(typeof(T)) ?? typeof(T));
         }
 
 
-        public static void SetAppSetting(string name, string value)
+        public static void SetAppSetting(string name, object? value)
         {
             var appSettings = GetAppSettings();
 
             var property = appSettings.GetType().GetProperty(name);
-            if (property != null)
-            {
-                property.SetValue(appSettings, value, null);
-            }
+            if (property == null || !property.CanWrite)
+                throw new ArgumentException($"Unknown app setting '{name}'.", nameof(name));
+
+            var targetType = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
+            var converted = value is null || targetType.IsInstanceOfType(value)
+                ? value
+                : Convert.ChangeType(value, targetType);
+            property.SetValue(appSettings, converted, null);
 
             var settingsToSave = JsonConvert.SerializeObject(appSettings);
             StoreVariable(VariableType.system, "appSettings", settingsToSave);
@@ -83,8 +109,10 @@ namespace PZTools.Core.Functions
             };
             Configuration configuration = ConfigurationManager.OpenMappedExeConfiguration(fileMap, ConfigurationUserLevel.None);
             KeyValueConfigurationCollection settings = configuration.AppSettings.Settings;
-            if (settings[name] == null) settings.Add(name, data);
-            else settings[name].Value = data;
+            if (settings[name] == null)
+                settings.Add(name, data);
+            else
+                settings[name].Value = data;
             configuration.Save(ConfigurationSaveMode.Modified);
         }
         public static void StoreVariable(VariableType type, string name, bool data) => StoreVariable(type, name, data.ToString().ToLower());
@@ -108,8 +136,10 @@ namespace PZTools.Core.Functions
             };
             Configuration configuration = ConfigurationManager.OpenMappedExeConfiguration(fileMap, ConfigurationUserLevel.None);
             KeyValueConfigurationCollection settings = configuration.AppSettings.Settings;
-            if (settings[variable] == null) return null;
-            else return settings[variable].Value;
+            if (settings[variable] == null)
+                return null;
+            else
+                return settings[variable].Value;
         }
 
 

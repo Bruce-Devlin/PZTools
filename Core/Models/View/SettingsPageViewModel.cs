@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 
 namespace PZTools.Core.Models.View
 {
@@ -42,6 +42,40 @@ namespace PZTools.Core.Models.View
 
         public override string Title => "Editor";
         public override string Description => "Font, tabs, wrapping, default editor app.";
+    }
+
+    public sealed class AgentSettingsPageViewModel : SettingsPageViewModel
+    {
+        public AgentSettingsPageViewModel(AppSettings settings) : base(settings)
+        {
+            ConfigureCodexCommand = new RelayCommand(ConfigureCodex);
+        }
+
+        public override string Title => "Agent MCP";
+        public override string Description => "Codex access to projects, tests, debugging, and the live editor.";
+
+        private string _statusText = "Open a project, choose capabilities, then configure Codex.";
+        public string StatusText
+        {
+            get => _statusText;
+            private set => Set(ref _statusText, value);
+        }
+
+        public RelayCommand ConfigureCodexCommand { get; }
+
+        private void ConfigureCodex()
+        {
+            try
+            {
+                PZTools.Core.Functions.Config.StoreObject(PZTools.Core.Functions.VariableType.system, "appSettings", Settings);
+                var path = PZTools.Core.Functions.Agent.AgentMcpConfiguration.ConfigureCurrentProject(Settings);
+                StatusText = $"Codex configured: {path}. Restart Codex and keep this project open in PZTools.";
+            }
+            catch (Exception ex)
+            {
+                StatusText = $"Setup failed: {ex.Message}";
+            }
+        }
     }
 
     public sealed class UpdatesSettingsPageViewModel : SettingsPageViewModel

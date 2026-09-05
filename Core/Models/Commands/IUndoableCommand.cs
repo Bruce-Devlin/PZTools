@@ -1,4 +1,4 @@
-﻿namespace PZTools.Core.Models.Commands
+namespace PZTools.Core.Models.Commands
 {
     public interface IUndoableCommand
     {

@@ -26,7 +26,7 @@ namespace PZTools.Core.Functions.Logger
         /// </summary>
         public static void Hide()
         {
-            App.cliCancelToken.Cancel();
+            App.cliCancelToken?.Cancel();
             if (GetConsoleWindow() != IntPtr.Zero)
             {
                 FreeConsole();

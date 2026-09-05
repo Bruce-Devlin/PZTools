@@ -1,6 +1,6 @@
-﻿using PZTools.Core.Functions.Logger;
-using PZTools.Core.Models.Commands;
 using System.Windows.Input;
+using PZTools.Core.Functions.Logger;
+using PZTools.Core.Models.Commands;
 
 namespace PZTools.Core.Functions.Undo
 {
@@ -49,7 +49,8 @@ namespace PZTools.Core.Functions.Undo
 
         public async Task ExecuteAsync(IUndoableCommand command)
         {
-            if (command == null) throw new ArgumentNullException(nameof(command));
+            if (command == null)
+                throw new ArgumentNullException(nameof(command));
 
             await command.ExecuteAsync().ConfigureAwait(false);
 
@@ -63,7 +64,8 @@ namespace PZTools.Core.Functions.Undo
 
         public async Task UndoAsync()
         {
-            if (!CanUndo) return;
+            if (!CanUndo)
+                return;
 
             await this.Log("Undoing last action...");
 
@@ -78,7 +80,8 @@ namespace PZTools.Core.Functions.Undo
 
         public async Task RedoAsync()
         {
-            if (!CanRedo) return;
+            if (!CanRedo)
+                return;
 
             await this.Log("Redoing last action...");
 

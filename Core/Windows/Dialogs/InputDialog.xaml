@@ -6,12 +6,12 @@
         SizeToContent="WidthAndHeight"
         ResizeMode="NoResize"
         Topmost="True"
-        Background="{x:Null}"
+        Background="{DynamicResource Brush.BgApp}"
         Foreground="{DynamicResource Brush.TextPrimary}"
         FontSize="13"
         Title="Input"
         MinWidth="520"
-        ShowInTaskbar="False" WindowStyle="None" AllowsTransparency="True" Icon="/Core/Assets/Icons/PZToolsIcon.png">
+        ShowInTaskbar="False" Icon="/Core/Assets/Icons/PZToolsIcon.png">
 
     <Window.Resources>
 
@@ -46,7 +46,7 @@
                            Margin="0,2,0,6">
                     <TextBlock.Style>
                         <Style TargetType="TextBlock" BasedOn="{StaticResource Text.Muted}">
-                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Setter Property="Visibility" Value="Visible"/>
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding Description}" Value="{x:Null}">
                                     <Setter Property="Visibility" Value="Collapsed"/>
@@ -60,10 +60,6 @@
                                 <Trigger Property="Text" Value="">
                                     <Setter Property="Visibility" Value="Collapsed"/>
                                 </Trigger>
-                                <!-- If it has text, show -->
-                                <DataTrigger Binding="{Binding Description}" Value="{x:Null}">
-                                    <Setter Property="Visibility" Value="Collapsed"/>
-                                </DataTrigger>
                             </Style.Triggers>
                         </Style>
                     </TextBlock.Style>
@@ -88,7 +84,7 @@
                 <PasswordBox>
                     <PasswordBox.Style>
                         <Style TargetType="PasswordBox" BasedOn="{StaticResource ModernPasswordBox}">
-                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Setter Property="Visibility" Value="Visible"/>
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding IsPassword}" Value="True">
                                     <Setter Property="Visibility" Value="Visible"/>
@@ -143,7 +139,6 @@
                                 <DataTrigger Binding="{Binding Subtext}" Value="{x:Static sys:String.Empty}">
                                     <Setter Property="Visibility" Value="Collapsed"/>
                                 </DataTrigger>
-                                <!-- show when it has content -->
                                 <Trigger Property="Text" Value="">
                                     <Setter Property="Visibility" Value="Collapsed"/>
                                 </Trigger>
@@ -166,11 +161,13 @@
             <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button Style="{DynamicResource ModernButton}"
                         Content="Cancel"
+                        Margin="0,12,8,0"
                         IsCancel="True"
                         Click="CancelButton_Click"/>
 
                 <Button Style="{DynamicResource PrimaryButton}"
                         Content="OK"
+                        Margin="0,12,0,0"
                         IsDefault="True"
                         IsEnabled="{Binding CanSubmit}"
                         Click="OkButton_Click"/>

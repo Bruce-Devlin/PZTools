@@ -1,5 +1,5 @@
-﻿using PZTools.Core.Models;
 using System.IO;
+using PZTools.Core.Models;
 
 namespace PZTools.Core.Functions.Projects
 {
@@ -19,11 +19,14 @@ namespace PZTools.Core.Functions.Projects
             foreach (var raw in File.ReadAllLines(infoPath))
             {
                 var line = raw?.Trim();
-                if (string.IsNullOrWhiteSpace(line)) continue;
-                if (line.StartsWith("#") || line.StartsWith("//")) continue;
+                if (string.IsNullOrWhiteSpace(line))
+                    continue;
+                if (line.StartsWith("#") || line.StartsWith("//"))
+                    continue;
 
                 var idx = line.IndexOf('=');
-                if (idx <= 0) continue;
+                if (idx <= 0)
+                    continue;
 
                 var key = line.Substring(0, idx).Trim();
                 var value = line.Substring(idx + 1).Trim();
@@ -33,17 +36,37 @@ namespace PZTools.Core.Functions.Projects
 
                 switch (key)
                 {
-                    case "name": info.Name = value; break;
-                    case "id": info.Id = value; break;
+                    case "name":
+                        info.Name = value;
+                        break;
+                    case "id":
+                        info.Id = value;
+                        break;
 
-                    case "author": info.Author = EmptyToNull(value); break;
-                    case "description": info.Description = EmptyToNull(value); break;
-                    case "url": info.Url = EmptyToNull(value); break;
-                    case "icon": info.Icon = EmptyToNull(value); break;
-                    case "modversion": info.ModVersion = EmptyToNull(value); break;
-                    case "category": info.Category = EmptyToNull(value); break;
-                    case "versionMin": info.VersionMin = EmptyToNull(value); break;
-                    case "versionMax": info.VersionMax = EmptyToNull(value); break;
+                    case "author":
+                        info.Author = EmptyToNull(value);
+                        break;
+                    case "description":
+                        info.Description = EmptyToNull(value);
+                        break;
+                    case "url":
+                        info.Url = EmptyToNull(value);
+                        break;
+                    case "icon":
+                        info.Icon = EmptyToNull(value);
+                        break;
+                    case "modversion":
+                        info.ModVersion = EmptyToNull(value);
+                        break;
+                    case "category":
+                        info.Category = EmptyToNull(value);
+                        break;
+                    case "versionMin":
+                        info.VersionMin = EmptyToNull(value);
+                        break;
+                    case "versionMax":
+                        info.VersionMax = EmptyToNull(value);
+                        break;
 
                     case "poster":
                         if (!string.IsNullOrWhiteSpace(value))
@@ -69,6 +92,9 @@ namespace PZTools.Core.Functions.Projects
                         break;
                     case "loadModBefore":
                         ParseListInto(info.LoadModBefore, value);
+                        break;
+                    default:
+                        info.AdditionalEntries.Add(new KeyValuePair<string, string>(key, value));
                         break;
                 }
             }
@@ -106,8 +132,10 @@ namespace PZTools.Core.Functions.Projects
         /// </summary>
         public static string? EnsureLocalAsset(string modFolderPath, string? sourcePath)
         {
-            if (string.IsNullOrWhiteSpace(sourcePath)) return null;
-            if (!File.Exists(sourcePath)) return null;
+            if (string.IsNullOrWhiteSpace(sourcePath))
+                return null;
+            if (!File.Exists(sourcePath))
+                return null;
 
             var fileName = Path.GetFileName(sourcePath);
             var destPath = Path.Combine(modFolderPath, fileName);
@@ -121,7 +149,8 @@ namespace PZTools.Core.Functions.Projects
 
         public static string? ResolveAssetPath(string modFolderPath, string? relativeOrPath)
         {
-            if (string.IsNullOrWhiteSpace(relativeOrPath)) return null;
+            if (string.IsNullOrWhiteSpace(relativeOrPath))
+                return null;
 
             var combined = Path.GetFullPath(Path.Combine(modFolderPath, relativeOrPath));
             return File.Exists(combined) ? combined : null;
@@ -129,7 +158,8 @@ namespace PZTools.Core.Functions.Projects
 
         private static void ParseListInto(List<string> target, string raw)
         {
-            if (string.IsNullOrWhiteSpace(raw)) return;
+            if (string.IsNullOrWhiteSpace(raw))
+                return;
 
             var parts = raw.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
                            .Select(x => x.Trim())
@@ -150,6 +180,14 @@ namespace PZTools.Core.Functions.Projects
             Dedup(info.LoadModAfter);
             Dedup(info.LoadModBefore);
 
+            var seenAdditional = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            for (var i = info.AdditionalEntries.Count - 1; i >= 0; i--)
+            {
+                var entry = info.AdditionalEntries[i];
+                if (string.IsNullOrWhiteSpace(entry.Key) || !seenAdditional.Add(entry.Key + "\0" + entry.Value))
+                    info.AdditionalEntries.RemoveAt(i);
+            }
+
             info.Author = TrimToNull(info.Author);
             info.Description = TrimToNull(info.Description);
             info.Url = TrimToNull(info.Url);
@@ -162,7 +200,8 @@ namespace PZTools.Core.Functions.Projects
 
         private static void Dedup(List<string> list)
         {
-            if (list.Count == 0) return;
+            if (list.Count == 0)
+                return;
 
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var cleaned = new List<string>(list.Count);
@@ -180,7 +219,8 @@ namespace PZTools.Core.Functions.Projects
         private static string? EmptyToNull(string s) => string.IsNullOrWhiteSpace(s) ? null : s;
         private static string? TrimToNull(string? s)
         {
-            if (string.IsNullOrWhiteSpace(s)) return null;
+            if (string.IsNullOrWhiteSpace(s))
+                return null;
             return s.Trim();
         }
     }

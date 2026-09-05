@@ -1,8 +1,9 @@
-﻿using PZTools.Core.Functions;
+using System.Collections.ObjectModel;
+using System.IO;
+using System.Windows;
+using PZTools.Core.Functions;
 using PZTools.Core.Functions.Theme;
 using PZTools.Core.Functions.Update;
-using System.Collections.ObjectModel;
-using System.Windows;
 using OpenFileDialog = Microsoft.Win32.OpenFileDialog;
 
 namespace PZTools.Core.Models.View
@@ -20,6 +21,7 @@ namespace PZTools.Core.Models.View
                     new GeneralSettingsPageViewModel(Settings),
                     new SystemSettingsPageViewModel(Settings),
                     new EditorSettingsPageViewModel(Settings),
+                    new AgentSettingsPageViewModel(Settings),
                     new UpdatesSettingsPageViewModel(Settings),
                 };
 
@@ -38,7 +40,7 @@ namespace PZTools.Core.Models.View
 
         public void ExistingGameInstallPathBtn_Click(object sender, RoutedEventArgs e)
         {
-            string path = WindowsHelpers.OpenFolderBrowser("Select existing Project Zomboid installation");
+            string? path = WindowsHelpers.OpenFolderBrowser("Select existing Project Zomboid installation");
             if (!string.IsNullOrEmpty(path))
             {
                 Settings.ExistingGamePath = path;
@@ -91,7 +93,8 @@ namespace PZTools.Core.Models.View
             get => _searchText;
             set
             {
-                if (!Set(ref _searchText, value)) return;
+                if (!Set(ref _searchText, value))
+                    return;
                 ApplyFilter();
             }
         }
@@ -133,10 +136,19 @@ namespace PZTools.Core.Models.View
             try
             {
                 Config.StoreObject(VariableType.system, "appSettings", Settings);
+                var projectRoot = PZTools.Core.Functions.Projects.ProjectEngine.CurrentProject?.RootPath;
+                if (!string.IsNullOrWhiteSpace(projectRoot))
+                {
+                    var codexConfig = Path.Combine(projectRoot, ".codex", "config.toml");
+                    if (File.Exists(codexConfig) && File.ReadAllText(codexConfig).Contains(
+                            PZTools.Core.Functions.Agent.AgentMcpConfiguration.ManagedBlockStart,
+                            StringComparison.Ordinal))
+                        PZTools.Core.Functions.Agent.AgentMcpConfiguration.ConfigureCurrentProject(Settings);
+                }
                 FooterText = "Saved.";
                 await Config.PrintAppSettings();
                 await ThemeManager.ApplyThemeFromSettings();
-                App.MainWindow.ApplyAppSettings();
+                App.MainWindow?.ApplyAppSettings();
                 AppUpdater.SwitchUpdateChannel(AppUpdater.GetChannelFromSettings());
             }
             catch (Exception ex)
@@ -153,6 +165,7 @@ namespace PZTools.Core.Models.View
             Pages.Add(new GeneralSettingsPageViewModel(Settings));
             Pages.Add(new SystemSettingsPageViewModel(Settings));
             Pages.Add(new EditorSettingsPageViewModel(Settings));
+            Pages.Add(new AgentSettingsPageViewModel(Settings));
             Pages.Add(new UpdatesSettingsPageViewModel(Settings));
 
             ApplyFilter();

@@ -1,30 +1,37 @@
-using MoonSharp.Interpreter;
-using PZTools.Core.Models.Test;
 using System.IO;
 using System.Reflection;
 using System.Text.RegularExpressions;
+using MoonSharp.Interpreter;
+using PZTools.Core.Models.Test;
 
 namespace PZTools.Core.Functions.Tester
 {
     public static class LuaTester
     {
-        public static async Task<LuaTestResult> TestFile(string filePath)
+        public static Task<LuaTestResult> TestFile(string filePath)
+            => TestFile(filePath, logResult: true);
+
+        public static async Task<LuaTestResult> TestFile(string filePath, bool logResult)
         {
             try
             {
                 var luaCode = await File.ReadAllTextAsync(filePath);
-                return await Test(luaCode, filePath);
+                return await Test(luaCode, filePath, logResult);
             }
             catch (Exception ex)
             {
                 var fatal = LuaTestResult.Fatal(ex.Message);
-                await Console.Log(
-                    $"Lua Syntax Results for {Path.GetFileName(filePath)}: (Ok={fatal.Ok}) {fatal.Type}: {fatal.Message}");
+                if (logResult)
+                    await Console.Log(
+                        $"Lua Syntax Results for {Path.GetFileName(filePath)}: (Ok={fatal.Ok}) {fatal.Type}: {fatal.Message}");
                 return fatal;
             }
         }
 
-        public static async Task<LuaTestResult> Test(string luaCode, string filePath)
+        public static Task<LuaTestResult> Test(string luaCode, string filePath)
+            => Test(luaCode, filePath, logResult: true);
+
+        public static async Task<LuaTestResult> Test(string luaCode, string filePath, bool logResult)
         {
             var fileName = Path.GetFileName(filePath);
 
@@ -35,8 +42,9 @@ namespace PZTools.Core.Functions.Tester
 
                 var ok = LuaTestResult.Success();
 
-                await Console.Log(
-                    $"Lua Syntax Results for {fileName}: (Ok={ok.Ok}) Syntax: OK");
+                if (logResult)
+                    await Console.Log(
+                        $"Lua Syntax Results for {fileName}: (Ok={ok.Ok}) Syntax: OK");
 
                 return ok;
             }
@@ -44,9 +52,10 @@ namespace PZTools.Core.Functions.Tester
             {
                 var results = BuildResult("Syntax", ex, luaCode, fileName);
 
-                await Console.Log(
-                    $"Lua Syntax Results for {fileName}: (Ok={results.Ok}) {results.Type}: {results.Message} " +
-                    $"[Line:{results.Line}, Col:{results.Column}] = {FormatCodeLine(results.CodeLine)}");
+                if (logResult)
+                    await Console.Log(
+                        $"Lua Syntax Results for {fileName}: (Ok={results.Ok}) {results.Type}: {results.Message} " +
+                        $"[Line:{results.Line}, Col:{results.Column}] = {FormatCodeLine(results.CodeLine)}");
 
                 return results;
             }
@@ -54,9 +63,10 @@ namespace PZTools.Core.Functions.Tester
             {
                 var results = BuildResult("Interpreter", ex, luaCode, fileName);
 
-                await Console.Log(
-                    $"Lua Syntax Results for {fileName}: (Ok={results.Ok}) {results.Type}: {results.Message} " +
-                    $"[Line:{results.Line}, Col:{results.Column}] = {FormatCodeLine(results.CodeLine)}");
+                if (logResult)
+                    await Console.Log(
+                        $"Lua Syntax Results for {fileName}: (Ok={results.Ok}) {results.Type}: {results.Message} " +
+                        $"[Line:{results.Line}, Col:{results.Column}] = {FormatCodeLine(results.CodeLine)}");
 
                 return results;
             }
@@ -64,8 +74,9 @@ namespace PZTools.Core.Functions.Tester
             {
                 var fatal = LuaTestResult.Fatal(ex.Message);
 
-                await Console.Log(
-                    $"Lua Syntax Results for {fileName}: (Ok={fatal.Ok}) {fatal.Type}: {fatal.Message}");
+                if (logResult)
+                    await Console.Log(
+                        $"Lua Syntax Results for {fileName}: (Ok={fatal.Ok}) {fatal.Type}: {fatal.Message}");
 
                 return fatal;
             }
@@ -75,7 +86,7 @@ namespace PZTools.Core.Functions.Tester
         {
             (int line, int col) = TryExtractLineCol(ex, chunkName);
 
-            string codeLine = TryGetSourceLine(source, line);
+            string? codeLine = TryGetSourceLine(source, line);
 
             return new LuaTestResult
             {
@@ -122,7 +133,8 @@ namespace PZTools.Core.Functions.Tester
         {
             line = 0;
             col = 0;
-            if (ex == null) return false;
+            if (ex == null)
+                return false;
 
             if (TryGetSourceRefLineColFromObject(ex, out line, out col))
                 return line > 0;
@@ -154,12 +166,14 @@ namespace PZTools.Core.Functions.Tester
         {
             line = 0;
             col = 0;
-            if (sourceRefObj == null) return false;
+            if (sourceRefObj == null)
+                return false;
 
             int? fromLine = GetIntMember(sourceRefObj, "FromLine") ?? GetIntMember(sourceRefObj, "fromLine");
             int? fromChar = GetIntMember(sourceRefObj, "FromChar") ?? GetIntMember(sourceRefObj, "fromChar");
 
-            if (!fromLine.HasValue || !fromChar.HasValue) return false;
+            if (!fromLine.HasValue || !fromChar.HasValue)
+                return false;
 
             if (fromLine > 0)
             {
@@ -179,7 +193,8 @@ namespace PZTools.Core.Functions.Tester
         {
             line = 0;
             col = 0;
-            if (obj == null) return false;
+            if (obj == null)
+                return false;
 
             int? l =
                 GetIntMember(obj, "Line")
@@ -194,12 +209,13 @@ namespace PZTools.Core.Functions.Tester
                 ?? GetIntMember(obj, "m_Column")
                 ?? GetIntMember(obj, "_column");
 
-            if (l == null) return false;
+            if (l == null)
+                return false;
 
             if (l > 0)
             {
                 line = l.Value;
-                col = Math.Max(0, c.Value);
+                col = Math.Max(0, c ?? 0);
                 return true;
             }
 
@@ -277,11 +293,12 @@ namespace PZTools.Core.Functions.Tester
             return false;
         }
 
-        private static object GetMemberValue(object obj, string name)
+        private static object? GetMemberValue(object obj, string name)
         {
             try
             {
-                if (obj == null || string.IsNullOrWhiteSpace(name)) return null;
+                if (obj == null || string.IsNullOrWhiteSpace(name))
+                    return null;
 
                 var t = obj.GetType();
 
@@ -304,10 +321,13 @@ namespace PZTools.Core.Functions.Tester
         private static int? GetIntMember(object obj, string name)
         {
             var v = GetMemberValue(obj, name);
-            if (v == null) return null;
+            if (v == null)
+                return null;
 
-            if (v is int i) return i;
-            if (v is long l) return (int)l;
+            if (v is int i)
+                return i;
+            if (v is long l)
+                return (int)l;
 
             if (int.TryParse(v.ToString(), out var parsed))
                 return parsed;
@@ -315,10 +335,12 @@ namespace PZTools.Core.Functions.Tester
             return null;
         }
 
-        private static string TryGetSourceLine(string source, int line)
+        private static string? TryGetSourceLine(string source, int line)
         {
-            if (string.IsNullOrEmpty(source)) return null;
-            if (line <= 0) return null;
+            if (string.IsNullOrEmpty(source))
+                return null;
+            if (line <= 0)
+                return null;
 
             var lines = source.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
             if (line - 1 >= 0 && line - 1 < lines.Length)
@@ -329,7 +351,7 @@ namespace PZTools.Core.Functions.Tester
 
         private static int SafeInt(string s) => int.TryParse(s, out var v) ? v : 0;
 
-        private static string FormatCodeLine(string codeLine)
+        private static string FormatCodeLine(string? codeLine)
             => codeLine == null ? "<unknown>" : $"\"{codeLine}\"";
     }
 }

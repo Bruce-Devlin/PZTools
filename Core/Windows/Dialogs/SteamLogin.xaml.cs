@@ -1,5 +1,5 @@
-using PZTools.Core.Functions;
 using System.Windows;
+using PZTools.Core.Functions;
 
 namespace PZTools.Core.Windows.Dialogs
 {
@@ -8,7 +8,7 @@ namespace PZTools.Core.Windows.Dialogs
     /// </summary>
     public partial class SteamLogin : Window
     {
-        public string Username { get; private set; }
+        public string Username { get; private set; } = string.Empty;
         public SteamLogin()
         {
             InitializeComponent();

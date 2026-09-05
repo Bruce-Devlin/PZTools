@@ -6,7 +6,7 @@
         xmlns:local="clr-namespace:PZTools.Core.Windows.Dialogs"
         mc:Ignorable="d"
         Title="PZ Tools Setup"
-        Height="630"
+        Height="680"
         Width="820"
         WindowStartupLocation="CenterScreen"
         ResizeMode="NoResize"
@@ -30,18 +30,16 @@
         </Grid.RowDefinitions>
 
         <!-- Welcome Text -->
-        <TextBlock Grid.Row="0"
-                   Text="Welcome to PZ Tools!"
-                   Style="{DynamicResource Text.Title}"
-                   FontSize="20"
-                   FontWeight="SemiBold"
-                   Margin="0,0,0,12"/>
+        <StackPanel Grid.Row="0" Margin="0,0,0,16">
+            <TextBlock Text="Welcome to PZ Tools" Style="{DynamicResource Text.Title}" Margin="0"/>
+            <TextBlock Text="Let’s connect your workspace and choose how the game installation is managed." Style="{DynamicResource Text.Muted}" Margin="0,4,0,0"/>
+        </StackPanel>
 
         <!-- App Installation Path -->
         <Border Grid.Row="1" Style="{DynamicResource Card}" Margin="0,0,0,12">
             <StackPanel>
-                <TextBlock Text="Please choose where you would like to install PZ Tools:"
-                           Foreground="{DynamicResource Brush.TextPrimary}"
+                <TextBlock Text="PZ Tools installation folder"
+                           Style="{DynamicResource Text.Section}"
                            Margin="0,0,0,8"/>
 
                 <DockPanel LastChildFill="True">
@@ -61,9 +59,7 @@
         <!-- Game Installation Options -->
         <Border Grid.Row="2" Style="{DynamicResource Card}" Margin="0,0,0,12">
             <StackPanel>
-                <TextBlock Text="Project Zomboid Game Installation"
-                           FontWeight="SemiBold"
-                           Margin="0,0,0,10"/>
+                <TextBlock Text="Project Zomboid installation" Style="{DynamicResource Text.Section}"/>
 
                 <RadioButton x:Name="rdoExistingGame"
                              Content="Use existing installation"
@@ -111,7 +107,7 @@
                             Visibility="Collapsed"/>
                 </DockPanel>
 
-                <TextBlock Text="Managed installations will require multiple GB of disk space."
+                <TextBlock Text="Managed installations will require multiple GB of disk space as this will download multiple versions of the game."
                            Style="{DynamicResource Text.Muted}"
                            Margin="20,6,0,0"
                            TextWrapping="Wrap"/>
@@ -121,9 +117,7 @@
         <!-- Additional Options -->
         <Border Grid.Row="3" Style="{DynamicResource Card}" Margin="0,0,0,12">
             <StackPanel>
-                <TextBlock Text="Additional Options"
-                           FontWeight="SemiBold"
-                           Margin="0,0,0,10"/>
+                <TextBlock Text="Additional options" Style="{DynamicResource Text.Section}"/>
 
                 <WrapPanel Orientation="Horizontal" ItemWidth="240" ItemHeight="28">
                     <CheckBox Content="Create Start Menu Shortcut"
@@ -170,7 +164,7 @@
               Grid.RowSpan="5"
               Background="#AA000000"
               Visibility="Collapsed"
-              Panel.ZIndex="999">
+              Panel.ZIndex="999" IsHitTestVisible="False">
 
             <Border Background="{DynamicResource Brush.BgSurface}"
                     BorderBrush="{DynamicResource Brush.Border}"

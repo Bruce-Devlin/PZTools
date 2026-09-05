@@ -1,4 +1,4 @@
-﻿using System.IO;
+using System.IO;
 using System.Text;
 
 namespace PZTools.Core.Functions.Watermark
@@ -88,10 +88,12 @@ namespace PZTools.Core.Functions.Watermark
                 return Environment.NewLine;
 
             int crlf = text.IndexOf("\r\n", StringComparison.Ordinal);
-            if (crlf >= 0) return "\r\n";
+            if (crlf >= 0)
+                return "\r\n";
 
             int lf = text.IndexOf('\n');
-            if (lf >= 0) return "\n";
+            if (lf >= 0)
+                return "\n";
 
             return Environment.NewLine;
         }
@@ -117,8 +119,6 @@ namespace PZTools.Core.Functions.Watermark
 
             int pos = start;
             int headerEndPos = start;
-            bool sawNonBlankAfterComments = false;
-
             while (pos < original.Length)
             {
                 int lineEnd = IndexOfLineEnd(original, pos);
@@ -147,7 +147,6 @@ namespace PZTools.Core.Functions.Watermark
                     break;
                 }
 
-                sawNonBlankAfterComments = true;
                 break;
             }
 
@@ -161,7 +160,8 @@ namespace PZTools.Core.Functions.Watermark
 
         private static bool IsLuaSingleLineComment(string line)
         {
-            if (line == null) return false;
+            if (line == null)
+                return false;
             line = line.TrimStart();
             return line.StartsWith("--", StringComparison.Ordinal);
         }
@@ -192,23 +192,27 @@ namespace PZTools.Core.Functions.Watermark
 
         private static int IndexOfLineEnd(string text, int startIndex)
         {
-            if (startIndex >= text.Length) return text.Length;
+            if (startIndex >= text.Length)
+                return text.Length;
 
             int n = text.IndexOf('\n', startIndex);
-            if (n < 0) return text.Length;
+            if (n < 0)
+                return text.Length;
             return n;
         }
 
         private static int NextLineStart(string text, int lineEndIndex)
         {
-            if (lineEndIndex >= text.Length) return text.Length;
+            if (lineEndIndex >= text.Length)
+                return text.Length;
             return lineEndIndex + 1;
         }
 
         private static string GetLine(string text, int startIndex, int lineEndIndex)
         {
             int length = lineEndIndex - startIndex;
-            if (length <= 0) return string.Empty;
+            if (length <= 0)
+                return string.Empty;
 
             if (text[startIndex + length - 1] == '\r')
                 length--;

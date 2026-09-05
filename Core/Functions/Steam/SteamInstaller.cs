@@ -1,142 +1,219 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.IO;
+using System.IO.Compression;
 using System.Net.Http;
+using System.Text;
 
 namespace PZTools.Core.Functions.Steam
 {
-    class SteamInstaller
+    internal sealed class SteamInstaller
     {
-        public string SteamCMDDirectory { get; private set; } = "";
-        private string steamCMDExe => Path.Combine(SteamCMDDirectory, "steamcmd.exe");
+        private const string SteamCmdZipUrl =
+            "https://steamcdn-a.akamaihd.net/client/installer/steamcmd.zip";
 
-        public EventHandler<string> onSteamMessage = new EventHandler<string>(delegate { });
+        private static readonly HttpClient HttpClient = new();
 
-        private async void onMessage(string message)
+        public string SteamCmdDirectory { get; private set; } = "";
+        public string SteamCmdExecutable => Path.Combine(SteamCmdDirectory, "steamcmd.exe");
+
+        public event EventHandler<string>? SteamMessage;
+
+        public async Task SetupSteamCmdAsync(
+            string steamCmdDirectory,
+            CancellationToken cancellationToken = default)
         {
-            await Console.Log(message);
-            onSteamMessage.Invoke(this, message);
-        }
+            ArgumentException.ThrowIfNullOrWhiteSpace(steamCmdDirectory);
 
-        public async Task SetupSteamCMD(string steamCMDDirectory)
-        {
-            await Console.Log($"Installing SteamCMD...");
+            SteamCmdDirectory = Path.GetFullPath(steamCmdDirectory);
+            Directory.CreateDirectory(SteamCmdDirectory);
 
-            SteamCMDDirectory = steamCMDDirectory;
-            if (!Directory.Exists(SteamCMDDirectory))
-                Directory.CreateDirectory(SteamCMDDirectory);
-
-            string steamCmdExe = Path.Combine(SteamCMDDirectory, "steamcmd.exe");
-
-            if (!File.Exists(steamCmdExe))
+            if (File.Exists(SteamCmdExecutable))
             {
-                onMessage("Downloading SteamCMD...");
-                using (var client = new HttpClient())
-                {
-                    var steamCmdZipUrl = "https://steamcdn-a.akamaihd.net/client/installer/steamcmd.zip";
-                    var zipBytes = await client.GetByteArrayAsync(steamCmdZipUrl);
-                    var zipPath = Path.Combine(SteamCMDDirectory, "steamcmd.zip");
-                    await File.WriteAllBytesAsync(zipPath, zipBytes);
-
-                    onMessage("Extracting SteamCMD...");
-                    System.IO.Compression.ZipFile.ExtractToDirectory(zipPath, SteamCMDDirectory, true);
-                    File.Delete(zipPath);
-                }
+                Emit("SteamCMD is already installed.");
+                return;
             }
 
-            onMessage("Installing SteamCMD...");
-            var setupSteamCMD = new ProcessStartInfo
+            var archivePath = Path.Combine(SteamCmdDirectory, "steamcmd.zip");
+            try
             {
-                FileName = steamCmdExe,
-                WorkingDirectory = SteamCMDDirectory,
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                Arguments = "+quit"
-            };
+                Emit("Downloading SteamCMD...");
+                await DownloadArchiveAsync(archivePath, cancellationToken);
 
+                Emit("Extracting SteamCMD...");
+                ZipFile.ExtractToDirectory(archivePath, SteamCmdDirectory, overwriteFiles: true);
 
-            using var setupProc = Process.Start(setupSteamCMD);
-            setupProc.OutputDataReceived += (_, e) =>
+                Emit("Installing SteamCMD...");
+                await RunInitialSetupAsync(cancellationToken);
+            }
+            finally
             {
-                if (!string.IsNullOrWhiteSpace(e.Data))
-                    onMessage(e.Data);
-            };
-
-            setupProc.ErrorDataReceived += (_, e) =>
-            {
-                if (!string.IsNullOrWhiteSpace(e.Data))
-                    onMessage(e.Data);
-            };
-
-            setupProc.WaitForExit();
+                TryDelete(archivePath);
+            }
         }
 
-        public async Task<bool> InstallApp(
-             string appId,
-             string installDir,
-             string username,
-             string beta = "",
-             CancellationToken cancellationToken = default)
+        public async Task<bool> InstallAppAsync(
+            string appId,
+            string installDirectory,
+            string username,
+            string beta = "",
+            CancellationToken cancellationToken = default)
         {
-            if (string.IsNullOrWhiteSpace(SteamCMDDirectory))
-                throw new ArgumentNullException(nameof(SteamCMDDirectory),
-                    "Setup SteamCMD first! (SteamInstaller.SetupSteamCMD().InstallApp())");
+            if (string.IsNullOrWhiteSpace(SteamCmdDirectory))
+            {
+                throw new InvalidOperationException(
+                    "SteamCMD must be set up before installing an application.");
+            }
 
+            ArgumentException.ThrowIfNullOrWhiteSpace(appId);
+            ArgumentException.ThrowIfNullOrWhiteSpace(installDirectory);
+            ArgumentException.ThrowIfNullOrWhiteSpace(username);
             cancellationToken.ThrowIfCancellationRequested();
 
-            await Console.Log($"Installing {appId} [beta={beta}]...");
+            Directory.CreateDirectory(installDirectory);
+            Emit($"Installing {appId} [beta={beta}]...");
 
-            Directory.CreateDirectory(installDir);
-
-            var betaArgs = string.IsNullOrWhiteSpace(beta) ? "" : $"-beta {beta}";
-
-            onMessage($"Installing {appId} [beta={beta}]...");
-
-            var startInfo = new ProcessStartInfo
+            using var process = new Process
             {
-                FileName = steamCMDExe,
-                WorkingDirectory = SteamCMDDirectory,
-
-                UseShellExecute = false,
-                CreateNoWindow = true,
-
-                Arguments =
-                    $"+login {username} " +
-                    $"+force_install_dir \"{installDir}\" " +
-                    $"+app_update {appId} {betaArgs} validate " +
-                    $"+quit"
+                StartInfo = CreateInstallStartInfo(appId, installDirectory, username, beta)
             };
-
-            using var proc = new Process { StartInfo = startInfo, EnableRaisingEvents = true };
 
             try
             {
-                if (!proc.Start())
+                if (!process.Start())
                     return false;
 
-                await proc.WaitForExitAsync(cancellationToken);
+                await process.WaitForExitAsync(cancellationToken);
             }
             catch (OperationCanceledException)
             {
-                TryKillProcessTree(proc);
+                process.TryKillProcessTree();
                 return false;
             }
 
-            if (proc.ExitCode != 0)
-                return false;
-
-            return File.Exists(Path.Combine(installDir, "projectzomboid.jar"));
+            return process.ExitCode == 0 &&
+                File.Exists(Path.Combine(installDirectory, "projectzomboid.jar"));
         }
 
-        private static void TryKillProcessTree(Process proc)
+        private static async Task DownloadArchiveAsync(
+            string destinationPath,
+            CancellationToken cancellationToken)
+        {
+            using var response = await HttpClient.GetAsync(
+                SteamCmdZipUrl,
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+            response.EnsureSuccessStatusCode();
+
+            await using var destination = new FileStream(
+                destinationPath,
+                FileMode.Create,
+                FileAccess.Write,
+                FileShare.None);
+            await response.Content.CopyToAsync(destination, cancellationToken);
+        }
+
+        private async Task RunInitialSetupAsync(CancellationToken cancellationToken)
+        {
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = SteamCmdExecutable,
+                WorkingDirectory = SteamCmdDirectory,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                RedirectStandardInput = true,
+                CreateNoWindow = true,
+                Arguments = "+quit",
+                StandardOutputEncoding = Encoding.UTF8,
+                StandardErrorEncoding = Encoding.UTF8
+            };
+
+            using var process = new Process { StartInfo = startInfo };
+            process.OutputDataReceived += (_, args) => EmitIfPresent(args.Data);
+            process.ErrorDataReceived += (_, args) => EmitIfPresent(args.Data);
+
+            if (!process.Start())
+                throw new InvalidOperationException("Windows did not start SteamCMD.");
+
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
+
+            try
+            {
+                await process.WaitForExitAsync(cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                process.TryKillProcessTree();
+                throw;
+            }
+
+            if (process.ExitCode != 0 || !File.Exists(SteamCmdExecutable))
+            {
+                throw new InvalidOperationException(
+                    $"SteamCMD setup failed with exit code {process.ExitCode}.");
+            }
+        }
+
+        private ProcessStartInfo CreateInstallStartInfo(
+            string appId,
+            string installDirectory,
+            string username,
+            string beta)
+        {
+            // Steam Guard and password prompts must stay visible to the user. PZTools
+            // deliberately passes only the account name and never captures credentials.
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = SteamCmdExecutable,
+                WorkingDirectory = SteamCmdDirectory,
+                UseShellExecute = true,
+                WindowStyle = ProcessWindowStyle.Normal
+            };
+
+            startInfo.ArgumentList.Add("+login");
+            startInfo.ArgumentList.Add(username);
+            startInfo.ArgumentList.Add("+force_install_dir");
+            startInfo.ArgumentList.Add(installDirectory);
+            startInfo.ArgumentList.Add("+app_update");
+            startInfo.ArgumentList.Add(appId);
+
+            if (!string.IsNullOrWhiteSpace(beta))
+            {
+                startInfo.ArgumentList.Add("-beta");
+                startInfo.ArgumentList.Add(beta);
+            }
+
+            startInfo.ArgumentList.Add("validate");
+            startInfo.ArgumentList.Add("+quit");
+            return startInfo;
+        }
+
+        private void EmitIfPresent(string? message)
+        {
+            if (!string.IsNullOrWhiteSpace(message))
+                Emit(message);
+        }
+
+        private void Emit(string message)
+        {
+            _ = Console.Log(message);
+            SteamMessage?.Invoke(this, message);
+        }
+
+        private static void TryDelete(string path)
         {
             try
             {
-                if (!proc.HasExited)
-                    proc.Kill(entireProcessTree: true);
+                File.Delete(path);
             }
-            catch
+            catch (IOException)
             {
+                // A failed cleanup does not invalidate an otherwise usable installation.
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // Antivirus or another process can briefly retain the downloaded archive.
             }
         }
     }

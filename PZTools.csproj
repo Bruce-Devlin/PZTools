@@ -14,22 +14,34 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Tests\**\*.cs" />
+    <Compile Remove="PZTools.Mcp\**\*.cs" />
     <None Remove="Core\Assets\PZTools.png" />
     <None Remove="Core\Assets\PZToolsIcon.ico" />
     <None Remove="Resources\PZLua.xshd" />
   </ItemGroup>
 
   <ItemGroup>
-    <COMReference Include="IWshRuntimeLibrary">
-      <WrapperTool>tlbimp</WrapperTool>
-      <VersionMinor>0</VersionMinor>
-      <VersionMajor>1</VersionMajor>
-      <Guid>f935dc20-1cf0-11d0-adb9-00c04fd58a0b</Guid>
-      <Lcid>0</Lcid>
-      <Isolated>false</Isolated>
-      <EmbedInteropTypes>true</EmbedInteropTypes>
-    </COMReference>
+    <ProjectReference Include="PZTools.Mcp\PZTools.Mcp.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>
+
+  <Target Name="CopyMcpServer" AfterTargets="Build">
+    <ItemGroup>
+      <_McpServerFiles Include="$(MSBuildProjectDirectory)\PZTools.Mcp\bin\$(Configuration)\net10.0-windows\**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_McpServerFiles)"
+          DestinationFiles="@(_McpServerFiles->'$(OutDir)mcp\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+  <Target Name="CopyMcpServerToPublish" AfterTargets="Publish">
+    <ItemGroup>
+      <_McpPublishFiles Include="$(MSBuildProjectDirectory)\PZTools.Mcp\bin\$(Configuration)\net10.0-windows\**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_McpPublishFiles)"
+          DestinationFiles="@(_McpPublishFiles->'$(PublishDir)mcp\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
 
   <ItemGroup>
     <Content Include="Core\Assets\Icons\PZToolsIcon.ico" />
@@ -42,18 +54,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Resource Include="Core\Assets\UI\Preloader.png" />
     <Resource Include="Core\Assets\Icons\PZToolsIcon.ico" />
     <Resource Include="Core\Assets\Icons\PZToolsIcon.png" />
     <Resource Include="Core\Assets\PZTools.png" />
     <EmbeddedResource Include="Resources\PZinfo.xshd" />
     <EmbeddedResource Include="Resources\PZtxt.xshd" />
     <EmbeddedResource Include="Resources\PZlua.xshd" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Update="README.md">
-      <Generator>MSBuild:Compile</Generator>
-    </None>
   </ItemGroup>
 
 </Project>

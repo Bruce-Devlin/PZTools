@@ -5,7 +5,8 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:PZTools"
         mc:Ignorable="d"
-        Title="PZTools - Preloader" Height="175" Width="370" Loaded="Window_Loaded" Topmost="True" WindowStartupLocation="CenterScreen" ResizeMode="NoResize" WindowStyle="None" AllowsTransparency="True" Background="{x:Null}">
+        Title="PZ Tools - Loading" Height="175" Width="370" Loaded="Window_Loaded" Topmost="True" WindowStartupLocation="CenterScreen" ResizeMode="NoResize" WindowStyle="None" AllowsTransparency="True" Background="{x:Null}">
     <Grid>
+        <Image Source="/Core/Assets/UI/Preloader.png" Stretch="Fill"/>
     </Grid>
 </Window>

@@ -1,13 +1,13 @@
 <Window x:Class="PZTools.Core.Windows.Dialogs.Project.ProjectSelector"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="PZTools - Select Project"
-        Height="340"
-        Width="480"
+        Title="PZ Tools - Select Project"
+        Height="420"
+        Width="580"
         WindowStartupLocation="CenterScreen"
         ResizeMode="NoResize"
-        Background="{x:Null}"
-        Foreground="{StaticResource Brush.TextPrimary}" WindowStyle="None" AllowsTransparency="True"
+        Background="{DynamicResource Brush.BgApp}"
+        Foreground="{DynamicResource Brush.TextPrimary}"
         Icon="/Core/Assets/Icons/PZToolsIcon.png">
 
     <Grid Margin="18">
@@ -22,15 +22,25 @@
 
                 <!-- Header -->
                 <StackPanel Grid.Row="0" Margin="0,0,0,12">
-                    <TextBlock Text="Select a Project" Style="{StaticResource Text.Title}"/>
-                    <Grid>
-                        <TextBlock x:Name="ProjectFolderTxt"
-                               Text="Projects folder:"
-                               Foreground="{StaticResource Brush.TextInfo}"
-                               FontSize="10"/>
+                    <TextBlock Text="Select a project" Style="{StaticResource Text.Title}"/>
+                    <TextBlock Text="Choose a project and target." Style="{StaticResource Text.Muted}" Margin="0,0,0,10"/>
+                    <DockPanel LastChildFill="True">
                         <Button x:Name="OpenProjectFolderBtn"
-                                Click="OpenProjectFolderBtn_Click" Background="Black" BorderBrush="{x:Null}" Foreground="{x:Null}" Cursor="Hand" Panel.ZIndex="10" Opacity="0.01"/>
-                    </Grid>
+                                DockPanel.Dock="Right"
+                                Content="Open folder"
+                                Style="{StaticResource CompactButton}"
+                                Margin="10,0,0,0"
+                                Click="OpenProjectFolderBtn_Click"/>
+                        <StackPanel>
+                            <TextBlock Text="PROJECTS FOLDER" FontSize="10" Foreground="{DynamicResource Brush.TextMuted}"/>
+                            <TextBlock x:Name="ProjectFolderTxt"
+                                   Text="Projects folder"
+                                   Foreground="{StaticResource Brush.TextInfo}"
+                                   TextTrimming="CharacterEllipsis"
+                                   ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"
+                                   VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </DockPanel>
 
                 </StackPanel>
 
@@ -83,25 +93,26 @@
                             HorizontalAlignment="Right"
                             Margin="0,12,0,0">
                     <Button Style="{StaticResource ModernButton}"
-                            Content="New Project"
-                            Width="100"
+                            Content="New project"
+                            Width="110"
                             Margin="0,0,8,0"
                             Click="NewProjectButton_Click"/>
 
+                    <Button Style="{StaticResource ModernButton}"
+                            Content="Import mod"
+                            Width="110"
+                            Margin="0,0,8,0"
+                            Click="ImportModButton_Click"/>
+
                     <Button Style="{StaticResource PrimaryButton}"
-                            Content="OK"
-                            Width="100"
+                            Content="Open project"
+                            Width="115"
                             Margin="0,0,8,0"
                             Click="OkButton_Click"/>
 
-                    <Border Grid.Row="2"
-                        Background="{StaticResource Brush.Border}"
-                        Height="34"
-                        VerticalAlignment="Top" Margin="0,0,8,0" Width="3"/>
-
                     <Button Style="{StaticResource ModernButton}"
-                            Content="Close PZTools"
-                            Width="110"
+                            Content="Exit PZ Tools"
+                            Width="105"
                             Click="CancelButton_Click"/>
                 </StackPanel>
             </Grid>

@@ -1,9 +1,9 @@
-using PZTools.Core.Functions;
-using PZTools.Core.Models.InputDialog;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows;
+using PZTools.Core.Functions;
+using PZTools.Core.Models.InputDialog;
 
 namespace PZTools.Core.Windows.Dialogs.Project
 {

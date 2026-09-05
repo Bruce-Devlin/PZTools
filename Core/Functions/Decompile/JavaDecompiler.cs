@@ -15,7 +15,7 @@ namespace PZTools.Core.Functions.Decompile
         public static string CfrJarPath =>
             Path.Combine(ToolsDirectory, "cfr.jar");
 
-        public static async Task EnsureCfrInstalledAsync()
+        public static async Task EnsureCfrInstalledAsync(CancellationToken cancellationToken = default)
         {
             Directory.CreateDirectory(ToolsDirectory);
 
@@ -27,12 +27,14 @@ namespace PZTools.Core.Functions.Decompile
                 Timeout = TimeSpan.FromMinutes(2)
             };
 
-            byte[] data = await http.GetByteArrayAsync(CFR_URL);
+            byte[] data = await http.GetByteArrayAsync(CFR_URL, cancellationToken);
 
             if (data.Length < 1024 * 500)
                 throw new Exception("Downloaded CFR file is too small – download failed.");
 
-            await File.WriteAllBytesAsync(CfrJarPath, data);
+            var temporaryPath = CfrJarPath + ".download";
+            await File.WriteAllBytesAsync(temporaryPath, data, cancellationToken);
+            File.Move(temporaryPath, CfrJarPath, overwrite: true);
         }
 
 
@@ -87,6 +89,20 @@ namespace PZTools.Core.Functions.Decompile
             try
             {
                 process.Start();
+                process.BeginOutputReadLine();
+                process.BeginErrorReadLine();
+
+                try
+                {
+                    await process.WaitForExitAsync(cancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    process.TryKillProcessTree();
+                    return false;
+                }
+
+                return process.ExitCode == 0;
             }
             catch (Win32Exception ex)
             {
@@ -94,16 +110,8 @@ namespace PZTools.Core.Functions.Decompile
                     $"Failed to start process. NativeErrorCode={ex.NativeErrorCode}, Message={ex.Message}\n" +
                     $"FileName: {psi.FileName}\nArguments: {psi.Arguments}\nWorkingDirectory: {psi.WorkingDirectory}"
                 );
-                throw;
+                return false;
             }
-
-            process.BeginOutputReadLine();
-            process.BeginErrorReadLine();
-
-            await process.WaitForExitAsync(cancellationToken);
-            if (cancellationToken.IsCancellationRequested) return false;
-
-            return process.ExitCode == 0;
         }
 
         public static string? FindJavaExecutable()
@@ -116,14 +124,34 @@ namespace PZTools.Core.Functions.Decompile
                     return javaPath;
             }
 
+            var pathEntries = (Environment.GetEnvironmentVariable("PATH") ?? string.Empty)
+                .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            foreach (var entry in pathEntries)
+            {
+                try
+                {
+                    var javaPath = Path.Combine(entry.Trim('"'), "java.exe");
+                    if (File.Exists(javaPath))
+                        return javaPath;
+                }
+                catch { }
+            }
+
             var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
             var programFilesX86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
 
-            foreach (var baseDir in new[] { programFiles, programFilesX86 })
+            foreach (var baseDir in new[]
             {
-                if (!Directory.Exists(baseDir)) continue;
+                Path.Combine(programFiles, "Java"),
+                Path.Combine(programFiles, "Eclipse Adoptium"),
+                Path.Combine(programFiles, "Microsoft"),
+                Path.Combine(programFilesX86, "Java")
+            })
+            {
+                if (!Directory.Exists(baseDir))
+                    continue;
 
-                foreach (var dir in Directory.GetDirectories(baseDir, "Java*", SearchOption.TopDirectoryOnly))
+                foreach (var dir in Directory.GetDirectories(baseDir, "*", SearchOption.TopDirectoryOnly))
                 {
                     var javaExe = Path.Combine(dir, "bin", "java.exe");
                     if (File.Exists(javaExe))

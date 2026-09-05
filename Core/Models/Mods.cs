@@ -1,7 +1,7 @@
-using PZTools.Core.Functions.Projects;
-using PZTools.Core.Functions.Zomboid;
 using System.Collections.ObjectModel;
 using System.IO;
+using PZTools.Core.Functions.Projects;
+using PZTools.Core.Functions.Zomboid;
 
 namespace PZTools.Core.Models
 {
@@ -9,6 +9,7 @@ namespace PZTools.Core.Models
     {
         public string Name { get; set; } = "";
         public string RootPath { get; set; } = "";
+        public string? WorkshopRootPath { get; set; }
         public List<ModTarget> Targets { get; set; } = new();
         public ModInfo ModInfo { get; set; } = new ModInfo();
 
@@ -35,20 +36,22 @@ namespace PZTools.Core.Models
     public class ModTarget
     {
         public double Build { get; set; }
+        public bool IsPrimary { get; set; }
+        public bool IsLegacyRoot { get; set; }
         public string BuildName => GetBuildName();
         public string Path { get; set; } = "";
         public ProjectFileNode? FileTree { get; set; }
 
         public string GetBuildName()
         {
-            if (Build == ZomboidGame.latestStableBuild) return ProjectEngine.CurrentProject.Name;
-            else return $"Build: {Build}";
+            var suffix = IsPrimary ? " (primary)" : "";
+            return $"Build {Build:0.##}{suffix}";
         }
 
         public void LoadFiles()
         {
             if (Directory.Exists(Path))
-                FileTree = ProjectEngine.BuildFileTree(Path, Build == ZomboidGame.latestStableBuild);
+                FileTree = ProjectEngine.BuildFileTree(Path);
         }
     }
 

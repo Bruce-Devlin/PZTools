@@ -1,4 +1,4 @@
-﻿using MoonSharp.Interpreter.Interop;
+using MoonSharp.Interpreter.Interop;
 using PZTools.Core.Models.View;
 
 namespace PZTools.Core.Models
@@ -14,7 +14,8 @@ namespace PZTools.Core.Models
                 if (prop.IsPropertyInfoPublic() && prop.CanWrite)
                 {
                     var valueObj = prop.GetValue(this);
-                    if (valueObj == null) continue;
+                    if (valueObj == null)
+                        continue;
 
                     var valueString = valueObj.ToString() ?? string.Empty;
 
@@ -54,46 +55,128 @@ namespace PZTools.Core.Models
 
         // System
         private string _appInstallPath = string.Empty;
-        public string AppInstallPath { get => _appInstallPath; set => Set(ref _appInstallPath, value); }
+        public string AppInstallPath
+        {
+            get => _appInstallPath; set => Set(ref _appInstallPath, value);
+        }
 
         private string _gameMode = "Existing";
-        public string GameMode { get => _gameMode; set => Set(ref _gameMode, value); }
+        public string GameMode
+        {
+            get => _gameMode; set => Set(ref _gameMode, value);
+        }
 
         private string _existingGamePath = string.Empty;
-        public string ExistingGamePath { get => _existingGamePath; set => Set(ref _existingGamePath, value); }
+        public string ExistingGamePath
+        {
+            get => _existingGamePath; set => Set(ref _existingGamePath, value);
+        }
 
         private string _managedGamePath = string.Empty;
-        public string ManagedGamePath { get => _managedGamePath; set => Set(ref _managedGamePath, value); }
+        public string ManagedGamePath
+        {
+            get => _managedGamePath; set => Set(ref _managedGamePath, value);
+        }
+
+        private double _stableBuild = 42;
+        public double StableBuild
+        {
+            get => _stableBuild; set => Set(ref _stableBuild, value);
+        }
 
         // General
         private string _theme = "Dark";
-        public string Theme { get => _theme; set => Set(ref _theme, value); }
+        public string Theme
+        {
+            get => _theme; set => Set(ref _theme, value);
+        }
 
         private bool _confirmOnExit = true;
-        public bool ConfirmOnExit { get => _confirmOnExit; set => Set(ref _confirmOnExit, value); }
+        public bool ConfirmOnExit
+        {
+            get => _confirmOnExit; set => Set(ref _confirmOnExit, value);
+        }
 
         // Editor
         private double _editorFontSize = 14;
-        public double EditorFontSize { get => _editorFontSize; set => Set(ref _editorFontSize, value); }
+        public double EditorFontSize
+        {
+            get => _editorFontSize; set => Set(ref _editorFontSize, value);
+        }
 
         private bool _editorWordWrap = true;
-        public bool EditorWordWrap { get => _editorWordWrap; set => Set(ref _editorWordWrap, value); }
+        public bool EditorWordWrap
+        {
+            get => _editorWordWrap; set => Set(ref _editorWordWrap, value);
+        }
 
         private string _defaultFileEditorApp = string.Empty;
-        public string DefaultFileEditorApp { get => _defaultFileEditorApp; set => Set(ref _defaultFileEditorApp, value); }
+        public string DefaultFileEditorApp
+        {
+            get => _defaultFileEditorApp; set => Set(ref _defaultFileEditorApp, value);
+        }
 
         private string _defaultFileEditorArgs = string.Empty;
-        public string DefaultFileEditorArgs { get => _defaultFileEditorArgs; set => Set(ref _defaultFileEditorArgs, value); }
+        public string DefaultFileEditorArgs
+        {
+            get => _defaultFileEditorArgs; set => Set(ref _defaultFileEditorArgs, value);
+        }
+
+        // Agent MCP
+        private bool _agentMcpEnabled = true;
+        public bool AgentMcpEnabled
+        {
+            get => _agentMcpEnabled; set => Set(ref _agentMcpEnabled, value);
+        }
+
+        private bool _agentMcpAllowEditorControl = true;
+        public bool AgentMcpAllowEditorControl
+        {
+            get => _agentMcpAllowEditorControl; set => Set(ref _agentMcpAllowEditorControl, value);
+        }
+
+        private bool _agentMcpAllowProjectWrites = true;
+        public bool AgentMcpAllowProjectWrites
+        {
+            get => _agentMcpAllowProjectWrites; set => Set(ref _agentMcpAllowProjectWrites, value);
+        }
+
+        private bool _agentMcpAllowTesting = true;
+        public bool AgentMcpAllowTesting
+        {
+            get => _agentMcpAllowTesting; set => Set(ref _agentMcpAllowTesting, value);
+        }
+
+        private bool _agentMcpAllowDeployment;
+        public bool AgentMcpAllowDeployment
+        {
+            get => _agentMcpAllowDeployment; set => Set(ref _agentMcpAllowDeployment, value);
+        }
+
+        private bool _agentMcpAllowGameControl = true;
+        public bool AgentMcpAllowGameControl
+        {
+            get => _agentMcpAllowGameControl; set => Set(ref _agentMcpAllowGameControl, value);
+        }
 
         // Updates
         private bool _checkUpdatesOnStartup = true;
-        public bool CheckUpdatesOnStartup { get => _checkUpdatesOnStartup; set => Set(ref _checkUpdatesOnStartup, value); }
+        public bool CheckUpdatesOnStartup
+        {
+            get => _checkUpdatesOnStartup; set => Set(ref _checkUpdatesOnStartup, value);
+        }
 
         private string _updateChannel = "Stable";
-        public string UpdateChannel { get => _updateChannel; set => Set(ref _updateChannel, value); }
+        public string UpdateChannel
+        {
+            get => _updateChannel; set => Set(ref _updateChannel, value);
+        }
 
         private DateTime? _lastUpdateCheckUtc;
-        public DateTime? LastUpdateCheckUtc { get => _lastUpdateCheckUtc; set => Set(ref _lastUpdateCheckUtc, value); }
+        public DateTime? LastUpdateCheckUtc
+        {
+            get => _lastUpdateCheckUtc; set => Set(ref _lastUpdateCheckUtc, value);
+        }
     }
 
     public class AppSetting

@@ -3,12 +3,12 @@ namespace PZTools.Core.Models.Test
     public class LuaTestResult
     {
         public bool Ok { get; set; }
-        public string Type { get; set; }
-        public string Message { get; set; }
+        public string Type { get; set; } = string.Empty;
+        public string Message { get; set; } = string.Empty;
 
         public int? Line { get; set; }
         public int? Column { get; set; }
-        public string CodeLine { get; set; }
+        public string? CodeLine { get; set; }
 
         public static LuaTestResult Success() => new() { Ok = true };
 
@@ -21,7 +21,7 @@ namespace PZTools.Core.Models.Test
         public static LuaTestResult Fatal(string msg)
             => Create("Fatal", msg, null, null, null);
 
-        private static LuaTestResult Create(string type, string msg, int? line, int? col, string code)
+        private static LuaTestResult Create(string type, string msg, int? line, int? col, string? code)
         {
             return new LuaTestResult
             {

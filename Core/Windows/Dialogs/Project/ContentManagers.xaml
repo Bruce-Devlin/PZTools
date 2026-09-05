@@ -1,0 +1,143 @@
+<Window x:Class="PZTools.Core.Windows.Dialogs.Project.ContentManagers"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Content Managers - PZ Tools" Width="1050" Height="720" MinWidth="880" MinHeight="600"
+        WindowStartupLocation="CenterOwner" Background="{DynamicResource Brush.BgApp}"
+        Foreground="{DynamicResource Brush.TextPrimary}" Icon="/Core/Assets/Icons/PZToolsIcon.png">
+    <Window.Resources>
+        <Style x:Key="FieldLabel" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource Brush.TextMuted}"/><Setter Property="Margin" Value="0,10,0,4"/>
+        </Style>
+        <Style x:Key="ManagerAction" TargetType="Button" BasedOn="{StaticResource CompactButton}">
+            <Setter Property="Margin" Value="0,0,8,0"/><Setter Property="MinWidth" Value="82"/>
+        </Style>
+        <Style x:Key="ContentManagerTabControl" TargetType="TabControl" BasedOn="{StaticResource ProjectSettingsTabControl}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabControl">
+                        <Grid SnapsToDevicePixels="True">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <UniformGrid Grid.Row="0"
+                                         Columns="4"
+                                         IsItemsHost="True"
+                                         Margin="0,0,0,12"
+                                         Background="Transparent"/>
+                            <Border Grid.Row="1"
+                                    Background="{DynamicResource Brush.BgSurface}"
+                                    BorderBrush="{DynamicResource Brush.Border}"
+                                    BorderThickness="1"
+                                    CornerRadius="12"
+                                    Padding="12">
+                                <ContentPresenter ContentSource="SelectedContent"/>
+                            </Border>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+    <Grid Margin="18">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <Grid>
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="280"/></Grid.ColumnDefinitions>
+            <StackPanel><TextBlock Text="Content managers" Style="{StaticResource Text.Title}"/><TextBlock Text="Professions, traits, translations, and sandbox options." Style="{StaticResource Text.Muted}" Margin="0,3,0,0"/></StackPanel>
+            <ComboBox x:Name="TargetCombo" Grid.Column="1" DisplayMemberPath="BuildName" Style="{StaticResource ModernComboBox}" SelectionChanged="TargetCombo_SelectionChanged"/>
+        </Grid>
+        <Border Grid.Row="1" Margin="0,14,0,12" Padding="10,8" CornerRadius="7" Background="{DynamicResource Brush.BgElevated}" BorderBrush="{DynamicResource Brush.Border}" BorderThickness="1">
+            <TextBlock x:Name="StatusText" Text="Ready" Foreground="{DynamicResource Brush.TextMuted}" TextWrapping="Wrap" TextTrimming="CharacterEllipsis"/>
+        </Border>
+        <TabControl Grid.Row="2" x:Name="ManagerTabs" Style="{StaticResource ContentManagerTabControl}">
+            <TabControl.ItemContainerStyle>
+                <Style TargetType="TabItem" BasedOn="{StaticResource ProjectSettingsTabItem}">
+                    <Setter Property="MinWidth" Value="0"/>
+                    <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                    <Setter Property="Padding" Value="22,9"/>
+                </Style>
+            </TabControl.ItemContainerStyle>
+            <TabItem Header="Professions">
+                <Grid Margin="12"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                    <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                        <ComboBox x:Name="ProfessionFileCombo" IsEditable="True" Style="{StaticResource ModernComboBox}" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" DropDownClosed="ProfessionFileCombo_DropDownClosed"/>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="8,0,0,0"><Button Content="Load" Style="{StaticResource ManagerAction}" Click="LoadProfessions_Click"/><Button Content="Save file" Style="{StaticResource PrimaryButton}" MinWidth="90" Click="SaveProfessions_Click"/></StackPanel>
+                    </Grid>
+                    <Grid Grid.Row="1" Margin="0,12,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="250"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                        <DockPanel><StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,8,0,0"><Button Content="Add" Style="{StaticResource ManagerAction}" Click="AddProfession_Click"/><Button Content="Remove" Style="{StaticResource ManagerAction}" Click="RemoveProfession_Click"/></StackPanel><Grid><ListBox x:Name="ProfessionList" DisplayMemberPath="DisplayName" SelectionChanged="ProfessionList_SelectionChanged"/><TextBlock Text="No professions" Foreground="{DynamicResource Brush.TextMuted}" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Items.Count, ElementName=ProfessionList}" Value="0"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock></Grid></DockPanel>
+                        <Grid Grid.Column="2">
+                            <TextBlock Text="Select or add a profession" Foreground="{DynamicResource Brush.TextMuted}" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Visible"/><Style.Triggers><DataTrigger Binding="{Binding IsEnabled, ElementName=ProfessionEditor}" Value="True"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></TextBlock.Style>
+                            </TextBlock>
+                            <ScrollViewer VerticalScrollBarVisibility="Auto"><ScrollViewer.Style><Style TargetType="ScrollViewer"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding IsEnabled, ElementName=ProfessionEditor}" Value="True"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></ScrollViewer.Style><StackPanel x:Name="ProfessionEditor" IsEnabled="False">
+                            <TextBlock Text="Profession ID" Style="{StaticResource FieldLabel}"/><TextBox x:Name="ProfessionId" TextChanged="ProfessionField_Changed"/>
+                            <TextBlock Text="Name / translation key" Style="{StaticResource FieldLabel}"/><TextBox x:Name="ProfessionNameKey" TextChanged="ProfessionField_Changed"/>
+                            <TextBlock Text="Description / translation key" Style="{StaticResource FieldLabel}"/><TextBox x:Name="ProfessionDescriptionKey" TextChanged="ProfessionField_Changed"/>
+                            <Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="16"/><ColumnDefinition Width="120"/></Grid.ColumnDefinitions><StackPanel><TextBlock Text="Icon name" Style="{StaticResource FieldLabel}"/><TextBox x:Name="ProfessionIcon" TextChanged="ProfessionField_Changed"/></StackPanel><StackPanel Grid.Column="2"><TextBlock Text="Point cost" Style="{StaticResource FieldLabel}"/><TextBox x:Name="ProfessionCost" TextChanged="ProfessionField_Changed"/></StackPanel></Grid>
+                            <TextBlock Text="Free trait IDs (one per line)" Style="{StaticResource FieldLabel}"/><TextBox x:Name="ProfessionTraits" Height="82" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" TextChanged="ProfessionField_Changed"/>
+                            <TextBlock Text="Free recipe IDs (one per line)" Style="{StaticResource FieldLabel}"/><TextBox x:Name="ProfessionRecipes" Height="82" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" TextChanged="ProfessionField_Changed"/>
+                            <TextBlock Text="XP boosts (Perk=Level, one per line)" Style="{StaticResource FieldLabel}"/><TextBox x:Name="ProfessionBoosts" Height="100" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" TextChanged="ProfessionField_Changed"/>
+                            </StackPanel></ScrollViewer>
+                        </Grid>
+                    </Grid>
+                </Grid>
+            </TabItem>
+            <TabItem Header="Traits">
+                <Grid Margin="12"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                    <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><ComboBox x:Name="TraitFileCombo" IsEditable="True" Style="{StaticResource ModernComboBox}" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" DropDownClosed="TraitFileCombo_DropDownClosed"/><StackPanel Grid.Column="1" Orientation="Horizontal" Margin="8,0,0,0"><Button Content="Load" Style="{StaticResource ManagerAction}" Click="LoadTraits_Click"/><Button Content="Save file" Style="{StaticResource PrimaryButton}" MinWidth="90" Click="SaveTraits_Click"/></StackPanel></Grid>
+                    <Grid Grid.Row="1" Margin="0,12,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="250"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                        <DockPanel><StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,8,0,0"><Button Content="Add" Style="{StaticResource ManagerAction}" Click="AddTrait_Click"/><Button Content="Remove" Style="{StaticResource ManagerAction}" Click="RemoveTrait_Click"/></StackPanel><Grid><ListBox x:Name="TraitList" DisplayMemberPath="DisplayName" SelectionChanged="TraitList_SelectionChanged"/><TextBlock Text="No traits" Foreground="{DynamicResource Brush.TextMuted}" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Items.Count, ElementName=TraitList}" Value="0"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock></Grid></DockPanel>
+                        <Grid Grid.Column="2">
+                            <TextBlock Text="Select or add a trait" Foreground="{DynamicResource Brush.TextMuted}" HorizontalAlignment="Center" VerticalAlignment="Center"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Visible"/><Style.Triggers><DataTrigger Binding="{Binding IsEnabled, ElementName=TraitEditor}" Value="True"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
+                            <ScrollViewer VerticalScrollBarVisibility="Auto"><ScrollViewer.Style><Style TargetType="ScrollViewer"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding IsEnabled, ElementName=TraitEditor}" Value="True"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></ScrollViewer.Style><StackPanel x:Name="TraitEditor" IsEnabled="False">
+                            <TextBlock Text="Trait ID" Style="{StaticResource FieldLabel}"/><TextBox x:Name="TraitId" TextChanged="TraitField_Changed"/>
+                            <TextBlock Text="Name / translation key" Style="{StaticResource FieldLabel}"/><TextBox x:Name="TraitNameKey" TextChanged="TraitField_Changed"/>
+                            <TextBlock Text="Description / translation key" Style="{StaticResource FieldLabel}"/><TextBox x:Name="TraitDescriptionKey" TextChanged="TraitField_Changed"/>
+                            <TextBlock Text="Point cost" Style="{StaticResource FieldLabel}"/><TextBox x:Name="TraitCost" Width="120" HorizontalAlignment="Left" TextChanged="TraitField_Changed"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,12,0,0"><CheckBox x:Name="TraitProfessionOnly" Content="Profession trait" Style="{StaticResource ModernCheckBox}" Checked="TraitField_Changed" Unchecked="TraitField_Changed"/><CheckBox x:Name="TraitRemoveMp" Content="Remove in multiplayer" Margin="24,0,0,0" Style="{StaticResource ModernCheckBox}" Checked="TraitField_Changed" Unchecked="TraitField_Changed"/></StackPanel>
+                            <TextBlock Text="XP boosts (Perk=Level, one per line)" Style="{StaticResource FieldLabel}"/><TextBox x:Name="TraitBoosts" Height="100" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" TextChanged="TraitField_Changed"/>
+                            <TextBlock Text="Free recipe IDs (one per line)" Style="{StaticResource FieldLabel}"/><TextBox x:Name="TraitRecipes" Height="82" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" TextChanged="TraitField_Changed"/>
+                            </StackPanel></ScrollViewer>
+                        </Grid>
+                    </Grid>
+                </Grid>
+            </TabItem>
+            <TabItem Header="UI / Localization">
+                <Grid Margin="12"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                    <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="110"/><ColumnDefinition Width="100"/><ColumnDefinition Width="18"/><ColumnDefinition Width="110"/><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                        <TextBlock Text="Language" VerticalAlignment="Center"/><TextBox x:Name="LanguageText" Grid.Column="1" Text="EN" TextChanged="LocalizationLocation_Changed"/><TextBlock Grid.Column="3" Text="Category" VerticalAlignment="Center"/><ComboBox x:Name="CategoryCombo" Grid.Column="4" SelectedIndex="0" SelectionChanged="LocalizationLocation_Changed"/></Grid>
+                    <Grid Grid.Row="1" Margin="0,10,0,10"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBox x:Name="LocalizationPath" IsReadOnly="True" FontFamily="Consolas" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/><StackPanel Grid.Column="1" Orientation="Horizontal" Margin="8,0,0,0"><Button Content="Load" Style="{StaticResource ManagerAction}" Click="LoadLocalization_Click"/><Button Content="Save file" Style="{StaticResource PrimaryButton}" MinWidth="90" Click="SaveLocalization_Click"/></StackPanel></Grid>
+                    <DataGrid x:Name="LocalizationGrid" Grid.Row="2" AutoGenerateColumns="False" CanUserAddRows="True" CanUserDeleteRows="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal">
+                        <DataGrid.Columns><DataGridTextColumn Header="KEY" Binding="{Binding Key, UpdateSourceTrigger=PropertyChanged}" Width="2*"/><DataGridTextColumn Header="LOCALIZED TEXT" Binding="{Binding Value, UpdateSourceTrigger=PropertyChanged}" Width="3*"/></DataGrid.Columns>
+                    </DataGrid>
+                    <TextBlock Grid.Row="3" Margin="0,9,0,0" Text="Build 42: JSON · Build 41: category_LANGUAGE Lua" Foreground="{DynamicResource Brush.TextMuted}"/>
+                </Grid>
+            </TabItem>
+            <TabItem Header="Sandbox Options">
+                <Grid Margin="12"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                    <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                        <TextBox x:Name="SandboxPath" IsReadOnly="True" FontFamily="Consolas" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="8,0,0,0"><Button Content="Load" Style="{StaticResource ManagerAction}" Click="LoadSandbox_Click"/><Button Content="Save file" Style="{StaticResource PrimaryButton}" MinWidth="90" Click="SaveSandbox_Click"/></StackPanel>
+                    </Grid>
+                    <DataGrid x:Name="SandboxGrid" Grid.Row="1" Margin="0,10,0,0" AutoGenerateColumns="False" CanUserAddRows="True" CanUserDeleteRows="True" FrozenColumnCount="2" HeadersVisibility="Column" GridLinesVisibility="Horizontal" HorizontalScrollBarVisibility="Auto">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="OPTION ID" Binding="{Binding Id, UpdateSourceTrigger=PropertyChanged}" Width="150"/>
+                            <DataGridComboBoxColumn Header="TYPE" SelectedItemBinding="{Binding Type, UpdateSourceTrigger=PropertyChanged}" Width="90"/>
+                            <DataGridTextColumn Header="DEFAULT" Binding="{Binding Default, UpdateSourceTrigger=PropertyChanged}" Width="85"/>
+                            <DataGridTextColumn Header="MIN" Binding="{Binding Min, UpdateSourceTrigger=PropertyChanged}" Width="55"/>
+                            <DataGridTextColumn Header="MAX" Binding="{Binding Max, UpdateSourceTrigger=PropertyChanged}" Width="55"/>
+                            <DataGridTextColumn Header="STEP" Binding="{Binding Step, UpdateSourceTrigger=PropertyChanged}" Width="55"/>
+                            <DataGridTextColumn Header="VALUES" Binding="{Binding NumValues, UpdateSourceTrigger=PropertyChanged}" Width="90"/>
+                            <DataGridTextColumn Header="PAGE" Binding="{Binding Page, UpdateSourceTrigger=PropertyChanged}" Width="100"/>
+                            <DataGridTextColumn Header="TRANSLATION" Binding="{Binding Translation, UpdateSourceTrigger=PropertyChanged}" Width="170"/>
+                            <DataGridTextColumn Header="TOOLTIP" Binding="{Binding Tooltip, UpdateSourceTrigger=PropertyChanged}" Width="190"/>
+                            <DataGridTextColumn Header="VALUE TRANSLATION" Binding="{Binding ValueTranslation, UpdateSourceTrigger=PropertyChanged}" Width="180"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <TextBlock Grid.Row="2" Margin="0,9,0,0" Text="Unknown properties are preserved when saving." Foreground="{DynamicResource Brush.TextMuted}"/>
+                </Grid>
+            </TabItem>
+        </TabControl>
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0"><Button Content="Close" Width="105" Style="{StaticResource ModernButton}" IsCancel="True"/></StackPanel>
+    </Grid>
+</Window>

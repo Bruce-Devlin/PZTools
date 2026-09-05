@@ -1,13 +1,11 @@
-﻿using PZTools.Core.Functions.Zomboid;
-using PZTools.Core.Models;
 using System.IO;
+using PZTools.Core.Functions.Zomboid;
+using PZTools.Core.Models;
 
 namespace PZTools.Core.Functions.Projects
 {
     public static class ProjectDeployer
     {
-        private static int stagedFilesCount = 0;
-
         public static async Task DeployProject(DeployFolder deployFolder)
         {
             await DeployProject(deployFolder, CancellationToken.None);
@@ -15,14 +13,28 @@ namespace PZTools.Core.Functions.Projects
 
         public static async Task DeployProject(DeployFolder deployFolder, CancellationToken ct)
         {
-            var currentProjectPath = ProjectEngine.CurrentProjectPath;
+            var project = ProjectEngine.CurrentProject;
+            if (project is null)
+                throw new InvalidOperationException("No valid mod project is currently loaded.");
+
+            if (string.IsNullOrWhiteSpace(project.RootPath) || !Directory.Exists(project.RootPath))
+                throw new InvalidOperationException("No valid mod project is currently loaded.");
 
             if (string.IsNullOrWhiteSpace(ZomboidGame.GameUserDirectory))
                 throw new InvalidOperationException("Zomboid game user directory is not configured.");
 
-            var projectRoot = Path.GetFullPath(currentProjectPath.Trim());
             var deployRoot = GetDeployRoot(deployFolder);
+            await DeployProject(project, deployRoot, ct);
+        }
 
+        public static async Task DeployProject(ModProject project, string deployRoot, CancellationToken ct = default)
+        {
+            ArgumentNullException.ThrowIfNull(project);
+            if (string.IsNullOrWhiteSpace(project.RootPath) || !Directory.Exists(project.RootPath))
+                throw new DirectoryNotFoundException(project.RootPath);
+
+            var projectRoot = Path.GetFullPath(project.RootPath.Trim());
+            deployRoot = Path.GetFullPath(deployRoot);
             Directory.CreateDirectory(deployRoot);
 
             var projectName = new DirectoryInfo(projectRoot).Name;
@@ -32,29 +44,27 @@ namespace PZTools.Core.Functions.Projects
             var stagingDest = Path.Combine(deployRoot, $".{projectName}.staging");
             var backupDest = Path.Combine(deployRoot, $".{projectName}.backup");
 
-            await Console.Log($"Begining Deployment of Project: \"{currentProjectPath}\" to: \"{finalDest}\"");
+            await Console.Log($"Beginning deployment of project: \"{projectRoot}\" to: \"{finalDest}\"");
 
             TryDeleteDirectory(stagingDest);
             Directory.CreateDirectory(stagingDest);
 
             await Console.Log("Staging project...");
 
-            await Task.Run(() =>
+            var stagedFilesCount = await Task.Run(() =>
             {
-                CopyDirectoryIncremental(
+                return CopyDirectory(
                     sourceRoot: projectRoot,
                     destRoot: stagingDest,
                     shouldInclude: ShouldIncludePath,
                     ct: ct);
             }, ct);
 
+            DeploymentManifestService.Write(stagingDest, project.ModInfo.Id.Length > 0 ? project.ModInfo.Id : projectName);
+
             await Console.Log($"Deploying {stagedFilesCount} files from staging folder...");
-            await Task.Run(() => DeployFromStaging(stagingDest, finalDest, ct), ct);
-
-            TryDeleteDirectory(stagingDest);
-
-            stagedFilesCount = 0;
-            await Console.Log($"Deployed Project.");
+            await Task.Run(() => ReplaceDeployment(stagingDest, finalDest, backupDest, ct), ct);
+            await Console.Log("Project deployed successfully.");
         }
 
         private static string GetDeployRoot(DeployFolder deployFolder)
@@ -69,50 +79,37 @@ namespace PZTools.Core.Functions.Projects
             };
         }
 
-        private static void DeployFromStaging(string stagingDest, string finalDest, CancellationToken ct)
+        private static void ReplaceDeployment(string stagingDest, string finalDest, string backupDest, CancellationToken ct)
         {
-            Directory.CreateDirectory(finalDest);
+            ct.ThrowIfCancellationRequested();
+            TryDeleteDirectory(backupDest);
 
-            foreach (var dir in Directory.EnumerateDirectories(stagingDest, "*", SearchOption.AllDirectories))
+            var hadExistingDeployment = Directory.Exists(finalDest);
+            if (hadExistingDeployment)
+                Directory.Move(finalDest, backupDest);
+
+            try
             {
                 ct.ThrowIfCancellationRequested();
-                var rel = Path.GetRelativePath(stagingDest, dir);
-                Directory.CreateDirectory(Path.Combine(finalDest, rel));
+                Directory.Move(stagingDest, finalDest);
+                TryDeleteDirectory(backupDest);
             }
-
-            foreach (var file in Directory.EnumerateFiles(stagingDest, "*", SearchOption.AllDirectories))
+            catch
             {
-                ct.ThrowIfCancellationRequested();
-                var rel = Path.GetRelativePath(stagingDest, file);
-                var destFile = Path.Combine(finalDest, rel);
-
-                Directory.CreateDirectory(Path.GetDirectoryName(destFile)!);
-
-                try
-                {
-                    Console.Log($"Deploying file: {file}");
-                    File.Copy(file, destFile, overwrite: true);
-
-                    var srcInfo = new FileInfo(file);
-                    File.SetLastWriteTimeUtc(destFile, srcInfo.LastWriteTimeUtc);
-                }
-                catch (IOException)
-                {
-                    Console.Log($"Skipped locked file: {destFile}", Logger.Console.LogLevel.Warning);
-                }
-                catch (UnauthorizedAccessException)
-                {
-                    Console.Log($"Access denied copying: {destFile}", Logger.Console.LogLevel.Warning);
-                }
+                TryDeleteDirectory(finalDest);
+                if (hadExistingDeployment && Directory.Exists(backupDest))
+                    Directory.Move(backupDest, finalDest);
+                throw;
             }
         }
 
-        private static void CopyDirectoryIncremental(
+        private static int CopyDirectory(
             string sourceRoot,
             string destRoot,
             Func<string, bool> shouldInclude,
             CancellationToken ct)
         {
+            var copiedFiles = 0;
             foreach (var dir in Directory.EnumerateDirectories(sourceRoot, "*", SearchOption.AllDirectories))
             {
                 ct.ThrowIfCancellationRequested();
@@ -121,8 +118,6 @@ namespace PZTools.Core.Functions.Projects
 
                 if (!shouldInclude(rel))
                     continue;
-
-                Console.Log($"Staging Project folder: {dir}");
 
                 var targetDir = Path.Combine(destRoot, rel);
                 Directory.CreateDirectory(targetDir);
@@ -137,41 +132,16 @@ namespace PZTools.Core.Functions.Projects
                 if (!shouldInclude(rel))
                     continue;
 
-                stagedFilesCount++;
-
                 var targetFile = Path.Combine(destRoot, rel);
-
                 Directory.CreateDirectory(Path.GetDirectoryName(targetFile)!);
-
-                if (FileNeedsCopy(file, targetFile))
-                {
-                    Console.Log($"Staging Project file: {file}");
-                    File.Copy(file, targetFile, overwrite: true);
-
-                    var srcInfo = new FileInfo(file);
-                    File.SetLastWriteTimeUtc(targetFile, srcInfo.LastWriteTimeUtc);
-                }
+                File.Copy(file, targetFile, overwrite: true);
+                File.SetLastWriteTimeUtc(targetFile, File.GetLastWriteTimeUtc(file));
+                copiedFiles++;
             }
+            return copiedFiles;
         }
 
-        private static bool FileNeedsCopy(string sourceFile, string destFile)
-        {
-            if (!File.Exists(destFile))
-                return true;
-
-            var src = new FileInfo(sourceFile);
-            var dst = new FileInfo(destFile);
-
-            if (src.Length != dst.Length)
-                return true;
-
-            if (src.LastWriteTimeUtc != dst.LastWriteTimeUtc)
-                return true;
-
-            return false;
-        }
-
-        private static bool ShouldIncludePath(string relativePath)
+        internal static bool ShouldIncludePath(string relativePath)
         {
             var parts = SplitPathParts(relativePath);
 
@@ -181,7 +151,8 @@ namespace PZTools.Core.Functions.Projects
                     p.Equals(".git", StringComparison.OrdinalIgnoreCase) ||
                     p.Equals(".vs", StringComparison.OrdinalIgnoreCase) ||
                     p.Equals(".idea", StringComparison.OrdinalIgnoreCase) ||
-                    p.Equals(".vscode", StringComparison.OrdinalIgnoreCase)))
+                    p.Equals(".vscode", StringComparison.OrdinalIgnoreCase) ||
+                    p.Equals(".pztools", StringComparison.OrdinalIgnoreCase)))
                 return false;
 
             if (parts.Any(p =>
@@ -194,6 +165,9 @@ namespace PZTools.Core.Functions.Projects
             {
                 if (fileName.EndsWith(".user", StringComparison.OrdinalIgnoreCase) ||
                     fileName.EndsWith(".suo", StringComparison.OrdinalIgnoreCase) ||
+                    fileName.EndsWith(".code-workspace", StringComparison.OrdinalIgnoreCase) ||
+                    fileName.Equals(".luarc.json", StringComparison.OrdinalIgnoreCase) ||
+                    fileName.Equals(".gitignore", StringComparison.OrdinalIgnoreCase) ||
                     fileName.Equals("thumbs.db", StringComparison.OrdinalIgnoreCase) ||
                     fileName.Equals(".DS_Store", StringComparison.OrdinalIgnoreCase))
                     return false;
@@ -210,32 +184,8 @@ namespace PZTools.Core.Functions.Projects
 
         private static void TryDeleteDirectory(string path)
         {
-            try
-            {
-                if (!Directory.Exists(path))
-                    return;
-
-                foreach (var file in Directory.EnumerateFiles(path, "*", SearchOption.AllDirectories))
-                {
-                    try
-                    {
-                        var attrs = File.GetAttributes(file);
-                        if ((attrs & FileAttributes.ReadOnly) != 0)
-                            File.SetAttributes(file, attrs & ~FileAttributes.ReadOnly);
-                    }
-                    catch
-                    {
-                    }
-                }
-
-                Directory.Delete(path, recursive: true);
-            }
-            catch (Exception ex)
-            {
-                {
-                    Console.Log(ex.Message, Logger.Console.LogLevel.Warning);
-                }
-            }
+            if (Directory.Exists(path))
+                WindowsHelpers.DeleteDirectoryRobust(path);
         }
     }
 }

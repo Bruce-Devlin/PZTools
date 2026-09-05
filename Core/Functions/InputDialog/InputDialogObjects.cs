@@ -66,7 +66,8 @@ namespace PZTools.Core.Functions.InputDialog
 
         private static void OnBindPasswordChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
-            if (d is not PasswordBox pb) return;
+            if (d is not PasswordBox pb)
+                return;
 
             if ((bool)e.OldValue)
                 pb.PasswordChanged -= HandlePasswordChanged;
@@ -77,7 +78,8 @@ namespace PZTools.Core.Functions.InputDialog
 
         private static void OnBoundPasswordChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
-            if (d is not PasswordBox pb) return;
+            if (d is not PasswordBox pb)
+                return;
 
             pb.PasswordChanged -= HandlePasswordChanged;
 
@@ -90,7 +92,8 @@ namespace PZTools.Core.Functions.InputDialog
 
         private static void HandlePasswordChanged(object sender, RoutedEventArgs e)
         {
-            if (sender is not PasswordBox pb) return;
+            if (sender is not PasswordBox pb)
+                return;
 
             pb.SetValue(IsUpdatingProperty, true);
             SetBoundPassword(pb, pb.Password);
