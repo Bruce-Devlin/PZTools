@@ -2,6 +2,7 @@ using System.Runtime.CompilerServices;
 using System.Windows;
 
 [assembly: InternalsVisibleTo("PZTools.Smoke")]
+[assembly: InternalsVisibleTo("PZTools.Testing.Tests")]
 
 [assembly: ThemeInfo(
     ResourceDictionaryLocation.None,            //where theme specific resource dictionaries are located

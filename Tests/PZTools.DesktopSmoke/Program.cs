@@ -13,8 +13,14 @@ using PZTools.Core.Windows;
 internal static class Program
 {
     [STAThread]
-    private static int Main()
+    private static int Main(string[] args)
     {
+        if (args.Contains("--game-window-fixture"))
+        {
+            var fixtureApp = new Application();
+            return fixtureApp.Run(new Window { Title = "PZTools game host fixture", Width = 640, Height = 480,
+                Content = new TextBox { Text = "Native game-window fixture", AcceptsReturn = true } });
+        }
         var previousDirectory = Environment.CurrentDirectory;
         var root = Path.Combine(Path.GetTempPath(), "PZTools-Desktop-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
@@ -46,6 +52,7 @@ internal static class Program
             Check(Control<Border>(window, "EditorEmptyState").Visibility == Visibility.Collapsed, "agent-opened file replaces empty state");
             Check(editor.TextArea.Caret.Line == 120, "preview opens requested line");
             Check(Control<TextBox>(window, "txtPropName").Text == "Preview.lua", "preview inspector follows opened file");
+            CheckGamePanel(window);
             CheckInspector(window, project, target, luaPath);
             using (var highlighter = new ICSharpCode.AvalonEdit.Highlighting.DocumentHighlighter(
                 new ICSharpCode.AvalonEdit.Document.TextDocument("--[[\nlocal quoted = 'comment'\n]]\nlocal value = \"escaped \\\" quote\""), editor.SyntaxHighlighting!))
@@ -200,6 +207,77 @@ internal static class Program
         targetItem.IsSelected = false;
         Await(window.OpenFileForAgentAsync(luaPath, 120));
     }
+
+    private static void CheckGamePanel(MainWindow window)
+    {
+        using var client = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(
+            Environment.ProcessPath!, "--game-window-fixture") { UseShellExecute = false });
+        if (client is null) throw new InvalidOperationException("Fixture failed to start.");
+        try
+        {
+            var deadline = DateTime.UtcNow.AddSeconds(15);
+            nint hwnd = 0;
+            while (hwnd == 0 && DateTime.UtcNow < deadline)
+            {
+                client.Refresh(); hwnd = client.MainWindowHandle; Drain(); Thread.Sleep(50);
+            }
+            Check(hwnd != 0, "external game-window fixture started");
+            GetWindowRect(hwnd, out var originalBounds);
+            window.TrackGameClient(client);
+            Drain();
+            var attachDeadline = DateTime.UtcNow.AddSeconds(8);
+            while (!Control<Button>(window, "UndockGameButton").IsEnabled && DateTime.UtcNow < attachDeadline)
+            {
+                Invoke(window, "PollGameWindow"); Drain(); Thread.Sleep(50);
+            }
+            var host = (PZTools.Core.Controls.GameWindowHost)Field(window, "_gameHost")!;
+            Check(host.IsAttached && GetParent(hwnd) == host.Handle, "game is embedded in center host");
+            Check(Control<TabControl>(window, "WorkspaceTabs").SelectedIndex == 1, "client launch selects Game tab");
+            Control<TabControl>(window, "WorkspaceTabs").SelectedIndex = 0;
+            Drain();
+            Check(host.IsAttached && GetParent(hwnd) == host.Handle, "switching tabs retains native game window");
+            Control<TabControl>(window, "WorkspaceTabs").SelectedIndex = 1;
+            window.Width = 1000; Drain();
+            GetClientRect(host.Handle, out var hostBounds);
+            GetWindowRect(hwnd, out var dockedBounds);
+            Check(dockedBounds.Right - dockedBounds.Left == hostBounds.Right &&
+                  dockedBounds.Bottom - dockedBounds.Top == hostBounds.Bottom, "game resizes to host client area");
+            Check(IsWindowVisible(hwnd), "game becomes visible after returning to Game tab");
+            Capture(window, "game-panel");
+            Invoke(window, "UndockGame_Click", window, new RoutedEventArgs());
+            Check(!host.IsAttached && GetParent(hwnd) == 0, "undock restores external window");
+            GetWindowRect(hwnd, out var restoredBounds);
+            Check(restoredBounds.Right - restoredBounds.Left == originalBounds.Right - originalBounds.Left &&
+                  restoredBounds.Bottom - restoredBounds.Top == originalBounds.Bottom - originalBounds.Top,
+                  "undock restores original outer window size");
+            Invoke(window, "DockGame_Click", window, new RoutedEventArgs());
+            Check(host.IsAttached, "external window can be redocked");
+            using (var temporaryHost = new PZTools.Core.Controls.GameWindowHost())
+            {
+                Invoke(window, "UndockGame_Click", window, new RoutedEventArgs());
+                var temporaryWindow = new Window { Content = temporaryHost, Width = 500, Height = 400 };
+                temporaryWindow.Show(); Drain();
+                temporaryHost.Attach(hwnd);
+                temporaryWindow.Close(); Drain();
+                Check(!client.HasExited && GetParent(hwnd) == 0, "destroying host restores client without terminating it");
+            }
+            Invoke(window, "DockGame_Click", window, new RoutedEventArgs());
+            client.Kill(); client.WaitForExit();
+            Invoke(window, "PollGameWindow");
+            Check(!host.IsAttached && !Control<Button>(window, "UndockGameButton").IsEnabled, "client exit clears docked state");
+            Control<TabControl>(window, "WorkspaceTabs").SelectedIndex = 0;
+            window.Width = 1180;
+        }
+        finally { if (!client.HasExited) { client.Kill(); client.WaitForExit(); } }
+    }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern nint GetParent(nint hwnd);
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+    private struct NativeRect { public int Left, Top, Right, Bottom; }
+    [System.Runtime.InteropServices.DllImport("user32.dll")] private static extern bool GetWindowRect(nint hwnd, out NativeRect rect);
+    [System.Runtime.InteropServices.DllImport("user32.dll")] private static extern bool GetClientRect(nint hwnd, out NativeRect rect);
+    [System.Runtime.InteropServices.DllImport("user32.dll")] private static extern bool IsWindowVisible(nint hwnd);
 
     private static void CheckButtonsFit(MainWindow window)
     {

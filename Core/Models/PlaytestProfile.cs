@@ -37,7 +37,7 @@ namespace PZTools.Core.Models
         public string Name { get; set; } = "Default playtest";
         public PlaytestMode Mode { get; set; }
         public double Build { get; set; } = 42;
-        public string LaunchArguments { get; set; } = "-debug";
+        public string LaunchArguments { get; set; } = "-debug -nosteam";
         public PlaytestWindowMode WindowMode { get; set; } = PlaytestWindowMode.Windowed;
         public int WindowWidth { get; set; } = 1280;
         public int WindowHeight { get; set; } = 720;

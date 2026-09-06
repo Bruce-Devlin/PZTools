@@ -24,7 +24,11 @@ namespace PZTools.Core.Functions.Projects
         private volatile bool _runStarted;
 
         public event EventHandler<string>? Output;
+        public event Action<Process>? FirstClientStarted;
+        public bool DockFirstClient { get; init; }
         public bool IsRunning => ProcessSnapshot().Any(IsAlive);
+        internal Action<PlaytestSessionWorkspace>? PrepareAutomation { get; init; }
+        internal Func<PlaytestSessionWorkspace, CancellationToken, Task>? RunAutomation { get; init; }
 
         public async Task<PlaytestSessionResult> RunAsync(
             ModProject project,
@@ -50,13 +54,17 @@ namespace PZTools.Core.Functions.Projects
                 await DeployProfileAsync(project, profile, workspace, linked.Token);
                 foreach (var cache in workspace.ClientCachePaths)
                 {
-                    PlaytestClientConfig.Configure(cache, profile, ZomboidGame.GameUserDirectory);
-                    Emit($"Configured client display: {profile.WindowMode}, {profile.WindowWidth}x{profile.WindowHeight}.");
+                    PlaytestClientConfig.Configure(cache, profile, ZomboidGame.GameUserDirectory,
+                        DockFirstClient && cache == workspace.ClientCachePaths[0]);
+                    Emit($"Configured client display: {(DockFirstClient && cache == workspace.ClientCachePaths[0] ? PlaytestWindowMode.Windowed : profile.WindowMode)}, {profile.WindowWidth}x{profile.WindowHeight}.");
                 }
 
                 if (profile.Mode == PlaytestMode.DedicatedServer)
-                {
                     PlaytestServerConfig.Write(profile, workspace, project.ModInfo.Id, project);
+                PrepareAutomation?.Invoke(workspace);
+
+                if (profile.Mode == PlaytestMode.DedicatedServer)
+                {
                     var parity = await Task.Run(() => ClientServerParityService.Compare(
                         Path.Combine(workspace.ServerCachePath, "mods"),
                         workspace.ClientCachePaths.Select(x => Path.Combine(x, "mods"))), linked.Token);
@@ -72,7 +80,10 @@ namespace PZTools.Core.Functions.Projects
                     if (server.HasExited)
                         throw new InvalidOperationException($"Dedicated server exited before clients started (exit code {server.ExitCode}).");
                     if (readyOrTimeout != _serverReady.Task)
+                    {
+                        if (RunAutomation is not null) throw new TimeoutException("Dedicated server readiness timed out.");
                         Emit("Server readiness was not detected before the timeout; starting clients so the live output can reveal the cause.");
+                    }
 
                     var clients = new List<Process>();
                     for (var i = 0; i < profile.ClientCount; i++)
@@ -80,6 +91,12 @@ namespace PZTools.Core.Functions.Projects
                         clients.Add(StartClient(profile, workspace.ClientCachePaths[i], clientBuildRoot, i + 1));
                         result.StartedClients++;
                         await Task.Delay(750, linked.Token);
+                    }
+                    if (RunAutomation is not null)
+                    {
+                        await AwaitAutomationAsync(workspace, clients.Append(server).ToArray(), linked.Token);
+                        CollectSessionDiagnostics(project, workspace, result);
+                        return result;
                     }
                     await Task.WhenAll(clients.Select(x => x.WaitForExitAsync(linked.Token)));
                     var failedClient = clients.FirstOrDefault(x => SafeExitCode(x) != 0);
@@ -91,6 +108,12 @@ namespace PZTools.Core.Functions.Projects
                 {
                     var client = StartClient(profile, workspace.ClientCachePaths[0], clientBuildRoot, 1);
                     result.StartedClients = 1;
+                    if (RunAutomation is not null)
+                    {
+                        await AwaitAutomationAsync(workspace, new[] { client }, linked.Token);
+                        CollectSessionDiagnostics(project, workspace, result);
+                        return result;
+                    }
                     await client.WaitForExitAsync(linked.Token);
                     if (SafeExitCode(client) != 0)
                         throw new InvalidOperationException($"Project Zomboid exited unexpectedly (exit code {SafeExitCode(client)}). Review the session output and isolated console.txt.");
@@ -125,6 +148,22 @@ namespace PZTools.Core.Functions.Projects
             await StopAllProcessesAsync();
             if (_runStarted)
                 await _runCompleted.Task;
+        }
+
+        private async Task AwaitAutomationAsync(PlaytestSessionWorkspace workspace, Process[] processes, CancellationToken ct)
+        {
+            using var monitoring = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            var execution = RunAutomation!(workspace, monitoring.Token);
+            var exited = Task.WhenAny(processes.Select(p => p.WaitForExitAsync(monitoring.Token)));
+            if (await Task.WhenAny(execution, exited) != execution)
+            {
+                monitoring.Cancel();
+                try { await execution; } catch (OperationCanceledException) { }
+                ct.ThrowIfCancellationRequested();
+                throw new InvalidOperationException("A game process exited before the test run completed.");
+            }
+            try { await execution; }
+            finally { monitoring.Cancel(); }
         }
 
         private async Task DeployProfileAsync(ModProject project, PlaytestProfile profile,
@@ -189,12 +228,14 @@ namespace PZTools.Core.Functions.Projects
             var arguments = $"{profile.LaunchArguments} -cachedir={Quote(cachePath)} -modfolders {modFolders}" +
                             (profile.Mode == PlaytestMode.DedicatedServer && profile.NoSteam ? " -nosteam" : "") + connect;
             Emit($"Starting client {number} with isolated cache '{cachePath}'.");
-            return StartProcess(new ProcessStartInfo
+            var client = StartProcess(new ProcessStartInfo
             {
                 FileName = executable,
                 Arguments = arguments,
                 WorkingDirectory = clientBuildRoot
             }, $"CLIENT {number}", detectServerReady: false);
+            if (number == 1) FirstClientStarted?.Invoke(client);
+            return client;
         }
 
         private Process StartProcess(ProcessStartInfo start, string label, bool detectServerReady)

@@ -1,4 +1,5 @@
 <Solution>
   <Project Path="PZTools.csproj" />
   <Project Path="PZTools.Mcp/PZTools.Mcp.csproj" />
+  <Project Path="Tests/PZTools.Testing.Tests/PZTools.Testing.Tests.csproj" />
 </Solution>

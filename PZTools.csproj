@@ -21,22 +21,40 @@
     <None Remove="Resources\PZLua.xshd" />
   </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="PZTools.Mcp\PZTools.Mcp.csproj" ReferenceOutputAssembly="false" />
-  </ItemGroup>
-
+  <!-- MCP runs as a separate process, so build/package it independently with the
+       editor's deployment settings instead of referencing its executable. -->
   <Target Name="CopyMcpServer" AfterTargets="Build">
+    <MSBuild Projects="PZTools.Mcp\PZTools.Mcp.csproj" Targets="Restore;Build"
+             RemoveProperties="PublishProfile;PublishProfileFullPath"
+             Properties="Configuration=$(Configuration);PublishProfile=;SelfContained=$(SelfContained);RuntimeIdentifier=$(RuntimeIdentifier);PublishSingleFile=false" />
+    <MSBuild Projects="PZTools.Mcp\PZTools.Mcp.csproj" Targets="GetTargetPath"
+             RemoveProperties="PublishProfile;PublishProfileFullPath"
+             Properties="Configuration=$(Configuration);PublishProfile=;SelfContained=$(SelfContained);RuntimeIdentifier=$(RuntimeIdentifier);PublishSingleFile=false">
+      <Output TaskParameter="TargetOutputs" ItemName="_McpTargetPath" />
+    </MSBuild>
+    <PropertyGroup>
+      <_McpBuildDir>@(_McpTargetPath->'%(RootDir)%(Directory)')</_McpBuildDir>
+    </PropertyGroup>
     <ItemGroup>
-      <_McpServerFiles Include="$(MSBuildProjectDirectory)\PZTools.Mcp\bin\$(Configuration)\net10.0-windows\**\*" />
+      <_McpServerFiles Include="$(_McpBuildDir)*" />
+      <_McpServerFiles Include="$(_McpBuildDir)runtimes\**\*">
+        <CompanionSubdirectory>runtimes\</CompanionSubdirectory>
+      </_McpServerFiles>
     </ItemGroup>
     <Copy SourceFiles="@(_McpServerFiles)"
-          DestinationFiles="@(_McpServerFiles->'$(OutDir)mcp\%(RecursiveDir)%(Filename)%(Extension)')"
+          DestinationFiles="@(_McpServerFiles->'$(OutDir)mcp\%(CompanionSubdirectory)%(RecursiveDir)%(Filename)%(Extension)')"
           SkipUnchangedFiles="true" />
   </Target>
 
   <Target Name="CopyMcpServerToPublish" AfterTargets="Publish">
+    <PropertyGroup>
+      <_McpPublishDir>$(MSBuildProjectDirectory)\PZTools.Mcp\obj\companion-publish\$(Configuration)\$(RuntimeIdentifier)\$(SelfContained)\$(PublishSingleFile)\</_McpPublishDir>
+    </PropertyGroup>
+    <MSBuild Projects="PZTools.Mcp\PZTools.Mcp.csproj" Targets="Publish"
+             RemoveProperties="PublishProfile;PublishProfileFullPath;PublishUrl"
+             Properties="Configuration=$(Configuration);PublishProfile=;RuntimeIdentifier=$(RuntimeIdentifier);SelfContained=$(SelfContained);PublishSingleFile=$(PublishSingleFile);PublishDir=$(_McpPublishDir);NoBuild=false" />
     <ItemGroup>
-      <_McpPublishFiles Include="$(MSBuildProjectDirectory)\PZTools.Mcp\bin\$(Configuration)\net10.0-windows\**\*" />
+      <_McpPublishFiles Include="$(_McpPublishDir)**\*" />
     </ItemGroup>
     <Copy SourceFiles="@(_McpPublishFiles)"
           DestinationFiles="@(_McpPublishFiles->'$(PublishDir)mcp\%(RecursiveDir)%(Filename)%(Extension)')"
@@ -61,6 +79,7 @@
     <EmbeddedResource Include="Resources\PZinfo.xshd" />
     <EmbeddedResource Include="Resources\PZtxt.xshd" />
     <EmbeddedResource Include="Resources\PZlua.xshd" />
+    <EmbeddedResource Include="Resources\Testing\*.lua" />
   </ItemGroup>
 
 </Project>

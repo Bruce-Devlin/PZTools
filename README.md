@@ -134,6 +134,14 @@ dotnet run --project PZTools.csproj
 
 You can instead open `PZTools.slnx` in Visual Studio and run the `PZTools` project there. PZTools does not currently have a packaged release; future builds will be published on the [Releases page](https://github.com/Bruce-Devlin/PZTools/releases).
 
+To publish self-contained Windows x64 executables:
+
+```powershell
+dotnet publish PZTools.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+```
+
+The output is in `bin/Release/net10.0-windows/win-x64/publish/`. Distribute `PZTools.exe` together with the `mcp` folder: the MCP companion runs as a separate process and is published with the same runtime and deployment settings. Single-file publishing bundles each executable separately; it does not combine the editor and companion into one executable. PDB files are optional debugging symbols. For a smaller framework-dependent package requiring the .NET 10 Desktop Runtime, use `--self-contained false` and a separate output folder (`-o <folder>`).
+
 ## Project Structure
 
 ```text

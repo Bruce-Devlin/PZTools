@@ -51,6 +51,7 @@ namespace PZTools.Core.Windows
             Title = $"PZ Tools - {ModProject}";
             LoadLayout();
             InitializeWorkspace();
+            InitializeGamePanel();
         }
 
         public void ApplyAppSettings()
@@ -216,6 +217,13 @@ namespace PZTools.Core.Windows
 
             if (!e.Cancel)
             {
+                try { DisposeGamePanel(); }
+                catch (System.ComponentModel.Win32Exception ex)
+                {
+                    e.Cancel = true;
+                    StatusBarText.Text = $"Could not release the game window: {ex.Message}. Undock it and try closing again.";
+                    return;
+                }
                 IsClosing = true;
                 Console.OnLogMessage -= Console_OnLogMessage;
                 PZTools.Core.Functions.Theme.ThemeManager.ThemeChanged -= Workspace_ThemeChanged;
@@ -427,8 +435,15 @@ namespace PZTools.Core.Windows
             if (!string.IsNullOrEmpty(showSettingsWindow))
                 bool.TryParse(showSettingsWindow, out showWindow);
 
-            var runGameWindow = new RunProject(showWindow);
-            runGameWindow.ShowDialog();
+            if (_playtestWindow is not null)
+            {
+                _playtestWindow.WindowState = WindowState.Normal;
+                _playtestWindow.Activate();
+                return;
+            }
+            _playtestWindow = new RunProject(showWindow) { Owner = this, DockClient = TrackGameClient };
+            _playtestWindow.Closed += (_, _) => _playtestWindow = null;
+            _playtestWindow.Show();
         }
     }
 }

@@ -8,7 +8,7 @@ namespace PZTools.Core.Functions.Projects
     {
         private static readonly string[] PreferenceFiles = { "options.ini", "keys.ini" };
 
-        public static string Configure(string cachePath, PlaytestProfile profile, string? sourceUserDirectory = null)
+        public static string Configure(string cachePath, PlaytestProfile profile, string? sourceUserDirectory = null, bool forceWindowed = false)
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(cachePath);
             ArgumentNullException.ThrowIfNull(profile);
@@ -30,8 +30,8 @@ namespace PZTools.Core.Functions.Projects
                 ? File.ReadAllLines(optionsPath).ToList()
                 : new List<string> { "version=8" };
 
-            Set(lines, "fullScreen", profile.WindowMode == PlaytestWindowMode.Fullscreen ? "true" : "false");
-            Set(lines, "borderless", profile.WindowMode == PlaytestWindowMode.BorderlessWindowed ? "true" : "false");
+            Set(lines, "fullScreen", !forceWindowed && profile.WindowMode == PlaytestWindowMode.Fullscreen ? "true" : "false");
+            Set(lines, "borderless", !forceWindowed && profile.WindowMode == PlaytestWindowMode.BorderlessWindowed ? "true" : "false");
             Set(lines, "width", profile.WindowWidth.ToString(System.Globalization.CultureInfo.InvariantCulture));
             Set(lines, "height", profile.WindowHeight.ToString(System.Globalization.CultureInfo.InvariantCulture));
             File.WriteAllLines(optionsPath, lines, new UTF8Encoding(false));

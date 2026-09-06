@@ -170,8 +170,10 @@ namespace PZTools.Core.Functions.Projects
 
         private static IEnumerable<JObject> BuildTasks()
         {
-            var assemblyPath = typeof(EditorIntegration).Assembly.Location;
-            if (string.IsNullOrWhiteSpace(assemblyPath) || !File.Exists(assemblyPath))
+            var executablePath = Path.Combine(AppContext.BaseDirectory, "PZTools.exe");
+            var assemblyPath = Path.Combine(AppContext.BaseDirectory, "PZTools.dll");
+            var useExecutable = !File.Exists(assemblyPath) && File.Exists(executablePath);
+            if (!useExecutable && !File.Exists(assemblyPath))
                 throw new InvalidOperationException("The PZTools task runner could not be located for VS Code tasks.");
 
             var matcher = new JObject
@@ -194,14 +196,18 @@ namespace PZTools.Core.Functions.Projects
             {
                 ["label"] = label,
                 ["type"] = "process",
-                ["command"] = "dotnet",
-                ["args"] = new JArray(assemblyPath, ArgumentForTaskRunner(), command, "--project", "${workspaceFolder}"),
+                ["command"] = useExecutable ? executablePath : "dotnet",
+                ["args"] = useExecutable
+                    ? new JArray(ArgumentForTaskRunner(), command, "--project", "${workspaceFolder}")
+                    : new JArray(assemblyPath, ArgumentForTaskRunner(), command, "--project", "${workspaceFolder}"),
                 ["problemMatcher"] = new JArray(matcher.DeepClone()),
                 ["group"] = group,
                 ["presentation"] = new JObject { ["reveal"] = "always", ["panel"] = "shared", ["clear"] = true }
             };
 
             yield return ShellTask("PZTools: Test Mod", "health", "test");
+            yield return ShellTask("PZTools: Run Unit Tests", "unit", "test");
+            yield return ShellTask("PZTools: Run Game Tests", "game-tests", "test");
             yield return ShellTask("PZTools: Deploy Mod", "deploy");
             yield return new JObject
             {

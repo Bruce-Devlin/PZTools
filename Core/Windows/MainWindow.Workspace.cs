@@ -80,6 +80,7 @@ public partial class MainWindow
 
     private void PreviewFile(string fullPath, int line = 0, int column = 1)
     {
+        WorkspaceTabs.SelectedIndex = 0;
         ResetPreview();
         var info = new FileInfo(fullPath);
         if (!info.Exists) throw new FileNotFoundException("The file no longer exists.", fullPath);

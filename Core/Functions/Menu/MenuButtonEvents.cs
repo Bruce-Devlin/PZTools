@@ -191,6 +191,12 @@ namespace PZTools.Core.Functions.Menu
                         App.MainWindow.ShowDialog(new ProjectDashboard(project));
                 });
 
+            public static ICommand Test_Explorer { get; } = new RelayCommand(() =>
+            {
+                if (ProjectEngine.CurrentProject is { } project)
+                    App.MainWindow.ShowDialog(new TestExplorer(project));
+            });
+
             public static ICommand Open_In_VS_Code { get; } =
                 new RelayCommand(() =>
                 {

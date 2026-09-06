@@ -56,6 +56,11 @@ try
     Check(configuredOptions.Contains("fullScreen=false") && configuredOptions.Contains("borderless=false") &&
           configuredOptions.Contains("width=1280") && configuredOptions.Contains("height=720") && configuredOptions.Contains("frameRate=60"),
         "windowed client configuration preserves unrelated preferences");
+    loaded.WindowMode = PlaytestWindowMode.Fullscreen;
+    PlaytestClientConfig.Configure(workspace.ClientCachePaths[0], loaded, sourcePreferences, forceWindowed: true);
+    Check(File.ReadAllLines(Path.Combine(workspace.ClientCachePaths[0], "options.ini")).Contains("fullScreen=false") &&
+          loaded.WindowMode == PlaytestWindowMode.Fullscreen, "docking forces windowed cache without changing saved profile");
+    loaded.WindowMode = PlaytestWindowMode.Windowed;
     project.ModInfo.LoadModBefore.Add("Dependency");
     var ini = PlaytestServerConfig.Write(loaded, workspace, project.ModInfo.Id, project);
     var iniText = File.ReadAllText(ini);

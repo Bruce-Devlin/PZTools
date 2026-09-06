@@ -23,6 +23,8 @@ namespace PZTools.Core.Windows.Dialogs.Project
         private readonly ObservableCollection<PlaytestDependency> _dependencyRows = new();
         private List<DiscoveredModDependency> _discoveredDependencies = new();
 
+        public Action<System.Diagnostics.Process>? DockClient { get; set; }
+
         public RunProject(bool showWindow = true)
         {
             InitializeComponent();
@@ -39,6 +41,11 @@ namespace PZTools.Core.Windows.Dialogs.Project
 
         private async void Window_Loaded(object sender, RoutedEventArgs e)
         {
+            if (DockClient is not null)
+            {
+                cmbWindowMode.ToolTip = "The first client starts windowed in the Game tab. This setting applies to additional clients.";
+                StatusText.Text = "First client opens windowed in the Game tab; additional clients use the profile display mode.";
+            }
             await DiscoverDependenciesAsync();
             if (_autoRun && _project is not null)
                 await RunSelectedProfileAsync();
@@ -179,7 +186,12 @@ namespace PZTools.Core.Windows.Dialogs.Project
             btnStopGame.IsEnabled = true;
             StatusText.Text = "Preparing session...";
             _runCts = new CancellationTokenSource();
-            _runner = new PlaytestSessionRunner();
+            _runner = new PlaytestSessionRunner { DockFirstClient = DockClient is not null };
+            _runner.FirstClientStarted += process => Dispatcher.BeginInvoke(() =>
+            {
+                DockClient?.Invoke(process);
+                if (DockClient is not null) WindowState = WindowState.Minimized;
+            });
             _runner.Output += Runner_Output;
             try
             {

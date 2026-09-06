@@ -1,6 +1,4 @@
-using System.Diagnostics;
 using System.IO;
-using System.Reflection;
 
 namespace PZTools
 {
@@ -10,12 +8,7 @@ namespace PZTools
         {
             get
             {
-                string? path = Assembly.GetEntryAssembly()?.Location;
-
-                if (string.IsNullOrEmpty(path))
-                {
-                    path = Process.GetCurrentProcess().MainModule?.FileName;
-                }
+                string? path = Environment.ProcessPath;
 
                 if (string.IsNullOrEmpty(path))
                     throw new Exception("Unable to determine executable path.");

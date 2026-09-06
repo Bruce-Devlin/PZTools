@@ -1,5 +1,7 @@
 using System.IO;
 using PZTools.Core.Models;
+using PZTools.Core.Functions.Tester;
+using PZTools.Core.Functions.Zomboid;
 
 namespace PZTools.Core.Functions.Projects
 {
@@ -25,6 +27,35 @@ namespace PZTools.Core.Functions.Projects
                 var command = args[commandIndex + 1].Trim().ToLowerInvariant();
                 var projectPath = ReadOption(args, "--project") ?? Directory.GetCurrentDirectory();
                 var project = LoadProject(projectPath);
+
+                if (command == "init-tests")
+                {
+                    ModTestService.Scaffold(project);
+                    await output.WriteLineAsync("Created missing test examples in .pztests.");
+                    return 0;
+                }
+                if (command is "unit" or "game-tests")
+                {
+                    var filter = ReadOption(args, "--filter");
+                    Models.Test.ModTestReport report;
+                    if (command == "unit") report = await ModTestService.RunUnitAsync(project, filter, cancellationToken);
+                    else
+                    {
+                        var profiles = PlaytestProfileStore.Load(project);
+                        var selected = ReadOption(args, "--profile");
+                        var profile = selected is null ? profiles[0] : profiles.SingleOrDefault(p => p.Name == selected || p.Id.ToString() == selected)
+                            ?? throw new ArgumentException("Playtest profile was not found: " + selected);
+                        var root = ReadOption(args, "--game-root") ?? (ZomboidGame.GameMode == "Managed"
+                            ? Path.Combine(ZomboidGame.GameDirectory, profile.Build.ToString(System.Globalization.CultureInfo.InvariantCulture)) : ZomboidGame.GameDirectory);
+                        var limit = ReadOption(args, "--timeout");
+                        if (limit is not null && !int.TryParse(limit, out _)) throw new ArgumentException("--timeout must be an integer in seconds.");
+                        report = await GameTestService.RunAsync(project, profile, root, filter, limit is null ? 300 : int.Parse(limit), line => output.WriteLine(line), cancellationToken);
+                    }
+                    foreach (var test in report.Tests) await output.WriteLineAsync($"{test.File}(1,1): {(test.Status == "passed" ? "info" : "error")} PZTEST: {test.Name}: {test.Status} {SingleLine(test.Message)}");
+                    foreach (var problem in report.Errors) await error.WriteLineAsync("Runner: " + problem);
+                    await output.WriteLineAsync($"{(report.Passed ? "PASS" : "FAIL")}: {report.Tests.Count} tests. Reports: {report.ArtifactDirectory}");
+                    return report.Passed ? 0 : report.Errors.Count > 0 ? 2 : 1;
+                }
 
                 return command switch
                 {
@@ -140,7 +171,7 @@ namespace PZTools.Core.Functions.Projects
         private static async Task<int> UsageErrorAsync(TextWriter error, string message)
         {
             await error.WriteLineAsync(message);
-            await error.WriteLineAsync("Usage: PZTools.exe --project-task <health|deploy> [--project <folder>]");
+            await error.WriteLineAsync("Usage: PZTools.exe --project-task <health|deploy|init-tests|unit|game-tests> [--project <folder>] [--filter <file substring>] [--profile <name>] [--game-root <folder>] [--timeout <seconds>]");
             return 2;
         }
     }

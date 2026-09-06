@@ -1,0 +1,8 @@
+test("Player inventory uses real game objects", function(t)
+    local alice = t:actor()
+    local before = alice:inventoryCount("Base.Plank")
+    local item = alice:givenItem("Base.Plank")
+    t:cleanup(function() alice:player():getInventory():Remove(item) end)
+    t:equal(alice:inventoryCount("Base.Plank"), before + 1)
+    t:truthy(alice:player():getBodyDamage():getOverallBodyHealth() > 0)
+end)

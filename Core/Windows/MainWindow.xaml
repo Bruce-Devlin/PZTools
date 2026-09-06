@@ -250,8 +250,22 @@
                           Background="{DynamicResource Brush.Border}"
                           HorizontalAlignment="Right"/>
 
+            <Grid Grid.Column="1">
+                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                <TabControl x:Name="WorkspaceTabs" SelectionChanged="WorkspaceTabs_SelectionChanged">
+                    <TabControl.Template>
+                        <ControlTemplate TargetType="TabControl">
+                            <Border Background="{DynamicResource Brush.BgElevated}" Padding="8,6"
+                                    BorderBrush="{DynamicResource Brush.Border}" BorderThickness="0,0,0,1">
+                                <StackPanel IsItemsHost="True" Orientation="Horizontal"/>
+                            </Border>
+                        </ControlTemplate>
+                    </TabControl.Template>
+                    <TabItem Header="Code"/>
+                    <TabItem Header="Game"/>
+                </TabControl>
             <!-- Editor -->
-            <Border Grid.Column="1"
+            <Border x:Name="PreviewPane" Grid.Row="1"
                     Background="{DynamicResource Brush.BgApp}"
                     BorderBrush="{DynamicResource Brush.Border}"
                     BorderThickness="1,0,1,0">
@@ -322,6 +336,19 @@
                     </Border>
                 </Grid>
             </Border>
+
+                <Grid x:Name="GamePane" Grid.Row="1" Visibility="Collapsed" Background="{DynamicResource Brush.BgApp}">
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                    <WrapPanel Margin="10,6">
+                        <Button Content="Run / Playtest Lab" Click="RunGame_Click" Style="{DynamicResource CompactButton}"/>
+                        <Button x:Name="DockGameButton" Content="Dock" Click="DockGame_Click" IsEnabled="False" Style="{DynamicResource CompactButton}" Margin="6,0"/>
+                        <Button x:Name="UndockGameButton" Content="Undock" Click="UndockGame_Click" IsEnabled="False" Style="{DynamicResource CompactButton}"/>
+                        <TextBlock Text="Windowed playtest · Ctrl+Shift+F12 releases focus" VerticalAlignment="Center" Margin="10,0" Foreground="{DynamicResource Brush.TextMuted}"/>
+                    </WrapPanel>
+                    <Border x:Name="GameHostContainer" Grid.Row="1"/>
+                    <TextBlock x:Name="GameStatus" Grid.Row="1" Text="Run a playtest to show the game here." TextWrapping="Wrap" TextAlignment="Center" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24" Foreground="{DynamicResource Brush.TextMuted}"/>
+                </Grid>
+            </Grid>
 
             <!-- Right splitter -->
             <GridSplitter Grid.Column="1"

@@ -155,6 +155,9 @@ namespace PZTools.Core.Functions.Projects
                     p.Equals(".pztools", StringComparison.OrdinalIgnoreCase)))
                 return false;
 
+            if (parts.Any(p => p.Equals(".pztests", StringComparison.OrdinalIgnoreCase)))
+                return false;
+
             if (parts.Any(p =>
                     p.Equals("TestResults", StringComparison.OrdinalIgnoreCase) ||
                     p.Equals("packages", StringComparison.OrdinalIgnoreCase)))
