@@ -828,7 +828,9 @@
 
                         <Trigger Property="Role" Value="TopLevelHeader">
                             <Setter Property="Padding" Value="10,4"/>
-                            <Setter Property="MinWidth" Value="84"/>
+                            <Setter Property="MinWidth" Value="60"/>
+                            <Setter TargetName="Arrow" Property="Visibility" Value="Collapsed"/>
+                            <Setter TargetName="PART_Popup" Property="Placement" Value="Bottom"/>
                         </Trigger>
 
                         <Trigger Property="Role" Value="SubmenuHeader">
@@ -943,6 +945,7 @@
     </Style>
 
     <Style x:Key="ModernDataGrid" TargetType="DataGrid">
+        <Setter Property="MinRowHeight" Value="32"/>
         <Setter Property="Background" Value="{DynamicResource Brush.BgSurface}"/>
         <Setter Property="Foreground" Value="{DynamicResource Brush.TextPrimary}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border}"/>

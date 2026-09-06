@@ -1,5 +1,6 @@
 using System.IO;
 using PZTools.Core.Functions.Tester;
+using PZTools.Core.Functions.Projects;
 using PZTools.Core.Models;
 using Application = System.Windows.Application;
 
@@ -43,7 +44,7 @@ namespace PZTools.Core.Windows
             if (currentFull != null && string.Equals(currentFull, fullPath, StringComparison.OrdinalIgnoreCase))
                 return current;
 
-            foreach (var child in current.Children.Where(x => !double.TryParse(x.Name, out _)))
+            foreach (var child in current.Children)
             {
                 var found = FindNodeByPathRecursive(child, fullPath);
                 if (found != null)
@@ -65,6 +66,7 @@ namespace PZTools.Core.Windows
         {
             lock (_folderWatchLock)
             {
+                if (IsClosing) return;
                 if (_folderWatchersByPath.ContainsKey(folderFullPath))
                     return;
 
@@ -169,6 +171,7 @@ namespace PZTools.Core.Windows
             {
                 if (!_expandedFolderPaths.Contains(full))
                     return;
+                if (IsClosing) return;
 
                 if (_folderDebounceByPath.TryGetValue(full, out var prev))
                 {
@@ -261,6 +264,7 @@ namespace PZTools.Core.Windows
 
             await Application.Current.Dispatcher.InvokeAsync(() =>
             {
+                if (IsClosing) return;
                 ReconcileChildren(folderNode, newChildren);
 
                 foreach (var child in folderNode.Children.Where(c => c.IsFolder))
@@ -394,6 +398,7 @@ namespace PZTools.Core.Windows
 
             lock (_watchLock)
             {
+                if (IsClosing) return;
                 _openedFileDebounceCts?.Cancel();
                 _openedFileDebounceCts?.Dispose();
                 _openedFileDebounceCts = new CancellationTokenSource();
@@ -436,11 +441,21 @@ namespace PZTools.Core.Windows
                     if (!string.Equals(OpenedFilePath, path, StringComparison.OrdinalIgnoreCase))
                         return;
 
-                    LuaEditor.Text = $"-- File was deleted: {path}";
+                    LuaEditor.Clear();
+                    ShowEditorEmptyState("File moved or deleted", "Select another file from the project explorer.");
+                    RefreshInspector();
                 });
                 return;
             }
 
+            if (new FileInfo(path).Length > ProjectSearchService.MaxFileBytes)
+            {
+                await Dispatcher.InvokeAsync(() =>
+                {
+                    if (OpenedFilePath == path) { LuaEditor.Clear(); ShowEditorEmptyState("Large file", "Open this file in VS Code to view its contents."); }
+                });
+                return;
+            }
             string text = await ReadAllTextWithRetryAsync(path, token);
 
             string? ext = null;
@@ -450,7 +465,8 @@ namespace PZTools.Core.Windows
                 if (!string.Equals(OpenedFilePath, path, StringComparison.OrdinalIgnoreCase))
                     return;
 
-                LuaEditor.Text = text;
+                if (token.IsCancellationRequested || IsClosing) return;
+                UpdatePreviewText(text);
                 ext = Path.GetExtension(path);
                 LoadHighlighting(ext);
             });

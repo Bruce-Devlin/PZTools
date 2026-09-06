@@ -33,10 +33,15 @@ namespace PZTools.Core.Windows.Dialogs.Project
             ProjectsTreeView.ItemsSource = Projects;
 
             ProjectsTreeView.SelectedItemChanged += ProjectsTreeView_SelectedItemChanged;
+            Projects.CollectionChanged += (_, _) => UpdateProjectCount();
+            UpdateProjectCount();
+            Loaded += (_, _) => ProjectFilter.Focus();
         }
 
         private void ProjectsTreeView_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
         {
+            SelectedProject = null;
+            SelectedTarget = null;
             if (ProjectsTreeView.SelectedItem is ModTarget target)
             {
                 SelectedTarget = target;
@@ -54,6 +59,39 @@ namespace PZTools.Core.Windows.Dialogs.Project
                 SelectedProject = project;
                 SelectedTarget = null;
             }
+            OpenProjectButton.IsEnabled = SelectedProject != null;
+        }
+
+        private void ProjectFilter_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (ProjectsTreeView == null) return;
+            var term = ProjectFilter.Text.Trim();
+            var view = System.Windows.Data.CollectionViewSource.GetDefaultView(Projects);
+            view.Filter = item => item is ModProject project &&
+                (project.Name.Contains(term, StringComparison.OrdinalIgnoreCase) || project.RootPath.Contains(term, StringComparison.OrdinalIgnoreCase));
+            if (SelectedProject != null && !view.Contains(SelectedProject))
+            {
+                SelectedProject = null;
+                SelectedTarget = null;
+                OpenProjectButton.IsEnabled = false;
+            }
+            UpdateProjectCount();
+        }
+
+        private void UpdateProjectCount()
+        {
+            if (ProjectCount == null) return;
+            var count = System.Windows.Data.CollectionViewSource.GetDefaultView(Projects).Cast<object>().Count();
+            ProjectCount.Text = $"{count} project{(count == 1 ? "" : "s")}";
+            NoProjectsState.Visibility = count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            NoProjectsTitle.Text = Projects.Count == 0 ? "No projects yet" : "No matching projects";
+            NoProjectsBody.Text = Projects.Count == 0 ? "Create a new project or import an existing mod below." : "Try another name or clear the filter.";
+        }
+
+        private void ProjectsTreeView_DoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            if (SelectedProject != null && e.OriginalSource is TextBlock)
+                OkButton_Click(sender, e);
         }
 
         private void SelectTreeViewItem(TreeView treeView, object itemToSelect)
@@ -164,6 +202,7 @@ namespace PZTools.Core.Windows.Dialogs.Project
                 try
                 {
                     var newProject = ProjectEngine.CreateProject(projectName, targetBuild);
+                    ProjectFilter.Clear();
                     ProjectEngine.LoadProjects();
                     Projects.Add(newProject);
                     ProjectsTreeView.Items.Refresh();
@@ -216,12 +255,14 @@ namespace PZTools.Core.Windows.Dialogs.Project
                     return;
 
                 var result = ModImportService.Import(folderPicker.SelectedPath, input.TryGetResponse(projectNameKey));
+                ProjectFilter.Clear();
                 Projects.Clear();
                 foreach (var project in ProjectEngine.GetAllProjects())
                     Projects.Add(project);
 
                 SelectedProject = result.Project;
                 SelectedTarget = null;
+                OpenProjectButton.IsEnabled = true;
                 ProjectsTreeView.Items.Refresh();
                 SelectTreeViewItem(ProjectsTreeView, result.Project);
 

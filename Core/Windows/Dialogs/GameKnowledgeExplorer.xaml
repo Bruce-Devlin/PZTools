@@ -23,7 +23,7 @@
             <StackPanel>
                 <TextBlock Text="Game code knowledge base" FontSize="24" FontWeight="SemiBold"/>
                 <TextBlock Text="Search the types and members recovered from Project Zomboid's Java code. Results link back to the exact decompiled source."
-                           Margin="0,5,0,0" Style="{DynamicResource Text.Muted}"/>
+                           Margin="0,5,12,0" TextWrapping="Wrap" Style="{DynamicResource Text.Muted}"/>
             </StackPanel>
             <Border Grid.Column="1" CornerRadius="12" Padding="13,6" Background="{DynamicResource Brush.BgElevated}" VerticalAlignment="Center">
                 <TextBlock x:Name="IndexSummaryText" Text="Loading index..." Foreground="{DynamicResource Brush.TextMuted}"/>
@@ -31,6 +31,7 @@
         </Grid>
 
         <Grid Grid.Row="1" Margin="0,16,0,12">
+            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="180"/><ColumnDefinition Width="140"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
@@ -38,15 +39,25 @@
                       SelectionChanged="BuildCombo_SelectionChanged" ToolTip="Decompiled game build"/>
             <ComboBox x:Name="KindCombo" Grid.Column="1" Margin="8,0,0,0" Style="{DynamicResource ModernComboBox}"
                       SelectionChanged="KindCombo_SelectionChanged">
-                <ComboBoxItem Content="All symbols" Tag="All" IsSelected="True"/>
+                <ComboBoxItem Content="All symbols" Tag="All"/>
                 <ComboBoxItem Content="Types" Tag="Type"/>
-                <ComboBoxItem Content="Methods" Tag="Method"/>
+                <ComboBoxItem Content="Methods" Tag="Method" IsSelected="True"/>
                 <ComboBoxItem Content="Constructors" Tag="Constructor"/>
                 <ComboBoxItem Content="Fields" Tag="Field"/>
             </ComboBox>
             <TextBox x:Name="SearchBox" Grid.Column="2" Margin="8,0,0,0" Style="{DynamicResource ModernTextBox}"
                      TextChanged="SearchBox_TextChanged" ToolTip="Search names, signatures, packages, parameters, and documentation"/>
             <Button Grid.Column="3" Content="Rebuild index" Style="{StaticResource ToolbarButton}" Click="Rebuild_Click"/>
+            <WrapPanel Grid.Row="1" Grid.ColumnSpan="4" Margin="0,10,0,0">
+                <CheckBox x:Name="IncludeLibrariesCheck" Content="Include bundled libraries"
+                          Checked="KindCombo_SelectionChanged" Unchecked="KindCombo_SelectionChanged"
+                          ToolTip="Also search FMOD, astar, and other packages outside zombie."/>
+                <CheckBox x:Name="IncludeInternalsCheck" Content="Include internal / generated members" Margin="14,0,0,0"
+                          Checked="KindCombo_SelectionChanged" Unchecked="KindCombo_SelectionChanged"
+                          ToolTip="Show non-public declarations and compiler-generated helpers as well."/>
+                <TextBlock Text="Game methods by default. Search a class or method name."
+                           Margin="14,0,0,0" Foreground="{DynamicResource Brush.TextMuted}" TextWrapping="Wrap"/>
+            </WrapPanel>
         </Grid>
 
         <Grid Grid.Row="2">
@@ -97,7 +108,7 @@
                         <StackPanel>
                             <TextBlock Text="Decompiler notes" Style="{DynamicResource Text.Label}"/>
                             <TextBlock x:Name="DocumentationText" Margin="0,6,0,14" TextWrapping="Wrap" Text="No symbol selected."/>
-                            <TextBlock Text="Mod-development guidance" Style="{DynamicResource Text.Label}"/>
+                            <TextBlock Text="Declaration explained" Style="{DynamicResource Text.Label}"/>
                             <TextBlock x:Name="GuidanceText" Margin="0,6,0,0" TextWrapping="Wrap" Foreground="{DynamicResource Brush.TextMuted}"
                                        Text="Search for a game type or member to inspect its recovered Java declaration."/>
                         </StackPanel>

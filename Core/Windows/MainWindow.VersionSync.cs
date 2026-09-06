@@ -59,12 +59,14 @@ namespace PZTools.Core.Windows
 
         private void QueueVersionSync(string path)
         {
+            if (IsClosing) return;
             if (path.Contains(Path.DirectorySeparatorChar + ".pztools" + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) ||
                 path.Contains(".pztools-sync-", StringComparison.OrdinalIgnoreCase))
                 return;
 
             lock (_versionSyncWatchLock)
             {
+                if (IsClosing) return;
                 _versionSyncDebounce?.Cancel();
                 _versionSyncDebounce?.Dispose();
                 _versionSyncDebounce = new CancellationTokenSource();
@@ -79,7 +81,8 @@ namespace PZTools.Core.Windows
                 await Task.Delay(250, token);
                 var result = await Task.Run(() => VersionSyncService.ReconcileAll(ModProject), token);
                 if (result.Copied + result.Updated + result.FoldersCreated > 0)
-                    await Dispatcher.InvokeAsync(UpdateTreeView);
+                    await Dispatcher.InvokeAsync(RefreshVersionSyncTree);
+                await Dispatcher.InvokeAsync(() => { if (!IsClosing) RefreshInspector(); });
                 var currentConflicts = result.ConflictPaths.ToHashSet(StringComparer.OrdinalIgnoreCase);
                 var newConflicts = currentConflicts.Where(x => !_reportedVersionSyncConflicts.Contains(x)).Take(3).ToList();
                 _reportedVersionSyncConflicts.Clear();
@@ -94,6 +97,37 @@ namespace PZTools.Core.Windows
             {
                 await WriteToConsole($"Version sync error: {ex.Message}");
             }
+        }
+
+        private void RefreshVersionSyncTree()
+        {
+            // Retain the bound nodes so selection, expansion and the preview survive sync.
+            foreach (var target in ModProject.Targets)
+            {
+                if (target.FileTree != null && Directory.Exists(target.Path))
+                    MergeVersionSyncChildren(target.FileTree, ProjectEngine.BuildFileTree(target.Path));
+            }
+        }
+
+        private static void MergeVersionSyncChildren(
+            PZTools.Core.Models.ProjectFileNode current, PZTools.Core.Models.ProjectFileNode incoming)
+        {
+            for (var index = 0; index < incoming.Children.Count; index++)
+            {
+                var next = incoming.Children[index];
+                var existing = current.Children.FirstOrDefault(x =>
+                    string.Equals(x.Path, next.Path, StringComparison.OrdinalIgnoreCase) && x.IsFolder == next.IsFolder);
+                if (existing == null)
+                    current.Children.Insert(index, next);
+                else
+                {
+                    var previousIndex = current.Children.IndexOf(existing);
+                    if (previousIndex != index) current.Children.Move(previousIndex, index);
+                    if (existing.IsFolder) MergeVersionSyncChildren(existing, next);
+                }
+            }
+            while (current.Children.Count > incoming.Children.Count)
+                current.Children.RemoveAt(current.Children.Count - 1);
         }
     }
 }

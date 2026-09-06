@@ -58,6 +58,12 @@ PZTools manages Project Zomboid-specific work while your preferred editor handle
 6. Deploy locally and run the selected profile. Use **Debug > Run Game Settings** to configure isolated saves, dependencies, local clients, display options, or a dedicated server.
 7. Complete Workshop metadata in Project Settings, then upload through SteamCMD.
 
+### Finding and previewing files
+
+The project picker filters workspaces by name or location. Double-click a project to open it. In the workspace, **Ctrl+Shift+F** searches content across all build targets and shared files; enable **File names only** to find a path or asset. Results open in the preview at the matching line. Content search is literal, ignores case unless requested, and reports skipped files and capped results. Internal/generated folders are excluded; text files above 2 MB and linked paths are skipped.
+
+Select a file to see its relative path and details. Text previews are read-only and follow external saves while preserving your reading position. **Ctrl+F** opens find in the current file; **F3** and **Shift+F3** move between matches. PNG, JPEG, BMP, and GIF files up to 8 MB have a scaled image preview. **Ctrl+N** opens the PZ file scaffold dialog. The output panel follows new messages when you are at the bottom; scroll up to read earlier output, or turn off **Follow output**.
+
 ### Build 42 project structure
 
 ```text
@@ -188,6 +194,7 @@ Build and run the automated checks from the repository root:
 dotnet build PZTools.slnx
 dotnet run --project Tests/PZTools.Smoke/PZTools.Smoke.csproj -c Debug
 dotnet run --project Tests/PZTools.PlaytestSmoke/PZTools.PlaytestSmoke.csproj -c Debug
+dotnet run --project Tests/PZTools.DesktopSmoke/PZTools.DesktopSmoke.csproj -c Debug
 dotnet format PZTools.slnx --verify-no-changes --no-restore
 ```
 
@@ -208,7 +215,7 @@ The repository `.editorconfig` is the source of truth for whitespace and basic C
 
 ## Contributing
 
-Contributions are welcome. Keep changes focused, preserve existing behaviour unless the change requires otherwise, and document new user-facing functionality. Build the solution, run both smoke-test projects, and state clearly which UI, game, and Steam checks you performed.
+Contributions are welcome. Keep changes focused, preserve existing behaviour unless the change requires otherwise, and document new user-facing functionality. Build the solution, run the smoke-test projects, and state clearly which UI, game, and Steam checks you performed. Desktop smoke checks open temporary WPF windows and use a disposable project; run them on Windows with the application closed before building.
 
 Use [GitHub Issues](https://github.com/Bruce-Devlin/PZTools/issues) for bug reports and feature requests. Include reproduction steps and an exported Project Health report where relevant, and remove credentials or other sensitive information from logs before posting them.
 

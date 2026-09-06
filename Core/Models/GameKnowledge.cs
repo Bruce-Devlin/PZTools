@@ -26,6 +26,11 @@ namespace PZTools.Core.Models
         public int Line { get; set; }
 
         [JsonIgnore] public string KindLabel => Kind.ToString();
+        [JsonIgnore] public bool IsGameCode => Package == "zombie" || Package.StartsWith("zombie.", StringComparison.Ordinal);
+        [JsonIgnore] public bool IsPublicMember => Modifiers.Split(' ', StringSplitOptions.RemoveEmptyEntries).Contains("public", StringComparer.Ordinal)
+            && !Name.StartsWith("lambda$", StringComparison.Ordinal)
+            && !Name.StartsWith("access$", StringComparison.Ordinal)
+            && Name != "$deserializeLambda$";
         [JsonIgnore] public string Location => $"{RelativePath}:{Line}";
         [JsonIgnore] public string SearchText => string.Join(' ', Name, QualifiedName, DeclaringType, Package,
             Signature, ReturnType, Parameters, Documentation);
@@ -33,7 +38,7 @@ namespace PZTools.Core.Models
 
     public sealed class GameKnowledgeIndex
     {
-        public const int CurrentFormatVersion = 1;
+        public const int CurrentFormatVersion = 2;
 
         public int FormatVersion { get; set; } = CurrentFormatVersion;
         public string Build { get; set; } = string.Empty;

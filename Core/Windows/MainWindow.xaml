@@ -15,7 +15,8 @@
         WindowState="Maximized"
         Loaded="Window_Loaded"
         MinWidth="900"
-        MinHeight="560"
+        MinHeight="640"
+        UseLayoutRounding="True"
         Background="{DynamicResource Brush.BgApp}"
         Foreground="{DynamicResource Brush.TextPrimary}" Closing="Window_Closing" Icon="/Core/Assets/Icons/PZToolsIcon.png">
     <Window.Resources>
@@ -68,12 +69,24 @@
             <RowDefinition Height="4"/>
             <!-- Splitter -->
             <RowDefinition x:Name="LayoutConsole" Height="160" MinHeight="120"/>
-            <RowDefinition Height="52"/>
+            <RowDefinition Height="Auto"/>
             <!-- Status bar -->
         </Grid.RowDefinitions>
 
         <!-- Menu -->
-        <Menu Grid.Row="0" ItemsSource="{Binding Menus}" Height="34">
+        <StackPanel Grid.Row="0">
+        <Border Background="{DynamicResource Brush.BgSurface}" BorderBrush="{DynamicResource Brush.Border}" BorderThickness="0,0,0,1" Padding="16,12">
+            <Grid>
+                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <Image Source="/Core/Assets/Icons/PZToolsIcon.png" Width="36" Height="36" Margin="0,0,12,0"/>
+                <StackPanel Grid.Column="1">
+                    <TextBlock x:Name="WorkspaceName" FontSize="19" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                    <TextBlock x:Name="WorkspaceDetails" Foreground="{DynamicResource Brush.TextMuted}" FontSize="11" Margin="0,3,0,0"/>
+                </StackPanel>
+                <Button Grid.Column="2" Style="{DynamicResource CompactButton}" Content="Find in project   Ctrl+Shift+F" Click="SearchProject_Click" ToolTip="Search file names and project content"/>
+            </Grid>
+        </Border>
+        <Menu ItemsSource="{Binding Menus}" Height="34">
             <Menu.ItemContainerStyle>
                 <!-- keep your binding + separator logic, but base it on the themed MenuItem -->
                 <Style TargetType="MenuItem"
@@ -97,6 +110,7 @@
                 </Style>
             </Menu.ItemContainerStyle>
         </Menu>
+        </StackPanel>
 
 
         <!-- Main layout -->
@@ -243,8 +257,33 @@
                     BorderThickness="1,0,1,0">
 
                 <Grid>
+                    <Grid.RowDefinitions><RowDefinition Height="42"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                    <Border Background="{DynamicResource Brush.BgElevated}" BorderBrush="{DynamicResource Brush.Border}" BorderThickness="0,0,0,1" Padding="14,0">
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <TextBlock x:Name="PreviewPath" Text="Project workspace" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                            <TextBlock x:Name="PreviewKind" Grid.Column="1" Text="PREVIEW" FontSize="10" Foreground="{DynamicResource Brush.TextMuted}" VerticalAlignment="Center"/>
+                        </Grid>
+                    </Border>
+                    <Border x:Name="PreviewFindBar" Grid.Row="1" Visibility="Collapsed" Background="{DynamicResource Brush.BgSurface}" Padding="10,6" BorderBrush="{DynamicResource Brush.Border}" BorderThickness="0,0,0,1">
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <TextBox x:Name="PreviewFindQuery" MinWidth="60" Style="{DynamicResource ModernTextBox}" MinHeight="30"
+                                     TextChanged="PreviewFindQuery_Changed" PreviewKeyDown="PreviewFindQuery_KeyDown"
+                                     AutomationProperties.Name="Find in this file" ToolTip="Find text in this file"/>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="6,0,0,0">
+                                <TextBlock x:Name="PreviewFindCount" Text="0 matches" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{DynamicResource Brush.TextMuted}"/>
+                                <Button Content="↑" Click="FindPrevious_Click" Style="{DynamicResource CompactButton}" MinWidth="28" Padding="5" ToolTip="Previous match (Shift+F3)"/>
+                                <Button Content="↓" Click="FindNext_Click" Style="{DynamicResource CompactButton}" MinWidth="28" Padding="5" Margin="4,0,0,0" ToolTip="Next match (F3)"/>
+                                <Button Content="×" Click="CloseFind_Click" Style="{DynamicResource CompactButton}" MinWidth="28" Padding="5" Margin="4,0,0,0" ToolTip="Close find (Esc)"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                    <Grid x:Name="ImagePreviewPanel" Grid.Row="2" Visibility="Collapsed" Background="{DynamicResource Brush.BgControl}" Margin="18">
+                        <Image x:Name="PreviewImage" Stretch="Uniform"/>
+                    </Grid>
                     <!-- AvalonEdit: map to theme brushes -->
-                    <avalonedit:TextEditor x:Name="LuaEditor"
+                    <avalonedit:TextEditor x:Name="LuaEditor" Grid.Row="2" Padding="8"
                                            ShowLineNumbers="True"
                                            FontFamily="Consolas"
                                            FontSize="{DynamicResource EditorFontSize}"
@@ -252,7 +291,7 @@
                                            Background="{DynamicResource Brush.BgApp}"
                                            Foreground="{DynamicResource Brush.TextPrimary}"/>
 
-                    <Border x:Name="EditorEmptyState"
+                    <Border x:Name="EditorEmptyState" Grid.Row="2"
                             Background="{DynamicResource Brush.BgApp}"
                             Padding="20">
                         <StackPanel MaxWidth="320" HorizontalAlignment="Stretch" VerticalAlignment="Center">
@@ -334,6 +373,31 @@
                                 <TextBox x:Name="txtPropEncoding" IsReadOnly="True" Margin="0,5,0,0"/>
                             </StackPanel>
                         </Grid>
+                        <TextBlock Text="VERSION SYNC" Style="{StaticResource Text.Label}" FontSize="10" Margin="0,20,0,8"/>
+                        <CheckBox x:Name="InspectorSyncEnabled" Click="InspectorSyncEnabled_Click">
+                            <TextBlock Text="Sync across game versions" TextWrapping="Wrap"/>
+                        </CheckBox>
+                        <TextBlock x:Name="InspectorSyncStatus" Style="{StaticResource Text.Muted}" TextWrapping="Wrap" Margin="0,8,0,0"/>
+                        <TextBlock x:Name="InspectorSyncTargets" Style="{StaticResource Text.Muted}" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                        <Button x:Name="InspectorSyncNow" Content="Sync now" Style="{DynamicResource CompactButton}" HorizontalAlignment="Left" Margin="0,10,0,0" Click="InspectorSyncNow_Click"/>
+                        <TextBlock x:Name="InspectorSyncResult" TextWrapping="Wrap" Margin="0,8,0,0" Visibility="Collapsed"/>
+
+                        <StackPanel x:Name="InspectorFileSettings">
+                            <TextBlock Text="FILE SETTINGS" Style="{StaticResource Text.Label}" FontSize="10" Margin="0,20,0,8"/>
+                            <CheckBox x:Name="InspectorReadOnly" Content="Read-only file" Click="InspectorAttribute_Click" Margin="0,0,0,8"/>
+                            <CheckBox x:Name="InspectorHidden" Content="Hidden file" Click="InspectorAttribute_Click"/>
+                            <TextBlock Text="Windows attributes for this copy only. Read-only files cannot be updated by sync until unlocked." Style="{StaticResource Text.Muted}" TextWrapping="Wrap" Margin="0,8,0,0"/>
+                        </StackPanel>
+
+                        <TextBlock Text="DETAILS" Style="{StaticResource Text.Label}" FontSize="10" Margin="0,20,0,8"/>
+                        <TextBlock x:Name="InspectorFileType" TextWrapping="Wrap"/>
+                        <TextBlock x:Name="InspectorModified" Style="{StaticResource Text.Muted}" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                        <TextBlock x:Name="InspectorCreated" Style="{StaticResource Text.Muted}" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                        <WrapPanel Margin="0,12,0,0">
+                            <Button Content="Copy path" Style="{DynamicResource CompactButton}" Margin="0,0,6,6" Click="InspectorCopyPath_Click"/>
+                            <Button Content="Reveal" Style="{DynamicResource CompactButton}" Margin="0,0,6,6" Click="InspectorReveal_Click"/>
+                            <Button Content="Refresh" Style="{DynamicResource CompactButton}" Margin="0,0,0,6" Click="InspectorRefresh_Click"/>
+                        </WrapPanel>
                     </StackPanel>
                     </ScrollViewer>
 
@@ -369,12 +433,13 @@
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
 
-                <DockPanel Background="{DynamicResource Brush.BgControl}">
-                    <TextBlock Text="Console"
+                <DockPanel Background="{DynamicResource Brush.BgControl}" LastChildFill="False">
+                    <TextBlock Text="Output"
                                Style="{DynamicResource Text.Section}"
                                VerticalAlignment="Center"
                                Margin="12,0"/>
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="0,3,8,3">
+                        <CheckBox x:Name="FollowOutput" Content="Follow output" IsChecked="True" VerticalAlignment="Center" Margin="0,0,16,0"/>
                         <Button Style="{DynamicResource CompactButton}" Content="Open game log" Margin="0,0,6,0" Click="OpenGameLog_Click"/>
                         <Button Style="{DynamicResource CompactButton}" Content="Clear console" Click="ClearConsole_Click"/>
                     </StackPanel>
@@ -393,19 +458,21 @@
             </Grid>
         </Border>
 
-        <Border Grid.Row="4" Background="{DynamicResource Brush.BgSurface}" BorderBrush="{DynamicResource Brush.Border}" BorderThickness="0,1,0,0" Padding="8,7">
+        <Border Grid.Row="4" Background="{DynamicResource Brush.BgSurface}" BorderBrush="{DynamicResource Brush.Border}" BorderThickness="0,1,0,0" Padding="12,7">
         <Grid>
+            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-            <StatusBar Grid.Column="0" BorderThickness="0" Background="Transparent">
+            <StatusBar Grid.Row="1" Grid.ColumnSpan="2" BorderThickness="0" Background="Transparent">
                 <TextBlock x:Name="StatusBarText"
                    Foreground="{DynamicResource Brush.TextMuted}"
-                   Text="Ready"/>
+                   Text="Ready" TextTrimming="CharacterEllipsis"/>
+                <TextBlock x:Name="PreviewPosition" Margin="18,0,0,0" Foreground="{DynamicResource Brush.TextMuted}"/>
             </StatusBar>
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center"
-                        Grid.Column="1" VerticalAlignment="Center">
+            <WrapPanel Orientation="Horizontal" HorizontalAlignment="Stretch"
+                        Grid.Column="0" VerticalAlignment="Center">
 
                 <Button Style="{DynamicResource CompactButton}"
                     Content="New PZ File"
@@ -438,12 +505,12 @@
                     ToolTip="Validate and deploy the project"
                     Click="DeployProject_Click"/>
 
-                <Button x:Name="RunGameBtn" Style="{DynamicResource PrimaryButton}" MinHeight="32"
+            </WrapPanel>
+                <Button x:Name="RunGameBtn" Grid.Column="1" Style="{DynamicResource PrimaryButton}" MinHeight="32"
                     Content="{Binding RunGameButtonText}"
                     Margin="12,0,0,0"
                     ToolTip="Launch Project Zomboid with this project"
                     Click="RunGame_Click" UseLayoutRounding="False"/>
-            </StackPanel>
         </Grid>
         </Border>
     </Grid>

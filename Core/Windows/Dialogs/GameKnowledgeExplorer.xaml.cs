@@ -60,7 +60,6 @@ namespace PZTools.Core.Windows.Dialogs
                 var progress = new Progress<string>(message => BusyText.Text = message);
                 _index = await Task.Run(() => GameKnowledgeBase.LoadOrBuildAsync(
                     build.SourcePath, build.Name, force, progress, cts.Token), cts.Token);
-                IndexSummaryText.Text = $"{_index.FileCount:N0} files · {_index.Symbols.Count:N0} symbols";
                 ApplySearch();
             }
             catch (OperationCanceledException) { }
@@ -86,11 +85,20 @@ namespace PZTools.Core.Windows.Dialogs
                 Enum.TryParse<GameSymbolKind>(item.Tag?.ToString(), out var selectedKind))
                 kind = selectedKind;
 
-            var results = GameKnowledgeBase.Search(_index, SearchBox.Text, kind);
-            ResultsList.ItemsSource = results;
-            ResultCountText.Text = results.Count == 500
-                ? "Showing the first 500 matches. Add another search term to narrow the results."
-                : $"{results.Count:N0} result(s) · {_index.TypeCount:N0} types · {_index.MethodCount:N0} methods/constructors · {_index.FieldCount:N0} fields";
+            var includeLibraries = IncludeLibrariesCheck.IsChecked == true;
+            var includeInternals = IncludeInternalsCheck.IsChecked == true;
+            var scope = includeLibraries ? "All packages" : "Project Zomboid (zombie)";
+            var scopedSymbols = _index.Symbols.Where(x => (includeLibraries || x.IsGameCode) &&
+                (includeInternals || x.IsPublicMember) && (kind is null || x.Kind == kind)).ToList();
+            IndexSummaryText.Text = $"{scopedSymbols.Select(x => x.RelativePath).Distinct().Count():N0} files · {scopedSymbols.Count:N0} symbols";
+            var results = GameKnowledgeBase.Search(_index, SearchBox.Text, kind, limit: 501,
+                includeLibraries: includeLibraries, includeInternals: includeInternals);
+            ResultsList.ItemsSource = results.Take(500).ToList();
+            ResultCountText.Text = results.Count > 500
+                ? $"{scope} · Showing the first 500 matches. Add a search term to narrow the results."
+                : results.Count == 0
+                    ? $"{scope} · No matches. Try another search, symbol kind, or enable the optional filters."
+                    : $"{scope} · {results.Count:N0} result(s)";
         }
 
         private void ShowDetails(GameKnowledgeSymbol? symbol)
@@ -99,7 +107,14 @@ namespace PZTools.Core.Windows.Dialogs
             OpenButton.IsEnabled = selected;
             CopyButton.IsEnabled = selected;
             if (symbol is null)
+            {
+                DetailNameText.Text = "Select a symbol";
+                SignatureText.Text = "Choose a result to inspect its declaration.";
+                DetailLocationText.Text = string.Empty;
+                DocumentationText.Text = "No symbol selected.";
+                GuidanceText.Text = "Search for a game type or member to inspect its recovered Java declaration.";
                 return;
+            }
 
             DetailNameText.Text = symbol.QualifiedName;
             SignatureText.Text = symbol.Signature;
@@ -121,7 +136,17 @@ namespace PZTools.Core.Windows.Dialogs
                 GameSymbolKind.Type => $"Recovered {visibility} Java type. Search its qualified name to see indexed members and inspect its source for lifecycle and ownership rules.",
                 GameSymbolKind.Field => $"Recovered {visibility} {staticText} field. Direct access may be restricted; prefer a public game method when one exists.",
                 GameSymbolKind.Constructor => $"Recovered {visibility} constructor. Confirm how the game creates and registers this type before constructing it in a mod.",
-                _ => $"Recovered {visibility} {staticText} method. Its presence in decompiled Java does not guarantee Lua exposure or safe mod API status; inspect the implementation, callers, and runtime accessibility first."
+                _ => $"{symbol.Name} is a {visibility} {staticText} method declared by {symbol.DeclaringType}.\n\n" +
+                     (staticText == "static"
+                         ? $"Calling context: belongs to the {symbol.DeclaringType} class; no instance is required in Java.\n\n"
+                         : $"Calling context: requires an instance of {symbol.DeclaringType} in Java.\n\n") +
+                     (string.IsNullOrWhiteSpace(symbol.Parameters)
+                         ? "Inputs: no parameters.\n\n"
+                         : $"Inputs (Java types and names): {symbol.Parameters}.\n\n") +
+                     (symbol.ReturnType == "void"
+                         ? "Output: void; the method does not return a value.\n\n"
+                         : $"Output (Java type): {symbol.ReturnType}.\n\n") +
+                     "This explains the recovered declaration. Behaviour and side effects require reading the implementation via Open source at line. Public Java visibility alone does not establish Lua exposure."
             };
         }
 
@@ -137,7 +162,7 @@ namespace PZTools.Core.Windows.Dialogs
             _searchTimer.Start();
         }
 
-        private void KindCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private void KindCombo_SelectionChanged(object sender, RoutedEventArgs e)
         {
             if (IsLoaded) ApplySearch();
         }

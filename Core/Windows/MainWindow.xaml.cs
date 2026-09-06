@@ -50,6 +50,7 @@ namespace PZTools.Core.Windows
 
             Title = $"PZ Tools - {ModProject}";
             LoadLayout();
+            InitializeWorkspace();
         }
 
         public void ApplyAppSettings()
@@ -188,15 +189,20 @@ namespace PZTools.Core.Windows
                 await WriteToConsole(msg);
             }
 
-            Console.OnLogMessage += async (s, msg) => { if (this.IsVisible) { await WriteToConsole(msg); } };
+            if (!IsClosing) Console.OnLogMessage += Console_OnLogMessage;
+        }
+
+        private async void Console_OnLogMessage(object? sender, string message)
+        {
+            if (!IsClosing) await WriteToConsole(message);
         }
 
         private void Window_Closing(object sender, CancelEventArgs e)
         {
-            IsClosing = true;
             if (Config.GetAppSetting<bool>("ConfirmOnExit") && !IsReloading)
             {
                 var result = MessageBox.Show(
+                    this,
                     "Are you sure you want to exit?",
                     "Confirm Exit",
                     MessageBoxButton.YesNo,
@@ -210,6 +216,14 @@ namespace PZTools.Core.Windows
 
             if (!e.Cancel)
             {
+                IsClosing = true;
+                Console.OnLogMessage -= Console_OnLogMessage;
+                PZTools.Core.Functions.Theme.ThemeManager.ThemeChanged -= Workspace_ThemeChanged;
+                UndoRedoManager.Instance.CommandExecuted -= UndoRedo_CommandExecuted;
+                if (DataContext is MainViewModel viewModel) viewModel.Dispose();
+                StopWatchingOpenedFile();
+                lock (_folderWatchLock)
+                    foreach (var path in _folderWatchersByPath.Keys.ToArray()) StopFolderWatcher(path);
                 StopVersionSyncWatcher();
                 if (_agentMcpServer != null)
                     _ = _agentMcpServer.DisposeAsync();
@@ -235,11 +249,8 @@ namespace PZTools.Core.Windows
         public Task<object> OpenFileForAgentAsync(string fullPath, int? line)
             => Dispatcher.InvokeAsync<object>(() =>
             {
-                var text = File.ReadAllText(fullPath);
-                OpenedFilePath = fullPath;
-                WatchOpenedFile(fullPath);
-                LuaEditor.Text = text;
-                LoadHighlighting(Path.GetExtension(fullPath));
+                PreviewFile(fullPath);
+                var text = LuaEditor.Text;
                 if (line > 0)
                 {
                     var safeLine = Math.Min(line.Value, Math.Max(1, LuaEditor.Document.LineCount));
@@ -262,8 +273,11 @@ namespace PZTools.Core.Windows
             {
                 if (string.Equals(OpenedFilePath, fullPath, StringComparison.OrdinalIgnoreCase))
                 {
-                    LuaEditor.Text = File.ReadAllText(fullPath);
-                    LoadHighlighting(Path.GetExtension(fullPath));
+                    if (new FileInfo(fullPath).Length <= ProjectSearchService.MaxFileBytes &&
+                        PreviewableFileExtensions.Contains(Path.GetExtension(fullPath)))
+                        UpdatePreviewText(File.ReadAllText(fullPath));
+                    else
+                        PreviewFile(fullPath);
                 }
                 UpdateTreeView();
             });
@@ -300,16 +314,16 @@ namespace PZTools.Core.Windows
 
         public static Task WriteToConsole(string message)
         {
-            string formattedMessage = $"[{DateTime.Now:HH:mm:ss}] {message}";
+            string formattedMessage = message.StartsWith('[') ? message : $"[{DateTime.Now:HH:mm:ss}] {message}";
 
             return Application.Current.Dispatcher.InvokeAsync(() =>
             {
                 var window = MainWindow.Instance;
-                if (window == null)
-                    return;
-
+                if (window == null || window.IsClosing) return;
+                var follow = window.FollowOutput.IsChecked == true &&
+                    window.ConsoleScroll.VerticalOffset >= window.ConsoleScroll.ScrollableHeight - 4;
                 window.ConsoleOutputControl.AppendText(formattedMessage + Environment.NewLine);
-                window.ConsoleScroll.ScrollToBottom();
+                if (follow) window.ConsoleScroll.ScrollToBottom();
             }).Task;
         }
 

@@ -237,8 +237,9 @@ namespace PZTools.Core.Windows
             try
             {
                 var result = await Task.Run(() => VersionSyncService.Enable(ModProject, node.Path));
-                UpdateTreeView();
+                RefreshVersionSyncTree();
                 ShowVersionSyncResult($"'{node.Name}' is now synced across game versions.", result);
+                RefreshInspector();
             }
             catch (Exception ex)
             {
@@ -256,6 +257,7 @@ namespace PZTools.Core.Windows
             {
                 if (VersionSyncService.Disable(ModProject, node.Path))
                     MessageBox.Show($"'{node.Name}' is no longer synced across game versions. Existing copies were kept.", "Version Sync", MessageBoxButton.OK, MessageBoxImage.Information);
+                RefreshInspector();
             }
             catch (Exception ex)
             {

@@ -18,6 +18,12 @@
     <SolidColorBrush x:Key="Brush.TextOnAccent" Color="#21160C"/>
 
     <!-- Accent -->
+    <SolidColorBrush x:Key="Brush.SyntaxComment" Color="#7CCB91"/>
+    <SolidColorBrush x:Key="Brush.SyntaxString" Color="#F1AB62"/>
+    <SolidColorBrush x:Key="Brush.SyntaxNumber" Color="#A4C7F2"/>
+    <SolidColorBrush x:Key="Brush.SyntaxKeyword" Color="#D3B1F4"/>
+    <SolidColorBrush x:Key="Brush.SyntaxFunction" Color="#91D8D0"/>
+
     <SolidColorBrush x:Key="Brush.Accent" Color="#E9852D"/>
     <SolidColorBrush x:Key="Brush.AccentHover" Color="#F39A49"/>
     <SolidColorBrush x:Key="Brush.AccentPressed" Color="#C96A21"/>

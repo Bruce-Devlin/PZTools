@@ -14,7 +14,7 @@ namespace PZTools.Core.Functions.Decompile
         [GeneratedRegex(@"^\s*package\s+(?<name>[\w.]+)\s*;")]
         private static partial Regex PackagePattern();
 
-        [GeneratedRegex(@"(?:(?:public|protected|private|static|abstract|final|strictfp|sealed|non-sealed)\s+)*(?:class|interface|enum|record)\s+(?<name>[A-Za-z_$][\w$]*)")]
+        [GeneratedRegex(@"^(?:(?:public|protected|private|static|abstract|final|strictfp|sealed|non-sealed)\s+)*(?:class|interface|enum|record)\s+(?<name>[A-Za-z_$][\w$]*)")]
         private static partial Regex TypePattern();
 
         [GeneratedRegex(@"^(?<mods>(?:(?:public|protected|private|static|abstract|final|synchronized|native|strictfp|default)\s+)*)?(?:(?<return>[\w$.,<>?\[\] ]+)\s+)?(?<name>[A-Za-z_$][\w$]*)\s*\((?<params>[^)]*)\)\s*(?:throws\s+[^;{]+)?[;{]")]
@@ -114,10 +114,14 @@ namespace PZTools.Core.Functions.Decompile
             GameKnowledgeIndex index,
             string? query,
             GameSymbolKind? kind = null,
-            int limit = 500)
+            int limit = 500,
+            bool includeLibraries = false,
+            bool includeInternals = false)
         {
             var terms = (query ?? string.Empty).Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
             return index.Symbols
+                .Where(x => includeLibraries || x.IsGameCode)
+                .Where(x => includeInternals || x.IsPublicMember)
                 .Where(x => kind is null || x.Kind == kind)
                 .Select(x => (Symbol: x, Score: Score(x, terms)))
                 .Where(x => x.Score >= 0)
@@ -156,12 +160,13 @@ namespace PZTools.Core.Functions.Decompile
             var types = new Stack<TypeScope>();
             var documentation = new StringBuilder();
             var inDoc = false;
+            var inBlockComment = false;
 
             for (var lineIndex = 0; lineIndex < lines.Length; lineIndex++)
             {
                 var original = lines[lineIndex];
                 var trimmed = original.Trim();
-                if (inDoc || trimmed.StartsWith("/**", StringComparison.Ordinal))
+                if (inDoc || (!inBlockComment && trimmed.StartsWith("/**", StringComparison.Ordinal)))
                 {
                     inDoc = !trimmed.Contains("*/", StringComparison.Ordinal);
                     documentation.AppendLine(trimmed);
@@ -179,10 +184,15 @@ namespace PZTools.Core.Functions.Decompile
                     continue;
                 }
 
-                var code = StripLineComment(trimmed);
+                var code = StripComments(trimmed, ref inBlockComment);
                 var typeMatch = TypePattern().Match(code);
                 if (typeMatch.Success)
                 {
+                    // CFR wraps extends/implements clauses before the opening brace.
+                    // Keep the declaration's original line for source navigation.
+                    var declarationLine = lineIndex + 1;
+                    while (CountCodeCharacter(code, '{') == 0 && lineIndex + 1 < lines.Length)
+                        code += " " + StripComments(lines[++lineIndex].Trim(), ref inBlockComment);
                     var name = typeMatch.Groups["name"].Value;
                     var declaring = types.Count == 0 ? string.Empty : types.Peek().QualifiedName;
                     var qualified = string.IsNullOrEmpty(declaring)
@@ -199,12 +209,12 @@ namespace PZTools.Core.Functions.Decompile
                         Modifiers = ReadLeadingModifiers(code),
                         Documentation = CleanDocumentation(documentation),
                         RelativePath = relativePath,
-                        Line = lineIndex + 1
+                        Line = declarationLine
                     });
                     documentation.Clear();
                     var openingBraces = CountCodeCharacter(code, '{');
                     if (openingBraces > 0)
-                        types.Push(new TypeScope(name, qualified, braceDepth + openingBraces));
+                        types.Push(new TypeScope(name, qualified, braceDepth + 1));
                 }
                 else if (types.Count > 0 && braceDepth == types.Peek().BodyDepth)
                 {
@@ -289,10 +299,34 @@ namespace PZTools.Core.Functions.Decompile
                 .Where(x => x.Length > 0 && !x.StartsWith('@')));
         }
 
-        private static string StripLineComment(string value)
+        private static string StripComments(string value, ref bool inBlockComment)
         {
-            var index = value.IndexOf("//", StringComparison.Ordinal);
-            return index < 0 ? value : value[..index].TrimEnd();
+            var result = new StringBuilder();
+            var quote = '\0';
+            var escaped = false;
+            for (var i = 0; i < value.Length; i++)
+            {
+                var current = value[i];
+                var next = i + 1 < value.Length ? value[i + 1] : '\0';
+                if (inBlockComment)
+                {
+                    if (current == '*' && next == '/') { inBlockComment = false; i++; result.Append(' '); }
+                    continue;
+                }
+                if (quote != '\0')
+                {
+                    result.Append(current);
+                    if (escaped) escaped = false;
+                    else if (current == '\\') escaped = true;
+                    else if (current == quote) quote = '\0';
+                    continue;
+                }
+                if (current == '/' && next == '/') break;
+                if (current == '/' && next == '*') { inBlockComment = true; i++; continue; }
+                if (current is '\'' or '"') quote = current;
+                result.Append(current);
+            }
+            return result.ToString().Trim();
         }
 
         private static string CollapseWhitespace(string value) => Regex.Replace(value.Trim(), @"\s+", " ");

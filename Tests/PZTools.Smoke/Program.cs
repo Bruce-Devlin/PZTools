@@ -10,6 +10,8 @@ Directory.CreateDirectory(testRoot);
 try
 {
     ProjectEngine.ProjectsRootPath = testRoot;
+    WorkshopUploadChecks.Run(testRoot);
+    ProjectSearchChecks.Run(testRoot);
     ExpectThrows<ArgumentException>(() => ProjectEngine.CreateProject("../Escaped"), "project path traversal rejected");
     var project = ProjectEngine.CreateProject("ProductionReady", "41");
 

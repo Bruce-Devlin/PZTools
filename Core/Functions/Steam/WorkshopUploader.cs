@@ -22,6 +22,26 @@ namespace PZTools.Core.Functions.Steam
             string changeNote,
             CancellationToken cancellationToken = default)
         {
+            try
+            {
+                return await UploadAttemptAsync(project, username, changeNote, cancellationToken);
+            }
+            catch (WorkshopItemMissingException ex)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                await Console.Log($"Steam could not find Workshop item {ex.ItemId}. Creating a replacement item...");
+                // Retry only once. Preparation uses the cleared ID to create a fresh
+                // manifest, and any ID assigned to the replacement is retained.
+                return await UploadAttemptAsync(project, username, changeNote, cancellationToken);
+            }
+        }
+
+        private static async Task<bool> UploadAttemptAsync(
+            ModProject project,
+            string username,
+            string changeNote,
+            CancellationToken cancellationToken = default)
+        {
             ArgumentNullException.ThrowIfNull(project);
             if (string.IsNullOrWhiteSpace(username))
                 throw new ArgumentException("A Steam username is required.", nameof(username));
@@ -51,6 +71,8 @@ namespace PZTools.Core.Functions.Steam
             startInfo.ArgumentList.Add("+quit");
 
             using var process = new Process { StartInfo = startInfo };
+            var consoleLogPath = Path.Combine(steamCmdDirectory, "logs", "console_log.txt");
+            var logOffset = File.Exists(consoleLogPath) ? new FileInfo(consoleLogPath).Length : 0;
             if (!process.Start())
                 return false;
             try
@@ -60,30 +82,82 @@ namespace PZTools.Core.Functions.Steam
             catch (OperationCanceledException)
             {
                 process.TryKillProcessTree();
+                await process.WaitForExitAsync();
+                SaveAssignedItemId(project, plan.Settings, manifestPath);
                 throw;
             }
 
-            if (process.ExitCode != 0)
-            {
-                await Console.Log($"Steam Workshop upload failed with exit code {process.ExitCode}.", Console.LogLevel.Error);
-                return false;
-            }
-
-            var publishedId = ReadVdfValue(manifestPath, "publishedfileid");
-            if (plan.IsNewItem && (string.IsNullOrWhiteSpace(publishedId) || publishedId == "0"))
-            {
-                await Console.Log("SteamCMD exited without assigning a Published File ID. Review SteamCMD's workshop log before retrying.", Console.LogLevel.Error);
-                return false;
-            }
-            if (!string.IsNullOrWhiteSpace(publishedId) && publishedId != "0")
-            {
-                plan.Settings.PublishedFileId = publishedId;
-                plan.Settings.DefaultChangeNote = string.IsNullOrWhiteSpace(changeNote) ? plan.Settings.DefaultChangeNote : changeNote.Trim();
-                WorkshopSettingsStore.Save(project, plan.Settings);
-            }
-
-            await Console.Log($"Steam Workshop upload completed{(string.IsNullOrWhiteSpace(publishedId) ? "." : $" (item {publishedId}).")}");
+            CompleteUpload(project, plan.Settings, manifestPath, changeNote, process.ExitCode,
+                ReadUploadLog(consoleLogPath, logOffset));
+            await Console.Log($"Steam Workshop upload completed (item {plan.Settings.PublishedFileId}).");
             return true;
+        }
+
+        internal static void CompleteUpload(ModProject project, WorkshopSettings settings,
+            string manifestPath, string changeNote, int exitCode, string uploadLog)
+        {
+            var attemptedItemId = settings.PublishedFileId;
+            // Steam creates the item before uploading its contents and preview. Preserve
+            // that ID even on failure so a retry updates the same item.
+            SaveAssignedItemId(project, settings, manifestPath);
+            var error = uploadLog.Split('\n').LastOrDefault(line =>
+                line.Contains("ERROR!", StringComparison.OrdinalIgnoreCase))?.Trim();
+            if (exitCode != 0 || error != null)
+            {
+                if (attemptedItemId != "0" && settings.PublishedFileId == attemptedItemId &&
+                    error?.Contains("Failed to update workshop item (File Not Found)", StringComparison.OrdinalIgnoreCase) == true)
+                {
+                    settings.PublishedFileId = "0";
+                    WorkshopSettingsStore.Save(project, settings);
+                    throw new WorkshopItemMissingException(attemptedItemId);
+                }
+
+                var itemMessage = settings.PublishedFileId != "0"
+                    ? $" Item {settings.PublishedFileId} has been saved; retrying will update this item."
+                    : " Steam did not assign an item ID.";
+                var limitMessage = error?.Contains("Limit exceeded", StringComparison.OrdinalIgnoreCase) == true
+                    ? " Steam rejected an upload limit. Check SteamCMD's workshop_log.txt for the specific preview or Steam Cloud limit."
+                    : "";
+                throw new InvalidOperationException(
+                    $"Steam Workshop upload failed (exit code {exitCode}). {error}" + limitMessage + itemMessage);
+            }
+
+            if (settings.PublishedFileId == "0")
+                throw new InvalidOperationException("SteamCMD exited without assigning a Published File ID. Review SteamCMD's workshop log before retrying.");
+
+            settings.DefaultChangeNote = string.IsNullOrWhiteSpace(changeNote) ? settings.DefaultChangeNote : changeNote.Trim();
+            WorkshopSettingsStore.Save(project, settings);
+        }
+
+        internal sealed class WorkshopItemMissingException(string itemId) : InvalidOperationException(
+            $"Steam could not find Workshop item {itemId}. Its saved ID has been cleared; the next upload will create a new item.")
+        {
+            public string ItemId { get; } = itemId;
+        }
+
+        private static void SaveAssignedItemId(ModProject project, WorkshopSettings settings, string manifestPath)
+        {
+            var publishedId = File.Exists(manifestPath) ? ReadVdfValue(manifestPath, "publishedfileid") : null;
+            if (ulong.TryParse(publishedId, out var id) && id > 0 && settings.PublishedFileId != publishedId)
+            {
+                settings.PublishedFileId = publishedId;
+                WorkshopSettingsStore.Save(project, settings);
+            }
+        }
+
+        private static string ReadUploadLog(string path, long offset)
+        {
+            try
+            {
+                using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                stream.Position = stream.Length >= offset ? offset : 0;
+                using var reader = new StreamReader(stream);
+                return reader.ReadToEnd();
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                return "";
+            }
         }
 
         public static WorkshopUploadPlan CreatePlan(ModProject project)
@@ -128,8 +202,7 @@ namespace PZTools.Core.Functions.Steam
                 var contentRoot = Path.Combine(stagingRoot, "Contents", "mods", ModInfoUtil.NormalizeModId(modInfo.Id));
                 CopyProject(project.RootPath, contentRoot, ct);
 
-                var stagingPreviewPath = Path.Combine(stagingRoot, "preview" + Path.GetExtension(plan.PreviewPath).ToLowerInvariant());
-                File.Copy(plan.PreviewPath, stagingPreviewPath, overwrite: true);
+                WorkshopPreview.Prepare(plan.PreviewPath, stagingRoot);
 
                 var workshopInfo = new[]
                 {

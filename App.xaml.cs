@@ -60,10 +60,13 @@ namespace PZTools
 
         public static void CloseApp(int exitCode = 0)
         {
-            if (cliCancelToken != null)
-                cliCancelToken.Cancel();
             if (MainWindow != null && !MainWindow.IsClosing)
+            {
                 MainWindow.Close();
+                if (!MainWindow.IsClosing) return;
+            }
+
+            cliCancelToken?.Cancel();
 
             System.Windows.Application.Current.Shutdown(exitCode);
         }

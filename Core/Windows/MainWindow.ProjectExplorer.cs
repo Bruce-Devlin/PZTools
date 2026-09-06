@@ -15,90 +15,47 @@ namespace PZTools.Core.Windows
     public partial class MainWindow
     {
         private static readonly HashSet<string> PreviewableFileExtensions = new(
-            [".txt", ".info", ".lua", ".xml", ".json", ".cfg", ".ini", ".md"],
+            [".txt", ".info", ".lua", ".xml", ".json", ".cfg", ".ini", ".md", ".csv", ".properties", ".yml", ".yaml"],
             StringComparer.OrdinalIgnoreCase);
 
         private async void ProjectTreeView_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
         {
-            var selected = ProjectTreeView.SelectedItem;
-            if (selected is ProjectFileNode node)
+            try
             {
-                FilePropertiesContent.Visibility = Visibility.Visible;
-                EmptyPropertiesState.Visibility = Visibility.Collapsed;
-                var extension = Path.GetExtension(node.Path);
-                if (PreviewableFileExtensions.Contains(extension))
+                if (e.NewValue is ProjectFileNode node && !node.IsFolder)
                 {
-                    try
-                    {
-                        OpenedFilePath = node.Path;
-                        WatchOpenedFile(node.Path);
-
-                        var text = System.IO.File.ReadAllText(node.Path);
-                        LuaEditor.Text = text;
-                        EditorEmptyState.Visibility = Visibility.Collapsed;
-                        LoadHighlighting(extension);
-
-                        if (extension == ".lua")
-                            await LuaTester.Test(text, OpenedFilePath);
-                    }
-                    catch (Exception ex)
-                    {
-                        LuaEditor.Text = $"-- Error loading file: {node.Path}";
-                        await Console.Log($"Could not preview '{node.Path}': {ex.Message}", Console.LogLevel.Warning);
-                    }
+                    PreviewFile(node.Path);
+                    if (Path.GetExtension(node.Path).Equals(".lua", StringComparison.OrdinalIgnoreCase) &&
+                        EditorEmptyState.Visibility == Visibility.Collapsed)
+                        await LuaTester.Test(LuaEditor.Text, node.Path);
+                    return;
                 }
-                else if (!node.IsFolder)
+                ResetPreview();
+                var path = e.NewValue is ProjectFileNode folder ? folder.Path : (e.NewValue as ModTarget)?.Path;
+                if (path != null)
                 {
-                    StopWatchingOpenedFile();
-                    OpenedFilePath = string.Empty;
-                    LuaEditor.Clear();
-                    LuaEditor.Text = $"-- Preview not available for this file type. ({extension})";
-                    EditorEmptyState.Visibility = Visibility.Collapsed;
+                    FilePropertiesContent.Visibility = Visibility.Visible;
+                    EmptyPropertiesState.Visibility = Visibility.Collapsed;
+                    txtPropName.Text = e.NewValue is ModTarget target ? target.BuildName : Path.GetFileName(path);
+                    txtPropPath.Text = path;
+                    txtPropSize.Text = "—";
+                    txtPropEncoding.Text = "—";
+                    InspectPath(path);
+                    ShowEditorEmptyState(e.NewValue is ModTarget ? "Build target selected" : "Folder selected",
+                        "Select a file to preview it, or use Find in project.");
                 }
                 else
                 {
-                    StopWatchingOpenedFile();
-                    OpenedFilePath = string.Empty;
-                    LuaEditor.Clear();
-                    ShowEditorEmptyState("Folder selected", "Select a file to preview it.");
-                }
-
-                txtPropName.Text = node.Name;
-                txtPropPath.Text = node.Path;
-
-                if (System.IO.File.Exists(node.Path))
-                {
-                    var info = new FileInfo(node.Path);
-                    txtPropSize.Text = $"{info.Length / 1024.0:F2} KB";
-
-                    txtPropEncoding.Text = GetFileEncoding(node.Path).WebName;
-                }
-                else
-                {
-                    txtPropSize.Text = "-";
-                    txtPropEncoding.Text = "-";
+                    FilePropertiesContent.Visibility = Visibility.Collapsed;
+                    EmptyPropertiesState.Visibility = Visibility.Visible;
+                    ShowEditorEmptyState("No file selected", "Select a project file to preview it.");
                 }
             }
-            else if (selected is ModTarget target)
+            catch (Exception ex)
             {
-                FilePropertiesContent.Visibility = Visibility.Visible;
-                EmptyPropertiesState.Visibility = Visibility.Collapsed;
-                ShowEditorEmptyState("Build target selected", "Select a file to preview it.");
-                txtPropName.Text = target.BuildName;
-
-                txtPropPath.Text = target.Path;
-                txtPropSize.Text = "-";
-                txtPropEncoding.Text = "-";
-            }
-            else
-            {
-                FilePropertiesContent.Visibility = Visibility.Collapsed;
-                EmptyPropertiesState.Visibility = Visibility.Visible;
-                ShowEditorEmptyState("No file selected", "Select a project file to preview it.");
-                txtPropName.Text = "";
-                txtPropPath.Text = "";
-                txtPropSize.Text = "";
-                txtPropEncoding.Text = "";
+                ResetPreview();
+                ShowEditorEmptyState("Could not preview file", ex.Message);
+                await Console.Log($"Could not preview file: {ex.Message}", Console.LogLevel.Warning);
             }
         }
 
@@ -117,13 +74,27 @@ namespace PZTools.Core.Windows
             var assembly = Assembly.GetExecutingAssembly();
             using var stream = assembly.GetManifestResourceStream($"PZTools.Resources.PZ{extension}.xshd");
             if (stream is null)
+            {
+                LuaEditor.SyntaxHighlighting = ICSharpCode.AvalonEdit.Highlighting.HighlightingManager.Instance.GetDefinitionByExtension(ext);
                 return;
+            }
 
             using var reader = XmlReader.Create(stream);
-            LuaEditor.SyntaxHighlighting =
-                ICSharpCode.AvalonEdit.Highlighting.Xshd.HighlightingLoader.Load(
+            var definition = ICSharpCode.AvalonEdit.Highlighting.Xshd.HighlightingLoader.Load(
                     reader,
                     ICSharpCode.AvalonEdit.Highlighting.HighlightingManager.Instance);
+            foreach (var color in definition.NamedHighlightingColors)
+            {
+                var name = color.Name?.ToLowerInvariant() ?? "";
+                var key = name.Contains("comment") ? "Brush.SyntaxComment" :
+                    name.Contains("string") || name == "char" ? "Brush.SyntaxString" :
+                    name.Contains("number") || name.Contains("digit") ? "Brush.SyntaxNumber" :
+                    name.Contains("key") ? "Brush.SyntaxKeyword" :
+                    name.Contains("punctuation") ? "Brush.TextPrimary" : "Brush.SyntaxFunction";
+                if (TryFindResource(key) is System.Windows.Media.SolidColorBrush brush)
+                    color.Foreground = new ICSharpCode.AvalonEdit.Highlighting.SimpleHighlightingBrush(brush.Color);
+            }
+            LuaEditor.SyntaxHighlighting = definition;
         }
 
         private void ProjectTreeView_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)

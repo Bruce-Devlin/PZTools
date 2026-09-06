@@ -2,7 +2,6 @@ using System.IO;
 using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Media.Imaging;
 using PZTools.Core.Functions;
 using PZTools.Core.Functions.Projects;
 using PZTools.Core.Functions.Steam;
@@ -113,30 +112,30 @@ namespace PZTools.Core.Windows.Dialogs.Project
             _workshopSettings.PublishedFileId = txtWorkshopPublishedId.Text.Trim();
             _workshopSettings.DefaultChangeNote = txtWorkshopChangeNote.Text.Trim();
 
-            if (!string.IsNullOrWhiteSpace(_selectedPosterSourcePath))
-            {
-                var fileName = ModInfoParser.EnsureLocalAsset(ModFolderPath, _selectedPosterSourcePath);
-                if (!string.IsNullOrWhiteSpace(fileName))
-                {
-                    _modInfo.Posters.RemoveAll(p => p.Equals(fileName, StringComparison.OrdinalIgnoreCase));
-                    _modInfo.Posters.Insert(0, fileName);
-                }
-            }
-
-            if (!string.IsNullOrWhiteSpace(_selectedIconSourcePath))
-            {
-                var fileName = ModInfoParser.EnsureLocalAsset(ModFolderPath, _selectedIconSourcePath);
-                if (!string.IsNullOrWhiteSpace(fileName))
-                    _modInfo.Icon = fileName;
-            }
-            else
-            {
-                _modInfo.Icon = NullIfEmpty(txtIcon.Text);
-            }
-
             ModProject? currentProject;
             try
             {
+                if (!string.IsNullOrWhiteSpace(_selectedPosterSourcePath))
+                {
+                    var fileName = ModInfoParser.EnsureLocalAsset(ModFolderPath, _selectedPosterSourcePath);
+                    if (!string.IsNullOrWhiteSpace(fileName))
+                    {
+                        _modInfo.Posters.RemoveAll(p => p.Equals(fileName, StringComparison.OrdinalIgnoreCase));
+                        _modInfo.Posters.Insert(0, fileName);
+                    }
+                }
+
+                if (!string.IsNullOrWhiteSpace(_selectedIconSourcePath))
+                {
+                    var fileName = ModInfoParser.EnsureLocalAsset(ModFolderPath, _selectedIconSourcePath);
+                    if (!string.IsNullOrWhiteSpace(fileName))
+                        _modInfo.Icon = fileName;
+                }
+                else
+                {
+                    _modInfo.Icon = NullIfEmpty(txtIcon.Text);
+                }
+
                 ModInfoParser.Save(ModFolderPath, _modInfo);
                 currentProject = ProjectEngine.CurrentProject;
                 if (currentProject != null)
@@ -263,7 +262,7 @@ namespace PZTools.Core.Windows.Dialogs.Project
                 txtPosters.Text = string.Join(Environment.NewLine, posters);
 
                 _posterIndex = 0;
-                imgPoster.Source = new BitmapImage(new Uri(dlg.FileName));
+                imgPoster.Source = AssetPreviewLoader.Load(dlg.FileName);
             }
         }
 
@@ -296,7 +295,7 @@ namespace PZTools.Core.Windows.Dialogs.Project
                 _selectedIconSourcePath = dlg.FileName;
                 txtIcon.Text = Path.GetFileName(dlg.FileName);
 
-                imgIcon.Source = new BitmapImage(new Uri(dlg.FileName));
+                imgIcon.Source = AssetPreviewLoader.Load(dlg.FileName);
             }
         }
 
@@ -318,19 +317,19 @@ namespace PZTools.Core.Windows.Dialogs.Project
                 Path.GetFileName(_selectedPosterSourcePath).Equals(entry, StringComparison.OrdinalIgnoreCase) &&
                 File.Exists(_selectedPosterSourcePath))
             {
-                imgPoster.Source = new BitmapImage(new Uri(_selectedPosterSourcePath));
+                imgPoster.Source = AssetPreviewLoader.Load(_selectedPosterSourcePath);
                 return;
             }
 
             var resolved = ModInfoParser.ResolveAssetPath(ModFolderPath, entry);
-            imgPoster.Source = resolved != null ? new BitmapImage(new Uri(resolved)) : null;
+            imgPoster.Source = resolved != null ? AssetPreviewLoader.Load(resolved) : null;
         }
 
         private void RefreshIconPreview()
         {
             if (!string.IsNullOrWhiteSpace(_selectedIconSourcePath) && File.Exists(_selectedIconSourcePath))
             {
-                imgIcon.Source = new BitmapImage(new Uri(_selectedIconSourcePath));
+                imgIcon.Source = AssetPreviewLoader.Load(_selectedIconSourcePath);
                 return;
             }
 
@@ -342,7 +341,7 @@ namespace PZTools.Core.Windows.Dialogs.Project
             }
 
             var resolved = ModInfoParser.ResolveAssetPath(ModFolderPath, icon);
-            imgIcon.Source = resolved != null ? new BitmapImage(new Uri(resolved)) : null;
+            imgIcon.Source = resolved != null ? AssetPreviewLoader.Load(resolved) : null;
         }
 
         private void SetCategorySelection(string? category)

@@ -169,6 +169,10 @@ namespace PZTools.Core.Functions.Menu
 
         public static class Project
         {
+            public static ICommand Find_In_Project { get; } =
+                new RelayCommand(() => App.MainWindow?.ShowProjectSearch());
+
+
             public static ICommand New_PZ_Mod_File { get; } =
                 new RelayCommand(() =>
                 {

@@ -29,7 +29,8 @@ namespace PZTools.Core.Functions.Steam
 
             if (File.Exists(SteamCmdExecutable))
             {
-                Emit("SteamCMD is already installed.");
+                Emit("Checking the existing SteamCMD installation...");
+                await RunInitialSetupAsync(cancellationToken);
                 return;
             }
 
@@ -114,6 +115,31 @@ namespace PZTools.Core.Functions.Steam
 
         private async Task RunInitialSetupAsync(CancellationToken cancellationToken)
         {
+            const int maxAttempts = 3;
+            for (var attempt = 1; attempt <= maxAttempts; attempt++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var exitCode = await RunSetupAttemptAsync(cancellationToken);
+                if (exitCode == 0 && File.Exists(SteamCmdExecutable))
+                    return;
+
+                // The Windows bootstrapper can exit with 7 after replacing itself.
+                // Run +quit again to verify the updated client, never treat 7 as success.
+                if (exitCode == 7 && File.Exists(SteamCmdExecutable) && attempt < maxAttempts)
+                {
+                    Emit("SteamCMD setup returned exit code 7 after updating; retrying to verify the installation...");
+                    await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
+                    continue;
+                }
+
+                throw new InvalidOperationException(
+                    $"SteamCMD setup failed with exit code {exitCode}. " +
+                    $"See {Path.Combine(SteamCmdDirectory, "logs", "bootstrap_log.txt")} for details.");
+            }
+        }
+
+        private async Task<int> RunSetupAttemptAsync(CancellationToken cancellationToken)
+        {
             var startInfo = new ProcessStartInfo
             {
                 FileName = SteamCmdExecutable,
@@ -148,11 +174,7 @@ namespace PZTools.Core.Functions.Steam
                 throw;
             }
 
-            if (process.ExitCode != 0 || !File.Exists(SteamCmdExecutable))
-            {
-                throw new InvalidOperationException(
-                    $"SteamCMD setup failed with exit code {process.ExitCode}.");
-            }
+            return process.ExitCode;
         }
 
         private ProcessStartInfo CreateInstallStartInfo(

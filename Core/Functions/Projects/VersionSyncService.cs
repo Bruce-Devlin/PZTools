@@ -141,6 +141,20 @@ namespace PZTools.Core.Functions.Projects
             }
         }
 
+        public static IReadOnlyList<string> GetConflictPaths(ModProject project, string path)
+        {
+            lock (SyncLock)
+            {
+                if (!TryResolveTargetPath(project, path, out var resolved))
+                    return Array.Empty<string>();
+                var rule = FindCoveringRule(Load(project), resolved.RelativePath);
+                return rule?.Files.Where(x => x.Value.HasConflict &&
+                        (PathsEqual(x.Key, resolved.RelativePath) ||
+                         x.Key.StartsWith(resolved.RelativePath.TrimEnd('/') + "/", StringComparison.OrdinalIgnoreCase)))
+                    .Select(x => x.Key).ToArray() ?? Array.Empty<string>();
+            }
+        }
+
         private static VersionSyncResult ReconcileRule(
             ModProject project,
             VersionSyncManifest manifest,
