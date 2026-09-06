@@ -19,6 +19,11 @@ PZTools brings the repetitive parts of Project Zomboid mod development into one 
 
 I built PZTools after starting several Project Zomboid mods and wanting a better way to manage game builds, inspect game code, and test changes without constantly switching Steam branches or manually decompiling JAR files.
 
+My mods made with PZTools:
+- [Getting Old](https://steamcommunity.com/sharedfiles/filedetails/?id=3643959369)
+- [Prisoner Profession](https://steamcommunity.com/sharedfiles/filedetails/?id=3646474257)
+- [Days Until Winter](https://steamcommunity.com/sharedfiles/filedetails/?id=3640001497)
+
 > [!IMPORTANT]
 > PZTools is under active development. Back up important mods and saves before testing, and treat game- and Steam-facing workflows as requiring real-world verification.
 
@@ -56,7 +61,7 @@ PZTools manages Project Zomboid-specific work while your preferred editor handle
 4. Work in VS Code, VS Code Insiders, VSCodium, or the editor configured in App Options.
 5. Open **Project > Health Dashboard** to validate every build target.
 6. Deploy locally and run the selected profile. Use **Debug > Run Game Settings** to configure isolated saves, dependencies, local clients, display options, or a dedicated server.
-7. Complete Workshop metadata in Project Settings, then upload through SteamCMD.
+7. Complete Workshop metadata in Project Settings, then upload through SteamCMD (File > Upload via Steam ).
 
 ### Finding and previewing files
 
@@ -222,7 +227,5 @@ Use [GitHub Issues](https://github.com/Bruce-Devlin/PZTools/issues) for bug repo
 ## Project status and licensing
 
 PZTools is an independent, work-in-progress community tool. Automated checks cover many core workflows, but they do not replace interactive WPF testing, a live Project Zomboid session, or a Steam Workshop upload.
-
-A standalone license file is not currently included in this repository. Until one is added, no general permission to copy, redistribute, or reuse the source should be assumed.
 
 Project Zomboid is a trademark of The Indie Stone. Steam is a trademark of Valve Corporation. PZTools is not affiliated with or endorsed by The Indie Stone or Valve.
