@@ -115,6 +115,8 @@ public sealed class ModTestingTests : IDisposable
         {
             Directory.CreateDirectory(Path.Combine(cache, "mods"));
             File.WriteAllText(Path.Combine(cache, "mods/default.txt"), "VERSION = 1,\nmods\n{\n mod = \\TestFixture,\n}\nmaps\n{\n}");
+            PlaytestClientConfig.Configure(cache, profile);
+            Assert.True(File.Exists(Path.Combine(cache, "mods/reset-mods-42_00.txt")));
         }
         PlaytestServerConfig.Write(profile, workspace, "TestFixture");
         var report = ModTestService.CreateReport(Project, "game");
@@ -124,6 +126,63 @@ public sealed class ModTestingTests : IDisposable
         Assert.Empty(ClientServerParityService.Compare(Path.Combine(workspace.ServerCachePath, "mods"), workspace.ClientCachePaths.Select(c => Path.Combine(c, "mods"))));
         Assert.Contains("PZToolsTesting", File.ReadAllText(Path.Combine(workspace.ClientCachePaths[0], "mods/default.txt")));
         Assert.Contains("PZToolsTesting", File.ReadAllText(Path.Combine(workspace.ServerCachePath, "Server/PZToolsTest.ini")));
+    }
+
+    [Theory]
+    [InlineData(41, false)]
+    [InlineData(42, true)]
+    [InlineData(42.20, true)]
+    public void ClientSetupPreventsBuild42FirstLaunchFromClearingModSelection(double build, bool expectsMarker)
+    {
+        Write("cache/mods/default.txt", "VERSION = 1,\nmods { mod = TestFixture, }\nmaps {}\n");
+        var selection = File.ReadAllText(Path.Combine(root, "cache/mods/default.txt"));
+        PlaytestClientConfig.Configure(Path.Combine(root, "cache"), new PlaytestProfile { Build = build });
+        Assert.Equal(expectsMarker, File.Exists(Path.Combine(root, "cache/mods/reset-mods-42_00.txt")));
+        Assert.Equal(selection, File.ReadAllText(Path.Combine(root, "cache/mods/default.txt")));
+    }
+
+    [Theory]
+    [InlineData(true, 240, true)]
+    [InlineData(false, 240, false)]
+    [InlineData(true, 239, false)]
+    public void CompanionOnlyContinuesCompatibleLivingCharacterSaves(bool alive, int version, bool continues)
+    {
+        var script = new Script();
+        script.Globals["alive"] = alive;
+        script.Globals["version"] = version;
+        script.DoString("""
+            require = function() end
+            PZT = {}
+            output = ""
+            continued = false
+            local config = { "run", "client-1", "Sandbox", "fixture" }
+            function getFileReader()
+                local i = 0
+                return { readLine = function() i = i + 1; return config[i] end, close = function() end }
+            end
+            function getFileWriter()
+                return { write = function(_, s) output = output .. s end, close = function() end }
+            end
+            function isServer() return false end
+            Events = setmetatable({}, { __index = function(t, k)
+                local e = { Add = function(fn) t[k].callback = fn end }; t[k] = e; return e
+            end })
+            local world = { setGameMode = function(_, mode) assert(mode == "Sandbox") end,
+                setWorld = function(_, name) assert(name == "fixture") end }
+            function getWorld() return world end
+            function checkSavePlayerExists() return alive end
+            function getSaveInfo() return { worldVersion = version } end
+            IsoWorld = { getWorldVersion = function() return 240 end }
+            MainScreen = { continueLatestSave = function(mode, name)
+                assert(mode == "Sandbox" and name == "fixture"); continued = true
+            end }
+            """);
+        script.DoString(ModTestService.Resource("Driver.lua"));
+        script.DoString("Events.OnMainMenuEnter.callback()");
+        Assert.Equal(continues, script.Globals.Get("continued").Boolean);
+        var output = script.Globals.Get("output").String;
+        if (!continues) Assert.Contains(alive ? "conversion" : "no living character", output);
+        else Assert.DoesNotContain("\terror\t", output);
     }
 
     public void Dispose()

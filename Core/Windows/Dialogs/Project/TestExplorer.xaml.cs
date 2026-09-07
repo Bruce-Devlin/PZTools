@@ -14,6 +14,7 @@ namespace PZTools.Core.Windows.Dialogs.Project;
 
 public partial class TestExplorer : Window
 {
+    public Action<Process>? DockClient { get; init; }
     private readonly ModProject project;
     private CancellationTokenSource? running;
     private ModTestReport? report;
@@ -63,7 +64,13 @@ public partial class TestExplorer : Window
             {
                 var profile = Profiles.SelectedItem as PlaytestProfile ?? throw new InvalidOperationException("Choose a playtest profile.");
                 var root = ZomboidGame.GameMode == "Managed" ? Path.Combine(ZomboidGame.GameDirectory, profile.Build.ToString(CultureInfo.InvariantCulture)) : ZomboidGame.GameDirectory;
-                report = await GameTestService.RunAsync(project, profile, root, filter, progress: line => Dispatcher.BeginInvoke(() => Status.Text = line), cancellationToken: running.Token);
+                report = await GameTestService.RunAsync(project, profile, root, filter,
+                    progress: line => Dispatcher.BeginInvoke(() => Status.Text = line), cancellationToken: running.Token,
+                    dockClient: DockClient is null ? null : process => Dispatcher.BeginInvoke(() =>
+                    {
+                        DockClient(process);
+                        WindowState = WindowState.Minimized;
+                    }));
             }
             else report = await ModTestService.RunUnitAsync(project, filter, running.Token);
             Results.ItemsSource = report.Tests;
@@ -76,6 +83,7 @@ public partial class TestExplorer : Window
         {
             running.Dispose(); running = null; Unit.IsEnabled = Game.IsEnabled = true; Stop.IsEnabled = false;
             if (closing) Close();
+            else if (game && WindowState == WindowState.Minimized) { WindowState = WindowState.Normal; Activate(); }
         }
     }
     private void Result_SelectionChanged(object sender, SelectionChangedEventArgs e)

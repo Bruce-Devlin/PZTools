@@ -225,7 +225,7 @@
                                              VerticalScrollBarVisibility="Auto"
                                              Margin="0,0,0,6"/>
 
-                                    <TextBlock Text="(this can be applied to files via Debug &gt; Lua Watermark)"
+                                    <TextBlock Text="(this can be applied to files via File &gt; Lua Watermark)"
                                                Style="{StaticResource Text.Muted}"
                                                Margin="0,0,0,0"/>
                                 </StackPanel>

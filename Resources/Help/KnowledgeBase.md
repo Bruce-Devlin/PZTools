@@ -351,7 +351,7 @@ Cancel run requests cancellation and stopping of owned test processes. Closing t
 For manual reproduction, run the same [Playtest Lab profile](playtest) and compare its [logs](logs).
 
 # lua-checks | Validation and testing | Quick Lua checks and watermarks
-The Debug menu includes quick saved-file checks and actions for applying the project's configured Lua watermark.
+The Debug menu includes quick saved-file checks. The File menu includes actions for applying the project's configured Lua watermark.
 
 ## Check Lua files
 Debug > Test > Test This Lua File checks the currently opened saved Lua file. Select a Lua file first; other file types are rejected. Test All Lua Files checks Lua files across the project and reports through the app's output.
@@ -359,7 +359,7 @@ These quick checks are separate from Test Explorer suites. They are not a live g
 For a project-wide readiness review including metadata and dependencies, use [Project Health](health).
 
 ## Apply a watermark
-Set the Lua Watermark in File > Project Settings > Compatibility and Save. Debug > Lua Watermark > Apply Watermark To This File uses that watermark. Apply Watermark To All Files processes the project's Lua files. The app reports when no watermark is set.
+Set the Lua Watermark in File > Project Settings > Compatibility and Save. File > Lua Watermark > Apply Watermark To This File uses that watermark. Apply Watermark To All Files processes the project's Lua files. The app reports when no watermark is set.
 Watermark actions write to files. Confirm the active project and selected file, and retain a backup before applying a project-wide change. Inspect the saved result afterwards. They do not upload the project or establish licensing.
 See [file operations](files) for recovery boundaries and [storage](storage) for backups.
 
@@ -595,7 +595,7 @@ Use Tab to move between search, category, results, toolbar actions, and article 
 
 ## Menu guide
 File contains Project Settings, Close Project, Decompile Game Files, Upload To Steam Workshop, App Options, and Exit. Edit exposes Undo and Redo. Project contains file creation, search, health, tests, editor integration, and folder shortcuts.
-View contains game-source browsing, Game Log, and Save Window Layout. Debug contains Run Game Settings, Lua watermark actions, and quick Lua tests. Help contains this manual, the external PZ Wiki link, and About.
+View contains game-source browsing, Game Log, and Save Window Layout. File contains Lua watermark actions. Debug contains Run Game Settings and quick Lua tests. Help contains this manual, the external PZ Wiki link, and About.
 For a task-oriented entry point, return to [Welcome](welcome).
 
 # troubleshooting | Reference | Troubleshooting common app workflows

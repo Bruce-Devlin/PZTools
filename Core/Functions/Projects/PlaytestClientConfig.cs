@@ -14,6 +14,17 @@ namespace PZTools.Core.Functions.Projects
             ArgumentNullException.ThrowIfNull(profile);
             Directory.CreateDirectory(cachePath);
 
+            // Build 42's GameWindow clears default.txt on first launch unless this
+            // release marker exists. This cache already has an intentional profile
+            // selection; do not let the game's migration erase it before Lua loads.
+            if (profile.Build >= 42)
+            {
+                var modsPath = Path.Combine(cachePath, "mods");
+                Directory.CreateDirectory(modsPath);
+                File.WriteAllText(Path.Combine(modsPath, "reset-mods-42_00.txt"),
+                    "PZTools has prepared the mod selection for this isolated Build 42 session.\n", new UTF8Encoding(false));
+            }
+
             if (!string.IsNullOrWhiteSpace(sourceUserDirectory) && Directory.Exists(sourceUserDirectory))
             {
                 foreach (var name in PreferenceFiles)

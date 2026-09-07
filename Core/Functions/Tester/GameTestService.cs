@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Diagnostics;
 using System.IO;
 using System.Text;
 using Newtonsoft.Json;
@@ -12,7 +13,8 @@ public static class GameTestService
 {
     private const string CompanionId = "PZToolsTesting";
     public static async Task<ModTestReport> RunAsync(ModProject project, PlaytestProfile selected, string gameRoot,
-        string? filter = null, int timeoutSeconds = 300, Action<string>? progress = null, CancellationToken cancellationToken = default)
+        string? filter = null, int timeoutSeconds = 300, Action<string>? progress = null, CancellationToken cancellationToken = default,
+        Action<Process>? dockClient = null)
     {
         var report = ModTestService.CreateReport(project, "game");
         report.GameRoot = gameRoot; report.Profile = selected.Name;
@@ -36,11 +38,15 @@ public static class GameTestService
             File.WriteAllText(Path.Combine(report.ArtifactDirectory, "profile.json"), JsonConvert.SerializeObject(profile, Formatting.Indented));
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeout.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
+            Process? firstClient = null;
             using var runner = new PlaytestSessionRunner
             {
+                DockFirstClient = dockClient is not null,
                 PrepareAutomation = w => { workspace = w; Prepare(project, profile, w, files, report); },
-                RunAutomation = (w, ct) => MonitorAsync(w, profile, report, progress, ct)
+                RunAutomation = (w, ct) => MonitorAsync(w, profile, report, progress, () => firstClient, ct)
             };
+            runner.FirstClientStarted += process => firstClient = process;
+            if (dockClient is not null) runner.FirstClientStarted += dockClient;
             var logGate = new object();
             runner.Output += (_, line) =>
             {
@@ -135,12 +141,16 @@ public static class GameTestService
         File.WriteAllText(Path.Combine(report.ArtifactDirectory, "manifest.lua"), manifest.ToString());
     }
 
-    private static async Task MonitorAsync(PlaytestSessionWorkspace workspace, PlaytestProfile profile, ModTestReport report, Action<string>? progress, CancellationToken ct)
+    private static async Task MonitorAsync(PlaytestSessionWorkspace workspace, PlaytestProfile profile, ModTestReport report, Action<string>? progress, Func<Process?> firstClient, CancellationToken ct)
     {
         var endpoints = workspace.ClientCachePaths.Select((p, i) => (Path: Path.Combine(p, "Lua", "pztests-events.txt"), Name: "client-" + (i + 1))).ToList();
         if (profile.Mode == PlaytestMode.DedicatedServer) endpoints.Add((Path.Combine(workspace.ServerCachePath, "Lua", "pztests-events.txt"), "server"));
         var sequences = endpoints.ToDictionary(e => e.Name, _ => 0);
         var completed = new HashSet<string>();
+        var worldStarted = false;
+        var loadingFinished = false;
+        var nextStartupClick = DateTime.MinValue;
+        var startupClicks = 0;
         while (completed.Count < endpoints.Count)
         {
             ct.ThrowIfCancellationRequested();
@@ -160,11 +170,31 @@ public static class GameTestService
                     if (sequence <= sequences[endpoint.Name]) continue;
                     if (sequence != sequences[endpoint.Name] + 1) throw new InvalidDataException("Missing companion event.");
                     sequences[endpoint.Name] = sequence;
+                    if (endpoint.Name == "client-1" && (fields[3] == "begin" || fields[3] == "ready" && Decode(fields[6]) == "World started"))
+                        worldStarted = true;
                     if (completed.Contains(endpoint.Name)) throw new InvalidDataException("Event after endpoint completion.");
                     if (!double.TryParse(fields[7], NumberStyles.Float, CultureInfo.InvariantCulture, out var duration) || !double.IsFinite(duration) || duration < 0) throw new InvalidDataException("Invalid test duration.");
                     ModTestService.ApplyEvent(report, endpoint.Name, fields[3], Decode(fields[4]), Decode(fields[5]), Decode(fields[6]), duration);
                     progress?.Invoke($"[{endpoint.Name}] {fields[3]} {Decode(fields[5])} {Decode(fields[6])}");
+                    if (fields[3] == "error")
+                        throw new InvalidOperationException($"Companion failed on {endpoint.Name}; see the reported error and isolated cache logs.");
                     if (fields[3] == "complete") completed.Add(endpoint.Name);
+                }
+            }
+            if (profile.Mode == PlaytestMode.SinglePlayer && !worldStarted && startupClicks < 20 && DateTime.UtcNow >= nextStartupClick)
+            {
+                nextStartupClick = DateTime.UtcNow.AddSeconds(1);
+                var console = Path.Combine(workspace.ClientCachePaths[0], "console.txt");
+                if (!loadingFinished && File.Exists(console))
+                {
+                    using var stream = new FileStream(console, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+                    using var reader = new StreamReader(stream);
+                    loadingFinished = (await reader.ReadToEndAsync(ct)).Contains("game loading took", StringComparison.OrdinalIgnoreCase);
+                }
+                if (loadingFinished && firstClient() is { } client)
+                {
+                    if (startupClicks++ == 0) progress?.Invoke("World loaded; advancing Click to Start in the test client.");
+                    await GameTestStartupClick.ClickAsync(client, ct);
                 }
             }
             await Task.Delay(100, ct);

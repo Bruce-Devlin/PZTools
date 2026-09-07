@@ -37,7 +37,8 @@ namespace PZTools.Core.Functions.Projects
             {
                 if (Path.GetFileName(file).Equals(DeploymentManifestService.ManifestFileName, StringComparison.OrdinalIgnoreCase))
                     continue;
-                if (Path.GetRelativePath(root, file).Equals("default.txt", StringComparison.OrdinalIgnoreCase))
+                if (Path.GetRelativePath(root, file).Equals("default.txt", StringComparison.OrdinalIgnoreCase) ||
+                    Path.GetRelativePath(root, file).Equals("reset-mods-42_00.txt", StringComparison.OrdinalIgnoreCase))
                     continue;
                 using var stream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
                 result[Path.GetRelativePath(root, file).Replace('\\', '/')] = Convert.ToHexString(SHA256.HashData(stream));

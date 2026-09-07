@@ -243,7 +243,8 @@ namespace PZTools.Core.Functions.Agent
                     return _runs.Start(kind, async (progress, ct) => kind == "unit"
                         ? await ModTestService.RunUnitAsync(_window.ModProject, args.Value<string>("filter"), ct)
                         : await GameTestService.RunAsync(_window.ModProject, profile!, GameRoot(profile!),
-                            args.Value<string>("filter"), timeout, progress, ct));
+                            args.Value<string>("filter"), timeout, progress, ct,
+                            process => _window.Dispatcher.BeginInvoke(() => _window.TrackGameClient(process))));
                 case "start_playtest":
                     Require(settings.AgentMcpAllowTesting && settings.AgentMcpAllowDeployment && settings.AgentMcpAllowGameControl, "Testing, deployment and game control");
                     ValidatePlaytestPaths();

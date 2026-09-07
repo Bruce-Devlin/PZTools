@@ -73,6 +73,47 @@ namespace PZTools.Core.Functions.Menu
             public static ICommand Exit { get; } =
                     new RelayCommand(() => System.Windows.Application.Current.Shutdown());
 
+            public static class Lua_Watermark
+            {
+                public static ICommand Apply_Watermark_To_This_File { get; } =
+                    new RelayCommand(async () =>
+                    {
+                        var project = ProjectEngine.CurrentProject;
+                        if (project is null || App.MainWindow is null)
+                            return;
+                        var watermark = Config.GetVariable(VariableType.user, $"{project.Name}-watermark");
+                        if (string.IsNullOrEmpty(watermark))
+                        {
+                            MessageBox.Show("No Lua watermark set!?");
+                            return;
+                        }
+
+                        await LuaWatermarker.WatermarkFile(App.MainWindow.OpenedFilePath, watermark);
+                    });
+
+                public static ICommand Apply_Watermark_To_All_Files { get; } =
+                    new RelayCommand(async () =>
+                    {
+                        var project = ProjectEngine.CurrentProject;
+                        if (project is null)
+                            return;
+                        var watermark = Config.GetVariable(VariableType.user, $"{project.Name}-watermark");
+                        if (string.IsNullOrEmpty(watermark))
+                        {
+                            MessageBox.Show("No Lua watermark set!?");
+                            return;
+                        }
+                        foreach (var file in Directory.GetFiles(ProjectEngine.CurrentProjectPath, "*.*", SearchOption.AllDirectories))
+                        {
+                            var ext = Path.GetExtension(file);
+                            if (ext == ".lua")
+                            {
+                                await LuaWatermarker.WatermarkFile(file, watermark);
+                            }
+                        }
+                    });
+            }
+
             private static async Task UploadToSteamWorkshopAsync()
             {
                 var project = ProjectEngine.CurrentProject;
@@ -194,7 +235,7 @@ namespace PZTools.Core.Functions.Menu
             public static ICommand Test_Explorer { get; } = new RelayCommand(() =>
             {
                 if (ProjectEngine.CurrentProject is { } project)
-                    App.MainWindow.ShowDialog(new TestExplorer(project));
+                    App.MainWindow?.ShowTestExplorer(project);
             });
 
             public static ICommand Open_In_VS_Code { get; } =
@@ -309,47 +350,6 @@ namespace PZTools.Core.Functions.Menu
 
             public static object? Separator => null;
 
-
-            public static class Lua_Watermark
-            {
-                public static ICommand Apply_Watermark_To_This_File { get; } =
-                    new RelayCommand(async () =>
-                    {
-                        var project = ProjectEngine.CurrentProject;
-                        if (project is null || App.MainWindow is null)
-                            return;
-                        var watermark = Config.GetVariable(VariableType.user, $"{project.Name}-watermark");
-                        if (string.IsNullOrEmpty(watermark))
-                        {
-                            MessageBox.Show("No Lua watermark set!?");
-                            return;
-                        }
-
-                        await LuaWatermarker.WatermarkFile(App.MainWindow.OpenedFilePath, watermark);
-                    });
-
-                public static ICommand Apply_Watermark_To_All_Files { get; } =
-                    new RelayCommand(async () =>
-                    {
-                        var project = ProjectEngine.CurrentProject;
-                        if (project is null)
-                            return;
-                        var watermark = Config.GetVariable(VariableType.user, $"{project.Name}-watermark");
-                        if (string.IsNullOrEmpty(watermark))
-                        {
-                            MessageBox.Show("No Lua watermark set!?");
-                            return;
-                        }
-                        foreach (var file in Directory.GetFiles(ProjectEngine.CurrentProjectPath, "*.*", SearchOption.AllDirectories))
-                        {
-                            var ext = Path.GetExtension(file);
-                            if (ext == ".lua")
-                            {
-                                await LuaWatermarker.WatermarkFile(file, watermark);
-                            }
-                        }
-                    });
-            }
 
             public static class Test
             {

@@ -21,6 +21,19 @@ public partial class MainWindow
     private DateTime _candidateSince;
     private DateTime _dockDeadline;
     private RunProject? _playtestWindow;
+    private TestExplorer? _testExplorerWindow;
+
+    public void ShowTestExplorer(PZTools.Core.Models.ModProject project)
+    {
+        if (_testExplorerWindow is null)
+        {
+            _testExplorerWindow = new TestExplorer(project) { Owner = this, DockClient = TrackGameClient };
+            _testExplorerWindow.Closed += (_, _) => _testExplorerWindow = null;
+            _testExplorerWindow.Show();
+        }
+        _testExplorerWindow.WindowState = WindowState.Normal;
+        _testExplorerWindow.Activate();
+    }
     private HwndSource? _gameHotkeySource;
     private const int GameFocusHotkey = 0x505A;
 

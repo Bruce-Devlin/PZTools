@@ -110,33 +110,35 @@ namespace PZTools.Core.Functions.Projects
             CancellationToken ct)
         {
             var copiedFiles = 0;
-            foreach (var dir in Directory.EnumerateDirectories(sourceRoot, "*", SearchOption.AllDirectories))
+            var pending = new Stack<string>();
+            pending.Push(sourceRoot);
+            while (pending.TryPop(out var current))
             {
                 ct.ThrowIfCancellationRequested();
+                // Prune excluded folders before enumeration: .pztools contains live
+                // game caches and may also contain this deployment's destination.
+                foreach (var dir in Directory.EnumerateDirectories(current))
+                {
+                    ct.ThrowIfCancellationRequested();
+                    var rel = Path.GetRelativePath(sourceRoot, dir);
+                    if (!shouldInclude(rel))
+                        continue;
+                    Directory.CreateDirectory(Path.Combine(destRoot, rel));
+                    pending.Push(dir);
+                }
 
-                var rel = Path.GetRelativePath(sourceRoot, dir);
-
-                if (!shouldInclude(rel))
-                    continue;
-
-                var targetDir = Path.Combine(destRoot, rel);
-                Directory.CreateDirectory(targetDir);
-            }
-
-            foreach (var file in Directory.EnumerateFiles(sourceRoot, "*", SearchOption.AllDirectories))
-            {
-                ct.ThrowIfCancellationRequested();
-
-                var rel = Path.GetRelativePath(sourceRoot, file);
-
-                if (!shouldInclude(rel))
-                    continue;
-
-                var targetFile = Path.Combine(destRoot, rel);
-                Directory.CreateDirectory(Path.GetDirectoryName(targetFile)!);
-                File.Copy(file, targetFile, overwrite: true);
-                File.SetLastWriteTimeUtc(targetFile, File.GetLastWriteTimeUtc(file));
-                copiedFiles++;
+                foreach (var file in Directory.EnumerateFiles(current))
+                {
+                    ct.ThrowIfCancellationRequested();
+                    var rel = Path.GetRelativePath(sourceRoot, file);
+                    if (!shouldInclude(rel))
+                        continue;
+                    var targetFile = Path.Combine(destRoot, rel);
+                    Directory.CreateDirectory(Path.GetDirectoryName(targetFile)!);
+                    File.Copy(file, targetFile, overwrite: true);
+                    File.SetLastWriteTimeUtc(targetFile, File.GetLastWriteTimeUtc(file));
+                    copiedFiles++;
+                }
             }
             return copiedFiles;
         }

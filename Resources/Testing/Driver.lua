@@ -141,6 +141,7 @@ local started = false
 local function start()
     if started then return end
     started = true
+    PZT.emit("ready", "", "", "World started", 0)
     local ok, err = pcall(function()
         require "PZToolsTesting/Manifest"
         for _, setup in ipairs(PZTestSupport or {}) do setup() end
@@ -163,7 +164,15 @@ else
     Events.OnMainMenuEnter.Add(function()
         if loading or saveName == "" or not saveName then return end
         loading = true
-        local ok, err = pcall(function() MainScreen.continueLatestSave(saveMode, saveName) end)
+        local ok, err = pcall(function()
+            getWorld():setGameMode(saveMode)
+            getWorld():setWorld(saveName)
+            assert(checkSavePlayerExists(), "The source save has no living character. Choose a living-character save in Playtest Lab.")
+            local info = getSaveInfo(saveName)
+            assert(info and tonumber(info.worldVersion) == IsoWorld.getWorldVersion(),
+                "The source save needs conversion or is incompatible. Open and save it in this game build before running tests.")
+            MainScreen.continueLatestSave(saveMode, saveName)
+        end)
         if not ok then PZT.emit("error", "", "", "Save startup: " .. tostring(err), 0) end
     end)
 end
