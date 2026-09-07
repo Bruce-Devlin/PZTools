@@ -55,6 +55,7 @@
                 <CheckBox x:Name="IncludeInternalsCheck" Content="Include internal / generated members" Margin="14,0,0,0"
                           Checked="KindCombo_SelectionChanged" Unchecked="KindCombo_SelectionChanged"
                           ToolTip="Show non-public declarations and compiler-generated helpers as well."/>
+                <Button x:Name="TreeViewButton" Content="Visual tree ↗" Margin="14,0,0,0" Style="{StaticResource CompactButton}" Click="TreeView_Click" IsEnabled="False"/>
                 <TextBlock Text="Game methods by default. Search a class or method name."
                            Margin="14,0,0,0" Foreground="{DynamicResource Brush.TextMuted}" TextWrapping="Wrap"/>
             </WrapPanel>

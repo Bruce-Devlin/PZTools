@@ -485,9 +485,13 @@ namespace PZTools.Core.Functions.Projects
         {
             manifest.FormatVersion = CurrentFormatVersion;
             var path = ManifestPath(project);
+            var contents = JsonConvert.SerializeObject(manifest, Formatting.Indented);
+            // An unchanged reconciliation must not generate more watcher events.
+            if (File.Exists(path) && File.ReadAllText(path) == contents)
+                return;
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             var temp = path + ".tmp";
-            File.WriteAllText(temp, JsonConvert.SerializeObject(manifest, Formatting.Indented));
+            File.WriteAllText(temp, contents);
             File.Move(temp, path, overwrite: true);
         }
 

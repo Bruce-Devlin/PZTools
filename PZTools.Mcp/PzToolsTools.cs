@@ -120,4 +120,60 @@ public static class PzToolsTools
         {
             lines
         }, cancellationToken);
+
+    [McpServerTool(Name = "pztools_discover_tests")]
+    [Description("Lists .pztests files as project-relative paths. Unit tests run in MoonSharp; game includes game, e2e and server tests.")]
+    public static Task<string> DiscoverTests(PzToolsPipeClient client, string kind = "unit", string? filter = null, CancellationToken cancellationToken = default)
+        => client.CallAsync("discover_tests", new { kind, filter }, cancellationToken);
+
+    [McpServerTool(Name = "pztools_scaffold_tests")]
+    [Description("Creates missing test examples and harness documentation in .pztests, preserving existing files. Requires testing and project writes.")]
+    public static Task<string> ScaffoldTests(PzToolsPipeClient client, CancellationToken cancellationToken)
+        => client.CallAsync("scaffold_tests", cancellationToken: cancellationToken);
+
+    [McpServerTool(Name = "pztools_get_playtest_profiles")]
+    [Description("Reads saved Playtest Lab profiles, IDs, dependencies and validation errors. Use a unique name or ID when starting a run. Configure profiles in Playtest Lab.")]
+    public static Task<string> PlaytestProfiles(PzToolsPipeClient client, CancellationToken cancellationToken)
+        => client.CallAsync("playtest_profiles", cancellationToken: cancellationToken);
+
+    [McpServerTool(Name = "pztools_start_test_run")]
+    [Description("Starts background unit or game tests and returns a run ID immediately. Poll get_run_status for the final structured report and artifact directory. Unit runs write test artifacts; game runs additionally require deployment and game control. Runs use saved files. A completed operation does not imply tests passed: inspect result.Passed and Errors.")]
+    public static Task<string> StartTestRun(PzToolsPipeClient client,
+        [Description("unit or game.")] string kind = "unit",
+        [Description("Optional substring of a path relative to .pztests, e.g. example.unit.lua.")] string? filter = null,
+        [Description("Required for game tests: unique saved Playtest Lab profile name or ID.")] string? profile = null,
+        [Description("Game-test timeout, 10 to 86400 seconds. Unit tests use the existing per-file timeout.")] int timeoutSeconds = 300,
+        CancellationToken cancellationToken = default)
+        => client.CallAsync("start_test_run", new { kind, filter, profile, timeoutSeconds }, cancellationToken);
+
+    [McpServerTool(Name = "pztools_start_playtest")]
+    [Description("Starts an isolated Playtest Lab session from a saved profile after Project Health passes. Supports single player and dedicated server with multiple clients. Requires testing, deployment and game control. Returns a run ID; poll status for output and final diagnostics, or cancel to stop owned processes.")]
+    public static Task<string> StartPlaytest(PzToolsPipeClient client, string profile, CancellationToken cancellationToken = default)
+        => client.CallAsync("start_playtest", new { profile }, cancellationToken);
+
+    [McpServerTool(Name = "pztools_get_run_status")]
+    [Description("Gets the latest MCP run: running/cancelling/completed/cancelled/failed, bounded recent output, final result and runner error. Only the latest run is retained in memory; test reports persist in .pztools/test-results. Live desktop-initiated runs are not included.")]
+    public static Task<string> RunStatus(PzToolsPipeClient client, string? runId = null, int lines = 200, CancellationToken cancellationToken = default)
+        => client.CallAsync("run_status", new { runId, lines }, cancellationToken);
+
+    [McpServerTool(Name = "pztools_cancel_run")]
+    [Description("Requests cancellation of the specified MCP run and cleanup of its owned processes. Poll until cancellation completes. Available even after launch permissions are revoked while MCP remains enabled.")]
+    public static Task<string> CancelRun(PzToolsPipeClient client, string runId, CancellationToken cancellationToken = default)
+        => client.CallAsync("cancel_run", new { runId }, cancellationToken);
+
+    [McpServerTool(Name = "pztools_verify_deployment")]
+    [Description("Checks the local deployed mod against the project's deployment manifest without changing files. Returns structured missing/stale-file diagnostics.")]
+    public static Task<string> VerifyDeployment(PzToolsPipeClient client, CancellationToken cancellationToken)
+        => client.CallAsync("verify_deployment", cancellationToken: cancellationToken);
+    [McpServerTool(Name = "pztools_get_test_reports")]
+    [Description("Lists up to 100 newest saved test reports, including runs from Test Explorer. Supply a report runId to read its complete results. Report IDs differ from background operation IDs returned by start_test_run.")]
+    public static Task<string> TestReports(PzToolsPipeClient client, string? runId = null, CancellationToken cancellationToken = default)
+        => client.CallAsync("test_reports", new { runId }, cancellationToken);
+
+    [McpServerTool(Name = "pztools_search_project")]
+    [Description("Searches saved project text or file names using the editor's bounded literal search. Returns locations and previews, up to 500 matches; skips generated folders, links and oversized files. Requires editor control.")]
+    public static Task<string> SearchProject(PzToolsPipeClient client, string query, bool matchCase = false,
+        bool fileNamesOnly = false, CancellationToken cancellationToken = default)
+        => client.CallAsync("search_project", new { query, matchCase, fileNamesOnly }, cancellationToken);
+
 }

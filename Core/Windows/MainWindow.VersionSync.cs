@@ -60,7 +60,10 @@ namespace PZTools.Core.Windows
         private void QueueVersionSync(string path)
         {
             if (IsClosing) return;
-            if (path.Contains(Path.DirectorySeparatorChar + ".pztools" + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) ||
+            // Windows also reports changes to the metadata directory itself.
+            var metadataPath = Path.Combine(ModProject.RootPath, ".pztools");
+            if (string.Equals(path, metadataPath, StringComparison.OrdinalIgnoreCase) ||
+                path.Contains(Path.DirectorySeparatorChar + ".pztools" + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) ||
                 path.Contains(".pztools-sync-", StringComparison.OrdinalIgnoreCase))
                 return;
 
@@ -78,8 +81,11 @@ namespace PZTools.Core.Windows
         {
             try
             {
-                await Task.Delay(250, token);
-                var result = await Task.Run(() => VersionSyncService.ReconcileAll(ModProject), token);
+                // Superseded events are normal debounce control flow, not exceptions.
+                await Task.Delay(250);
+                if (token.IsCancellationRequested || IsClosing) return;
+                var result = await Task.Run(() => VersionSyncService.ReconcileAll(ModProject));
+                if (token.IsCancellationRequested || IsClosing) return;
                 if (result.Copied + result.Updated + result.FoldersCreated > 0)
                     await Dispatcher.InvokeAsync(RefreshVersionSyncTree);
                 await Dispatcher.InvokeAsync(() => { if (!IsClosing) RefreshInspector(); });

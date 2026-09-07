@@ -16,10 +16,12 @@ namespace PZTools.Core.Functions.Agent
         {
             "pztools_capabilities",
             "pztools_get_editor_state",
+            "pztools_search_project",
             "pztools_list_files",
             "pztools_read_file",
             "pztools_get_game_status",
-            "pztools_get_game_log"
+            "pztools_get_game_log",
+            "pztools_get_test_reports", "pztools_discover_tests", "pztools_get_playtest_profiles", "pztools_get_run_status", "pztools_verify_deployment"
         };
 
         public static string GetPipeName(string projectRoot)
@@ -34,13 +36,17 @@ namespace PZTools.Core.Functions.Agent
 
         public static IReadOnlyList<string> GetEnabledTools(AppSettings settings)
         {
-            var tools = new List<string> { "pztools_capabilities" };
+            var tools = new List<string> { "pztools_capabilities", "pztools_cancel_run" };
             if (settings.AgentMcpAllowEditorControl)
-                tools.AddRange(new[] { "pztools_get_editor_state", "pztools_list_files", "pztools_read_file", "pztools_open_file" });
+                tools.AddRange(new[] { "pztools_get_editor_state", "pztools_search_project", "pztools_list_files", "pztools_read_file", "pztools_open_file" });
             if (settings.AgentMcpAllowProjectWrites)
                 tools.Add("pztools_write_file");
             if (settings.AgentMcpAllowTesting)
-                tools.AddRange(new[] { "pztools_test_lua", "pztools_check_project" });
+                tools.AddRange(new[] { "pztools_test_lua", "pztools_check_project", "pztools_get_test_reports", "pztools_discover_tests", "pztools_start_test_run", "pztools_get_run_status", "pztools_get_playtest_profiles", "pztools_verify_deployment" });
+            if (settings.AgentMcpAllowTesting && settings.AgentMcpAllowProjectWrites)
+                tools.Add("pztools_scaffold_tests");
+            if (settings.AgentMcpAllowTesting && settings.AgentMcpAllowDeployment && settings.AgentMcpAllowGameControl)
+                tools.Add("pztools_start_playtest");
             if (settings.AgentMcpAllowDeployment)
                 tools.Add("pztools_deploy_project");
             if (settings.AgentMcpAllowGameControl)

@@ -386,6 +386,9 @@ namespace PZTools.Core.Functions.Menu
 
         public static class Help
         {
+            public static ICommand How_to_use { get; } =
+                new RelayCommand(() => AppKnowledgeExplorer.Open(App.MainWindow));
+
             public static ICommand PZ_Wiki { get; } =
                 new RelayCommand(() =>
                 {

@@ -53,13 +53,17 @@ namespace PZTools.Core.Windows.Dialogs
             BusyOverlay.Visibility = Visibility.Visible;
             BusyText.Text = force ? "Rebuilding game-code index..." : "Loading game-code index...";
             ResultsList.ItemsSource = null;
+            TreeViewButton.IsEnabled = false;
             _index = null;
 
             try
             {
                 var progress = new Progress<string>(message => BusyText.Text = message);
-                _index = await Task.Run(() => GameKnowledgeBase.LoadOrBuildAsync(
+                var index = await Task.Run(() => GameKnowledgeBase.LoadOrBuildAsync(
                     build.SourcePath, build.Name, force, progress, cts.Token), cts.Token);
+                if (!ReferenceEquals(_loadCts, cts) || cts.IsCancellationRequested) return;
+                _index = index;
+                TreeViewButton.IsEnabled = true;
                 ApplySearch();
             }
             catch (OperationCanceledException) { }
@@ -173,6 +177,12 @@ namespace PZTools.Core.Windows.Dialogs
         private void ResultsList_MouseDoubleClick(object sender, MouseButtonEventArgs e) => OpenSelectedSource();
 
         private async void Rebuild_Click(object sender, RoutedEventArgs e) => await LoadSelectedBuildAsync(true);
+
+        private void TreeView_Click(object sender, RoutedEventArgs e)
+        {
+            if (_index is not null)
+                new GameKnowledgeTree(_index, ResultsList.SelectedItem as GameKnowledgeSymbol) { Owner = this }.Show();
+        }
 
         private void Copy_Click(object sender, RoutedEventArgs e)
         {

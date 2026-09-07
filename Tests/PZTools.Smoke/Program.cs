@@ -357,10 +357,19 @@ try
     var legacySyncedFile = Path.Combine(legacyTarget.Path, "media", "lua", "shared", "CrossVersion", "SharedRules.lua");
     Expect(enabledSync.Copied == 1 && File.ReadAllText(legacySyncedFile) == "return 'v1'",
         "folder version sync seeds missing counterparts");
+    var syncManifestPath = Path.Combine(project.RootPath, ".pztools", "version-sync.json");
+    var sentinelWriteTime = new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+    File.SetLastWriteTimeUtc(syncManifestPath, sentinelWriteTime);
+    for (var pass = 0; pass < 3; pass++)
+        VersionSyncService.ReconcileAll(project);
+    Expect(File.GetLastWriteTimeUtc(syncManifestPath) == sentinelWriteTime,
+        "idle version sync leaves the manifest untouched to avoid watcher feedback");
     File.WriteAllText(syncedSourceFile, "return 'v2'");
     var updatedSync = VersionSyncService.ReconcileChange(project, syncedSourceFile);
     Expect(updatedSync.Updated == 1 && File.ReadAllText(legacySyncedFile) == "return 'v2'",
         "version sync propagates a one-sided edit");
+    Expect(File.GetLastWriteTimeUtc(syncManifestPath) != sentinelWriteTime,
+        "version sync persists the baseline after a real edit");
     File.WriteAllText(legacySyncedFile, "return 'legacy-only'");
     File.WriteAllText(syncedSourceFile, "return 'future-only'");
     var conflictingSync = VersionSyncService.ReconcileChange(project, syncedSourceFile);

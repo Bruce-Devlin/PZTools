@@ -80,6 +80,7 @@
     <EmbeddedResource Include="Resources\PZtxt.xshd" />
     <EmbeddedResource Include="Resources\PZlua.xshd" />
     <EmbeddedResource Include="Resources\Testing\*.lua" />
+    <EmbeddedResource Include="Resources\Help\KnowledgeBase.md" />
   </ItemGroup>
 
 </Project>

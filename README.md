@@ -48,6 +48,15 @@ My mods made with PZTools:
 - VS Code, VS Code Insiders, and VSCodium workspace integration
 - Configurable Agent MCP integration for Codex, including editor control, project inspection, validation, guarded deployment, game debug sessions, and runtime logs
 - Steam Workshop packaging and upload through SteamCMD
+- Offline application knowledgebase under **Help > How to use**, with searchable articles, categories, section links, and reading history
+
+## Using the app
+
+Open **Help > How to use** for the bundled PZ Tools manual. It covers setup, projects, file workflows, content managers, validation, playtesting, Workshop publication, and app settings. The help window stays open alongside the workspace and supports both app themes. This manual covers using PZ Tools; game modding guidance belongs in the PZ Modding Wiki, and recovered game source is browsed separately through **View > Game Code Knowledge Base**.
+
+Help articles live in `Resources/Help/KnowledgeBase.md` and are embedded in the executable. Each article starts with `# article-id | Category | Title`; use `##` for section headings and `[article label](article-id)` for internal links. Keep article IDs stable and instructions aligned with the actual UI. The catalog validates IDs and links when loaded.
+
+Run `dotnet run --project Tests/PZTools.HelpSmoke/PZTools.HelpSmoke.csproj` on Windows to check the bundled articles, search, navigation, and reader rendering in both themes. This focused harness compiles the help components directly and writes screenshots beneath its output folder; build the main app as well to verify integration.
 
 ---
 
@@ -171,6 +180,10 @@ The CFR JAR is downloaded automatically when it is first needed.
 
 After CFR finishes, PZTools indexes the recovered Java declarations for the selected game build. Open **View > Game Code Knowledge Base** to search names, packages, signatures, parameters, and recovered JavaDoc, filter by symbol kind, and jump back to the exact decompiled source. Indexes are cached beside each build's source and rebuilt automatically when the source files change; **Rebuild index** is available for a manual refresh.
 
+Choose **Visual tree ↗** to open a separate view of the selected build while keeping search available. Expand packages, classes, nested classes, and methods to find fields, parameters, and local variables; the tree includes all indexed visibility levels and bundled packages. Search by class or member name, click connected cards to follow ownership, declared types, inheritance, inferred calls, and callers, or use **Containing object** and **Back** to retrace your steps. The lower pane shows the selected declaration's full source; **Open source at line** opens it externally. Zoom and relationship pages keep large objects navigable without dropping their members.
+
+The tree shows indexed classes and members immediately, then adds source, variables, and relationships in background batches. Progress shows the declarations processed and relationships loaded; incoming callers remain partial until analysis finishes. Selecting or expanding an object prioritizes its source file ahead of remaining files. Live additions preserve selection, expanded branches, zoom, and source text selection. Closing the window cancels background inference. Relationship labels distinguish inferred calls, possible overload targets, and unresolved calls. This is source navigation, not complete Java compiler analysis: inherited method lookup, chained receivers, runtime dispatch, reflection, and some complex declarations may remain unresolved. Missing source files are reported in the status bar. Decompiled Java visibility does not establish Lua exposure.
+
 The index describes recovered implementation code, not a guaranteed public mod API. A method may still be private, package-restricted, unsafe to call directly, or unavailable to Lua. Use the declaration, implementation, and call sites together, then verify behaviour in the matching game build.
 
 ### Updates
@@ -196,6 +209,21 @@ PZTools includes a local MCP server so Codex can work through the same project, 
 Setup adds a clearly marked PZTools block to the project's `.codex/config.toml` and preserves other Codex settings. Keep the matching project open in PZTools while using its MCP tools.
 
 The bridge uses a per-project Windows named pipe restricted to the current Windows user. Every request is checked against the live PZTools capability settings, and project file paths are constrained to the active project. Read-only status and inspection tools are pre-approved in the generated Codex config; editor changes, deployment, and game process control still require Codex approval. Debug launches run Project Health first and will not start from a stale playtest copy unless Agent MCP deployment is enabled.
+
+MCP also supports Test Explorer and Playtest Lab:
+
+- `pztools_discover_tests` and `pztools_scaffold_tests` discover suites or create the existing example tests without replacing files.
+- `pztools_start_test_run` starts unit or game tests from saved files. Use `kind`, an optional path-substring `filter` relative to `.pztests`, and a saved `profile` name or ID for game tests.
+- `pztools_get_playtest_profiles` returns profile settings and validation errors. `pztools_start_playtest` launches the selected single-player or dedicated-server profile in its isolated workspace.
+- Both start tools return a background operation `runId`. Use `pztools_get_run_status` to poll recent output and final structured results; `pztools_cancel_run` requests cancellation and process cleanup. Only one MCP run per editor can be active. The latest run remains available until another starts; closing the editor cancels it. Desktop-started sessions are not controlled by these tools.
+- `pztools_get_test_reports` lists persisted reports from either MCP or Test Explorer, or reads a report by its report ID (distinct from the background operation ID). Reports contain test names, files, endpoints, failures, steps, and the artifact directory with JSON/JUnit/logs. A `completed` operation means execution finished; inspect `result.Passed` and `Errors` to determine test success.
+- `pztools_search_project` searches saved project text or file names, returning bounded matches with source locations and previews.
+- `pztools_verify_deployment` checks for missing/stale deployed content without deploying anything.
+
+Testing permission enables discovery, unit execution, report/profile inspection, and deployment verification. Scaffolding also requires project writes. Game tests and Playtest Lab launches require testing, deployment, and game control together. Unit execution writes result artifacts under `.pztools/test-results`; this is part of testing permission. Cancellation remains available when individual launch permissions are revoked while MCP stays enabled. Game tests retain the existing fresh-workspace and saved-character requirements described in [testing.md](docs/testing.md).
+
+After upgrading, run the Agent MCP setup again to refresh the generated tool allowlist and restart the MCP client. Profile changes still use Playtest Lab's existing editor. Further integration candidates include typed content-manager editing, version-sync previews, and Workshop package validation; these are not exposed by this change.
+
 
 You can inspect the generated server entry with `codex mcp list`. To change capabilities later, update them in PZTools and select **Configure Current Project for Codex** again.
 

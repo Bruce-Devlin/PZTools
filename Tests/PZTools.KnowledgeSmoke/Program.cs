@@ -66,6 +66,114 @@ try
     Expect(GameKnowledgeBase.Search(index, "internalMethod", includeInternals: true).Count == 1 &&
         GameKnowledgeBase.Search(index, "lambda$future$0", includeInternals: true).Count == 1, "internal declarations remain available on demand");
 
+    var graphDirectory = Path.Combine(root, "zombie", "graph");
+    Directory.CreateDirectory(graphDirectory);
+    File.WriteAllText(Path.Combine(graphDirectory, "Actor.java"), """
+        package zombie.graph;
+        public class Actor {
+            private Service service;
+            public void tick(Service input) {
+                Service local = new Service();
+                service.run();
+                input.run();
+                local.run();
+                this.service.run();
+                service.overload(1);
+                service.run("literal, text");
+                unknown.run();
+                service.factory().run();
+                // service.fake();
+                String message = "service.fake()";
+                tick(input);
+            }
+            public class Inner {
+                public void inside() {
+                }
+            }
+        }
+        """);
+    File.WriteAllText(Path.Combine(graphDirectory, "Service.java"), """
+        package zombie.graph;
+        public class Service {
+            public Service() {
+            }
+            public void run() {
+            }
+            public void run(String text) {
+            }
+            public void overload(int value) {
+            }
+            public void overload(String value) {
+            }
+            public Service factory() {
+                return this;
+            }
+        }
+        """);
+    var graphIndex = await GameKnowledgeBase.LoadOrBuildAsync(root, "graph", true);
+    var graph = await GameKnowledgeGraph.BuildAsync(graphIndex);
+    var actor = graph.Types.Single(n => n.Symbol!.QualifiedName == "zombie.graph.Actor");
+    var tick = actor.Children.Single(n => n.Symbol!.Name == "tick");
+    Expect(actor.Children.Any(n => n.Kind == "Field") && actor.Children.Any(n => n.Kind == "Type"), "tree retains private fields and nested classes");
+    Expect(tick.Children.Any(n => n.Kind == "Parameter" && n.Symbol!.Name == "input") && tick.Children.Any(n => n.Kind == "Local variable" && n.Symbol!.Name == "local"), "method tree includes parameters and local objects");
+    var calls = graph.Outgoing(tick);
+    Expect(calls.Count(e => e.To?.Symbol?.Name == "run" && e.To.Symbol.Parameters == "") == 4, "calls resolve field, parameter, local and explicit this receivers");
+    Expect(calls.Count(e => e.Kind == "Possible call (overload)") == 2, "same arity overloads remain possible targets");
+    Expect(calls.Any(e => e.To?.Symbol?.Parameters == "String text"), "string literal argument preserves call arity");
+    Expect(calls.Count(e => e.Kind == "Unresolved call") == 2, "unknown and chained receivers remain unresolved");
+    Expect(calls.All(e => !e.Description.Contains("fake")), "comments and string contents cannot introduce calls");
+    Expect(calls.Any(e => e.To == tick) && graph.Incoming(tick).Any(e => e.From == tick), "recursive calls and reverse navigation are retained without recursive expansion");
+    Expect(graph.Source(actor).Contains("class Inner") && graph.Source(tick).TrimEnd().EndsWith('}') && !graph.Source(tick).Contains("class Inner"), "source preview contains the complete selected object or method only");
+    var live = new GameKnowledgeGraph();
+    var priority = new System.Collections.Concurrent.ConcurrentQueue<string>();
+    var publications = 0;
+    GameKnowledgeGraph.Node? liveService = null;
+    var sawPartialCalls = false;
+    var streamed = await GameKnowledgeGraph.BuildAsync(graphIndex, publish: update =>
+    {
+        live.Apply(update);
+        publications++;
+        if (publications == 1)
+        {
+            Expect(live.Nodes.Count == graphIndex.Symbols.Count && live.Completed == 0 && live.Edges.Count == 0,
+                "all classes and members are published before source inference starts");
+            liveService = live.Types.Single(n => n.Symbol!.QualifiedName == "zombie.graph.Service");
+            Expect(live.Source(liveService).Contains("loading"), "pending source is labelled as loading");
+            priority.Enqueue(liveService.Symbol!.RelativePath);
+        }
+        if (live.Completed > 0 && !live.Finished)
+        {
+            Expect(liveService!.Analyzed, "selected file is inferred ahead of the background queue");
+            if (live.Edges.Count > 0) sawPartialCalls = true;
+        }
+        Expect(ReferenceEquals(liveService, live.Types.Single(n => n.Symbol!.QualifiedName == "zombie.graph.Service")),
+            "stream updates preserve node identity for selection and history");
+        return Task.CompletedTask;
+    }, priorityFiles: priority);
+    Expect(publications >= 3 && sawPartialCalls && live.Finished && live.Completed == live.Total,
+        "partial relationships are visible before completion with final progress");
+    Expect(live.Edges.Count == streamed.Edges.Count && live.Nodes.Count == streamed.Nodes.Count,
+        "streamed graph contains every final node and relationship without duplicates");
+    Expect(live.Outgoing(live.Nodes.Single(n => n.Symbol?.QualifiedName == "zombie.graph.Actor.tick")).Count == calls.Count,
+        "incremental forward and reverse indexes match full inference");
+    using (var duringPublish = new CancellationTokenSource())
+    {
+        var updates = 0;
+        try
+        {
+            await GameKnowledgeGraph.BuildAsync(graphIndex, cancellationToken: duringPublish.Token, publish: update =>
+            { updates++; duringPublish.Cancel(); return Task.CompletedTask; });
+            throw new Exception("Cancellation after initial publication was ignored");
+        }
+        catch (OperationCanceledException) { Expect(updates == 1, "closing after the initial tree cancels further publications"); }
+    }
+    using (var canceled = new CancellationTokenSource())
+    {
+        canceled.Cancel();
+        try { await GameKnowledgeGraph.BuildAsync(graphIndex, cancellationToken: canceled.Token); throw new Exception("Cancellation was ignored"); }
+        catch (OperationCanceledException) { Console.WriteLine("PASS graph construction honors cancellation"); }
+    }
+
     if (args.Length > 0)
     {
         var real = await GameKnowledgeBase.LoadOrBuildAsync(args[0], "Current game");
