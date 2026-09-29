@@ -19,7 +19,7 @@ namespace PZTools.Core.Functions.Projects
             {
                 ProjectId = projectId,
                 DeployedAtUtc = DateTime.UtcNow,
-                Files = Directory.EnumerateFiles(deployedRoot, "*", SearchOption.AllDirectories)
+                Files = ProjectDeployer.EnumeratePayloadFiles(deployedRoot)
                     .Where(x => !Path.GetFileName(x).Equals(ManifestFileName, StringComparison.OrdinalIgnoreCase))
                     .Select(x => new DeploymentManifestEntry
                     {
@@ -70,6 +70,16 @@ namespace PZTools.Core.Functions.Projects
                     $"Deployed mod ID '{manifest.ProjectId}' does not match project ID '{projectId}'.",
                     "Deploy the current project again before launching.", manifestPath);
 
+            if (manifest.Files.Any(x => x is null || string.IsNullOrWhiteSpace(x.Path) ||
+                    Path.IsPathRooted(x.Path) || x.Path.Replace('\\', '/').Split('/').Any(p => p is ".." or "." or "") ||
+                    x.Length < 0 || x.Sha256 is null || x.Sha256.Length != 64 || !x.Sha256.All(Uri.IsHexDigit)) ||
+                manifest.Files.GroupBy(x => NormalizeRelative(x.Path), StringComparer.OrdinalIgnoreCase).Any(x => x.Count() > 1))
+            {
+                Add(diagnostics, DiagnosticSeverity.Error, "PZD002", "Deployment manifest contains invalid or duplicate file entries.",
+                    "Redeploy the project to recreate the manifest.", manifestPath);
+                return diagnostics;
+            }
+
             var manifestFiles = manifest.Files
                 .GroupBy(x => NormalizeRelative(x.Path), StringComparer.OrdinalIgnoreCase)
                 .ToDictionary(x => x.Key, x => x.First(), StringComparer.OrdinalIgnoreCase);
@@ -96,7 +106,7 @@ namespace PZTools.Core.Functions.Projects
 
             if (Directory.Exists(sourceRoot))
             {
-                foreach (var sourceFile in Directory.EnumerateFiles(sourceRoot, "*", SearchOption.AllDirectories))
+                foreach (var sourceFile in ProjectDeployer.EnumeratePayloadFiles(sourceRoot))
                 {
                     var relative = Path.GetRelativePath(sourceRoot, sourceFile);
                     if (!ProjectDeployer.ShouldIncludePath(relative))
@@ -106,6 +116,14 @@ namespace PZTools.Core.Functions.Projects
                         Add(diagnostics, DiagnosticSeverity.Warning, "PZD013", $"New source file has not been deployed: {relative}",
                             "Redeploy before launching to include the new file.", sourceFile);
                 }
+            }
+
+            foreach (var deployedFile in ProjectDeployer.EnumeratePayloadFiles(deployedRoot))
+            {
+                var relative = NormalizeRelative(Path.GetRelativePath(deployedRoot, deployedFile));
+                if (!manifestFiles.ContainsKey(relative))
+                    Add(diagnostics, DiagnosticSeverity.Error, "PZD014", $"Unexpected file in deployment: {relative}",
+                        "Redeploy to remove files that are not part of the verified payload.", deployedFile);
             }
 
             return diagnostics;
@@ -135,6 +153,7 @@ namespace PZTools.Core.Functions.Projects
             {
                 var fullRoot = Path.GetFullPath(root);
                 var fullPath = Path.GetFullPath(Path.Combine(fullRoot, relative.Replace('/', Path.DirectorySeparatorChar)));
+                ProjectDeployer.RejectLinkedPath(fullPath);
                 var prefix = Path.TrimEndingDirectorySeparator(fullRoot) + Path.DirectorySeparatorChar;
                 return fullPath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) ? fullPath : null;
             }

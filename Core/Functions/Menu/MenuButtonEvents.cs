@@ -210,6 +210,15 @@ namespace PZTools.Core.Functions.Menu
 
         public static class Project
         {
+            public static ICommand Content_Managers { get; } = new RelayCommand(() =>
+            {
+                if (ProjectEngine.CurrentProject is { } project)
+                    App.MainWindow.ShowDialog(new ContentManagers(project));
+            });
+
+            public static ICommand Deploy_Project { get; } =
+                new RelayCommand(() => App.MainWindow?.DeployCurrentProject());
+
             public static ICommand Find_In_Project { get; } =
                 new RelayCommand(() => App.MainWindow?.ShowProjectSearch());
 
@@ -284,19 +293,17 @@ namespace PZTools.Core.Functions.Menu
                 });
 
             public static ICommand Open_Game_Lua_Source { get; } =
-                new RelayCommand(() =>
-                {
-                    var luaPath = Path.Combine(ZomboidGame.GameDirectory, "media", "lua");
-                    if (Directory.Exists(luaPath))
-                        WindowsHelpers.ShowInExplorer(luaPath);
-                    else
-                        MessageBox.Show("The game Lua source folder was not found. Check the game path in App Options.",
-                        "Game Lua Source", MessageBoxButton.OK, MessageBoxImage.Warning);
-                });
+                new RelayCommand(() => App.MainWindow.ShowDialog(new GameSources()));
+
+            public static ICommand Game_Content_References { get; } =
+                new RelayCommand(() => App.MainWindow.ShowDialog(new GameSources()));
         }
 
         public static class View
         {
+            public static ICommand Command_Palette { get; } =
+                new RelayCommand(() => App.MainWindow?.ShowCommandPalette());
+
             public static ICommand Game_Code_Knowledge_Base { get; } =
                     new RelayCommand(() =>
                     {

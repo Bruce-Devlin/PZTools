@@ -41,13 +41,10 @@ namespace PZTools.Core.Windows.Dialogs.Project
                 var validateLua = ValidateLuaCheck.IsChecked == true;
                 var token = refreshCts.Token;
                 var report = await Task.Run(() => ProjectHealthService.AnalyzeAsync(_project, validateLua, token), token);
+                if (token.IsCancellationRequested || !ReferenceEquals(_refreshCts, refreshCts)) return;
                 _latestReport = report;
                 ExportReportButton.IsEnabled = true;
-                DiagnosticsList.ItemsSource = report.Diagnostics
-                    .OrderByDescending(x => x.Severity)
-                    .ThenBy(x => x.Target)
-                    .ThenBy(x => x.Code)
-                    .ToList();
+                ApplyFilters();
                 LuaCountText.Text = report.LuaFileCount.ToString();
                 ScriptCountText.Text = report.ScriptFileCount.ToString();
                 ContentSizeText.Text = FormatSize(report.ContentBytes);
@@ -62,6 +59,7 @@ namespace PZTools.Core.Windows.Dialogs.Project
             catch (OperationCanceledException) { }
             catch (Exception ex)
             {
+                if (!ReferenceEquals(_refreshCts, refreshCts) || refreshCts.IsCancellationRequested) return;
                 DiagnosticsList.ItemsSource = new[]
                 {
                     new ProjectDiagnostic
@@ -83,6 +81,34 @@ namespace PZTools.Core.Windows.Dialogs.Project
         }
 
         private async void Refresh_Click(object sender, RoutedEventArgs e) => await RefreshReportAsync();
+
+        private void Filter_Changed(object sender, RoutedEventArgs e) => ApplyFilters();
+
+        private void ApplyFilters()
+        {
+            if (_latestReport is null || DiagnosticQuery is null || DiagnosticsList is null) return;
+            var query = DiagnosticQuery.Text.Trim();
+            DiagnosticSeverity? severity = SeverityFilter.SelectedIndex switch
+            {
+                1 => DiagnosticSeverity.Error,
+                2 => DiagnosticSeverity.Warning,
+                3 => DiagnosticSeverity.Info,
+                _ => null
+            };
+            var findings = _latestReport.Diagnostics.Where(x =>
+                (severity is null || x.Severity == severity) &&
+                (query.Length == 0 || $"{x.Code} {x.Target} {x.FilePath} {x.Message}".Contains(query, StringComparison.OrdinalIgnoreCase)))
+                .OrderByDescending(x => x.Severity).ThenBy(x => x.Target).ThenBy(x => x.Code).ToList();
+            DiagnosticsList.ItemsSource = findings;
+            FilterCount.Text = $"{findings.Count} / {_latestReport.Diagnostics.Count}";
+            RecommendationText.Text = findings.Count == 0 ? "No findings match the current filters." :
+                "Select a problem for details. Press Enter or double-click to open its file.";
+        }
+
+        private void DiagnosticsList_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter) { OpenSelectedDiagnostic(); e.Handled = true; }
+        }
 
         private void SetupVsCode_Click(object sender, RoutedEventArgs e)
         {
@@ -168,6 +194,12 @@ namespace PZTools.Core.Windows.Dialogs.Project
         }
 
         private void DiagnosticsList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            if (ItemsControl.ContainerFromElement(DiagnosticsList, e.OriginalSource as DependencyObject) is System.Windows.Controls.ListViewItem)
+                OpenSelectedDiagnostic();
+        }
+
+        private void OpenSelectedDiagnostic()
         {
             if (DiagnosticsList.SelectedItem is not ProjectDiagnostic diagnostic || string.IsNullOrWhiteSpace(diagnostic.FilePath))
                 return;

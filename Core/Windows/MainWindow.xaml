@@ -83,7 +83,10 @@
                     <TextBlock x:Name="WorkspaceName" FontSize="19" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
                     <TextBlock x:Name="WorkspaceDetails" Foreground="{DynamicResource Brush.TextMuted}" FontSize="11" Margin="0,3,0,0"/>
                 </StackPanel>
-                <Button Grid.Column="2" Style="{DynamicResource CompactButton}" Content="Find in project   Ctrl+Shift+F" Click="SearchProject_Click" ToolTip="Search file names and project content"/>
+                <StackPanel Grid.Column="2" Orientation="Horizontal">
+                    <Button Style="{DynamicResource CompactButton}" Content="Commands   Ctrl+Shift+P" Click="CommandPalette_Click" ToolTip="Find and run any menu command" Margin="0,0,8,0"/>
+                    <Button Style="{DynamicResource CompactButton}" Content="Find   Ctrl+Shift+F" Click="SearchProject_Click" ToolTip="Search file names and project content"/>
+                </StackPanel>
             </Grid>
         </Border>
         <Menu ItemsSource="{Binding Menus}" Height="34">

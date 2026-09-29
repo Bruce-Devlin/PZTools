@@ -22,6 +22,7 @@ public partial class MainWindow
         WorkspaceDetails.Text = $"{ModProject.Targets.Count} build target{(ModProject.Targets.Count == 1 ? "" : "s")}  ·  {ModProject.ModInfo.Id}";
         WorkspaceName.ToolTip = ModProject.RootPath;
         ThemeManager.ThemeChanged += Workspace_ThemeChanged;
+        InputBindings.Add(new KeyBinding(new RelayCommand(ShowCommandPalette), Key.P, ModifierKeys.Control | ModifierKeys.Shift));
         InputBindings.Add(new KeyBinding(new RelayCommand(ShowPreviewFind), Key.F, ModifierKeys.Control));
         InputBindings.Add(new KeyBinding(new RelayCommand(() => MoveFind(1)), Key.F3, ModifierKeys.None));
         InputBindings.Add(new KeyBinding(new RelayCommand(() => MoveFind(-1)), Key.F3, ModifierKeys.Shift));
@@ -55,6 +56,18 @@ public partial class MainWindow
     }
 
     private void SearchProject_Click(object sender, RoutedEventArgs e) => ShowProjectSearch();
+
+    public void ShowCommandPalette()
+    {
+        if (DataContext is not PZTools.Core.Models.View.MainViewModel model) return;
+        var palette = new Dialogs.CommandPalette(model.Menus) { Owner = this };
+        if (palette.ShowDialog() == true && palette.SelectedCommand is { } command && command.CanExecute(null))
+            command.Execute(null);
+    }
+
+    private void CommandPalette_Click(object sender, RoutedEventArgs e) => ShowCommandPalette();
+
+    public void DeployCurrentProject() => DeployProject_Click(this, new RoutedEventArgs());
 
     private void ResetPreview()
     {

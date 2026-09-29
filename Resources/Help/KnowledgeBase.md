@@ -59,6 +59,12 @@ For a portable backup, keep the complete project folder, including its hidden co
 # workspace | Getting started | Workspace tour
 The main window combines a project tree, file preview, Inspector, output, and shortcuts to the app's main workflows.
 
+## Find commands
+Press Ctrl+Shift+P or choose View > Command Palette. Type task words such as project health, test, or Workshop; use Up and Down to select, Enter to run, and Escape to close. Commands retain their normal validation and confirmation dialogs.
+
+## Browse vanilla examples
+Project > Game Content References lists installed builds and content categories including Lua, scripts, maps, models, animations, sound, and texture packs. Select a build and category, then Open folder. Missing folders are shown explicitly. Copy examples into your project before editing installation files.
+
 ## Main areas
 - Project Explorer, on the left, groups files by build target. Expand a target or folder and select an item to inspect it.
 - Code shows the selected file preview. Game hosts a running windowed playtest when docking is available.
@@ -303,6 +309,8 @@ Switching language or target changes the working destination; save pending chang
 The app helps maintain files; it does not translate your content or explain game translation naming rules. See the PZ Modding Wiki for those details and [Content Managers](content-managers) for the common workflow.
 
 # health | Validation and testing | Project Health Dashboard
+Use the severity selector and filter field to narrow findings by message, file, build target, or code. The count shows visible findings out of the full report. Select a finding and press Enter or double-click to open its file. Readiness and exported reports always use the full report, regardless of filters.
+
 Project Health checks the saved project and reports issues before deployment or upload.
 
 ## Run checks
@@ -364,6 +372,8 @@ Watermark actions write to files. Confirm the active project and selected file, 
 See [file operations](files) for recovery boundaries and [storage](storage) for backups.
 
 # deployment | Validation and testing | Deploy Project and stale-copy checks
+Deployment refuses destinations that overlap loadable source content and refuses linked payload paths. Internal caches and agent configuration are excluded. Failed staging is cleaned up without replacing the previous deployment. Verification reports unexpected deployed files as well as changed, missing, or new source files; redeploy to restore a clean payload.
+
 Deployment copies the saved project to the local Mods destination used for testing. It is distinct from publishing to Steam Workshop.
 
 ## Deploy current work

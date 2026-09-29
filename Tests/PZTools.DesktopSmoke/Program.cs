@@ -110,6 +110,8 @@ internal static class Program
             Drain();
             CheckButtonsFit(window);
             Capture(window, "workspace-dark-minimum");
+            CheckCommandPalette(window, "dark");
+            CheckWorkflowDialogs(window, project, "dark");
             CaptureInspector(window, "inspector-dark-minimum");
             app.Resources.MergedDictionaries[0] = new ResourceDictionary { Source = new Uri("/PZTools;component/Core/Windows/Themes/Light.xaml", UriKind.Relative) };
             Invoke(window, "Workspace_ThemeChanged", window, "Light");
@@ -118,6 +120,8 @@ internal static class Program
             Check(commentColor.Equals(new ICSharpCode.AvalonEdit.Highlighting.SimpleHighlightingBrush(Color.FromRgb(0x36, 0x75, 0x48))), "syntax palette follows light theme");
             CheckButtonsFit(window);
             Capture(window, "workspace-light-minimum");
+            CheckCommandPalette(window, "light");
+            CheckWorkflowDialogs(window, project, "light");
             CaptureInspector(window, "inspector-light-minimum");
             window.Close();
             Drain();
@@ -301,6 +305,54 @@ internal static class Program
         Capture(window, name + "-details");
         panel.ScrollToTop();
         Drain();
+    }
+
+    private static void CheckCommandPalette(MainWindow owner, string theme)
+    {
+        var model = (PZTools.Core.Models.View.MainViewModel)owner.DataContext;
+        var palette = new PZTools.Core.Windows.Dialogs.CommandPalette(model.Menus) { Owner = owner };
+        palette.Show();
+        Drain();
+        var query = Control<TextBox>(palette, "Query");
+        var results = Control<ListBox>(palette, "Results");
+        Check(results.Items.Count > 20, "palette exposes existing menu workflows");
+        query.Text = "project health";
+        Check(results.Items.Count == 1, "palette searches menu and command words");
+        Capture(palette, "command-palette-" + theme);
+        query.Text = "no-such-command-123";
+        Check(results.Items.Count == 0 && Control<TextBlock>(palette, "Hint").Text.StartsWith("No available"), "palette explains empty search");
+        palette.Close();
+    }
+
+    private static void CheckWorkflowDialogs(MainWindow owner, ModProject project, string theme)
+    {
+        var dashboard = new PZTools.Core.Windows.Dialogs.Project.ProjectDashboard(project) { Owner = owner, Width = 820, Height = 540 };
+        dashboard.Show();
+        Await((Task)dashboard.GetType().GetMethod("RefreshReportAsync", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(dashboard, null)!);
+        var report = new ProjectHealthReport { Project = project };
+        report.Diagnostics.Add(new ProjectDiagnostic { Severity = DiagnosticSeverity.Error, Code = "TEST001", Message = "Missing test asset", Target = "42", FilePath = "media/fixture.lua" });
+        report.Diagnostics.Add(new ProjectDiagnostic { Severity = DiagnosticSeverity.Warning, Code = "TEST002", Message = "Review metadata", Target = "41" });
+        dashboard.GetType().GetField("_latestReport", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(dashboard, report);
+        Invoke(dashboard, "ApplyFilters");
+        var findings = Control<ListView>(dashboard, "DiagnosticsList");
+        Control<ComboBox>(dashboard, "SeverityFilter").SelectedIndex = 1;
+        Check(findings.Items.Count == 1, "health filters by severity");
+        Control<TextBox>(dashboard, "DiagnosticQuery").Text = "fixture.lua";
+        Check(findings.Items.Count == 1, "health filters by file path");
+        Capture(dashboard, "health-filters-" + theme);
+        Control<TextBox>(dashboard, "DiagnosticQuery").Text = "missing-query";
+        Check(findings.Items.Count == 0 && report.ErrorCount == 1, "health filtering preserves full-report readiness");
+        dashboard.Close();
+
+        var sources = new PZTools.Core.Windows.Dialogs.GameSources { Owner = owner };
+        sources.Show();
+        Control<ComboBox>(sources, "Builds").ItemsSource = new[] { new PZTools.Core.Windows.Dialogs.GameSources.BuildEntry("Fixture build 42", project.Targets.First().Path) };
+        Control<ComboBox>(sources, "Builds").SelectedIndex = 0;
+        Check(Control<Button>(sources, "OpenButton").IsEnabled, "game references enable existing Lua folder");
+        Capture(sources, "game-references-" + theme);
+        Control<ComboBox>(sources, "Categories").SelectedIndex = 2;
+        Check(!Control<Button>(sources, "OpenButton").IsEnabled, "game references disable missing content");
+        sources.Close();
     }
 
     private static void Capture(Window window, string name)

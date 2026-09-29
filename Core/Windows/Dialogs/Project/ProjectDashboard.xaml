@@ -36,7 +36,7 @@
         </StackPanel>
 
         <Grid Grid.Row="2" Margin="0,0,0,10">
-            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
             <WrapPanel>
                 <Button Style="{StaticResource SmallAction}" Content="Refresh health" Click="Refresh_Click"/>
                 <Button Style="{StaticResource SmallAction}" Content="Set up VS Code" Click="SetupVsCode_Click"/>
@@ -46,6 +46,15 @@
                 <Button x:Name="ExportReportButton" Style="{StaticResource SmallAction}" Content="Export report" Click="ExportReport_Click" IsEnabled="False"/>
             </WrapPanel>
             <CheckBox x:Name="ValidateLuaCheck" Grid.Row="1" Content="Validate every Lua file during health checks" IsChecked="True" Style="{StaticResource ModernCheckBox}" VerticalAlignment="Center"/>
+            <Grid Grid.Row="2" Margin="0,10,0,0">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <ComboBox x:Name="SeverityFilter" SelectedIndex="0" SelectionChanged="Filter_Changed" AutomationProperties.Name="Filter by severity">
+                    <ComboBoxItem Content="All severities"/><ComboBoxItem Content="Errors"/><ComboBoxItem Content="Warnings"/><ComboBoxItem Content="Information"/>
+                </ComboBox>
+                <TextBox x:Name="DiagnosticQuery" Grid.Column="1" Margin="10,0" Style="{StaticResource ModernTextBox}" TextChanged="Filter_Changed"
+                         AutomationProperties.Name="Filter problems" ToolTip="Filter by message, file, build target, or diagnostic code"/>
+                <TextBlock x:Name="FilterCount" Grid.Column="2" VerticalAlignment="Center" Foreground="{DynamicResource Brush.TextMuted}"/>
+            </Grid>
         </Grid>
 
         <Border Grid.Row="3" Background="{DynamicResource Brush.BgSurface}" BorderBrush="{DynamicResource Brush.Border}" BorderThickness="1" CornerRadius="9">
@@ -58,7 +67,7 @@
                     <TextBlock Grid.Column="2" Text="LOCATION" Margin="8,0" VerticalAlignment="Center" FontSize="10" Foreground="{DynamicResource Brush.TextMuted}"/>
                     <TextBlock Grid.Column="3" Text="PROBLEM" Margin="8,0" VerticalAlignment="Center" FontSize="10" Foreground="{DynamicResource Brush.TextMuted}"/>
                 </Grid>
-                <ListView x:Name="DiagnosticsList" Grid.Row="1" BorderThickness="0" Background="{DynamicResource Brush.BgSurface}" SelectionChanged="DiagnosticsList_SelectionChanged" MouseDoubleClick="DiagnosticsList_MouseDoubleClick">
+                <ListView x:Name="DiagnosticsList" Grid.Row="1" BorderThickness="0" Background="{DynamicResource Brush.BgSurface}" SelectionChanged="DiagnosticsList_SelectionChanged" MouseDoubleClick="DiagnosticsList_MouseDoubleClick" KeyDown="DiagnosticsList_KeyDown">
                     <ListView.ItemTemplate>
                         <DataTemplate>
                             <Grid Margin="5,4"><Grid.ColumnDefinitions><ColumnDefinition Width="72"/><ColumnDefinition Width="80"/><ColumnDefinition Width="120"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>

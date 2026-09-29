@@ -74,6 +74,12 @@ PZTools manages Project Zomboid-specific work while your preferred editor handle
 
 ### Finding and previewing files
 
+Use **Ctrl+Shift+P** or **View > Command Palette** to search available menu commands. Search by task or menu (for example, `project health`, `test`, or `Workshop`), select with the arrow keys, and press Enter. Escape closes the palette. Commands use the same validation and confirmation flows as their menu entries.
+
+**Project > Game Content References** lets you choose an installed build and browse its Lua, scripts, maps, models, animations, texture packs, sound, and other media. It supports both existing and managed installations and disables opening when a folder is absent. Use the selected build's vanilla files as references; copy examples into the mod before editing.
+
+The **Health Dashboard** filters findings by severity and by message, path, build target, or diagnostic code. Press Enter on a finding to open its file. Filters affect the visible list; readiness and exported reports still cover all findings.
+
 The project picker filters workspaces by name or location. Double-click a project to open it. In the workspace, **Ctrl+Shift+F** searches content across all build targets and shared files; enable **File names only** to find a path or asset. Results open in the preview at the matching line. Content search is literal, ignores case unless requested, and reports skipped files and capped results. Internal/generated folders are excluded; text files above 2 MB and linked paths are skipped.
 
 Select a file to see its relative path and details. Text previews are read-only and follow external saves while preserving your reading position. **Ctrl+F** opens find in the current file; **F3** and **Shift+F3** move between matches. PNG, JPEG, BMP, and GIF files up to 8 MB have a scaled image preview. **Ctrl+N** opens the PZ file scaffold dialog. The output panel follows new messages when you are at the bottom; scroll up to read earlier output, or turn off **Follow output**.
@@ -120,6 +126,10 @@ The health dashboard checks:
 - Recent project-related warnings and errors in the game console log
 
 Errors block local deployment and Workshop upload. Warnings remain visible but do not stop testing.
+
+Deployment rejects overlapping source/output paths and linked payload paths, excludes internal caches and `.codex` configuration, and cleans failed staging attempts. Verification also detects unexpected deployed files and malformed manifest entries. Isolated playtests under `.pztools` remain supported.
+
+See [the capability audit](docs/capability-audit.md) for current coverage, remaining specialist-tool gaps, and the distinction between local checks and real-game acceptance.
 
 ---
 
@@ -220,7 +230,7 @@ MCP also supports Test Explorer and Playtest Lab:
 - `pztools_search_project` searches saved project text or file names, returning bounded matches with source locations and previews.
 - `pztools_verify_deployment` checks for missing/stale deployed content without deploying anything.
 
-Testing permission enables discovery, unit execution, report/profile inspection, and deployment verification. Scaffolding also requires project writes. Game tests and Playtest Lab launches require testing, deployment, and game control together. Unit execution writes result artifacts under `.pztools/test-results`; this is part of testing permission. Cancellation remains available when individual launch permissions are revoked while MCP stays enabled. Game tests retain the existing fresh-workspace and saved-character requirements described in [testing.md](docs/testing.md).
+Testing permission enables discovery, unit execution, report/profile inspection, and deployment verification. Scaffolding also requires project writes. Game tests and Playtest Lab launches require testing, deployment, and game control together. Unit execution writes result artifacts under `.pztools/test-results`; this is part of testing permission. Cancellation remains available when individual launch permissions are revoked while MCP stays enabled. Game tests retain the existing fresh-workspace and saved-character requirements described in [the bundled testing guide](Resources/Help/KnowledgeBase.md).
 
 After upgrading, run the Agent MCP setup again to refresh the generated tool allowlist and restart the MCP client. Profile changes still use Playtest Lab's existing editor. Further integration candidates include typed content-manager editing, version-sync previews, and Workshop package validation; these are not exposed by this change.
 
