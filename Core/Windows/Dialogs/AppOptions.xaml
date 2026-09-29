@@ -220,6 +220,21 @@
                         <TextBlock Style="{DynamicResource Text.Muted}" TextWrapping="Wrap" Margin="0,6,0,12"
                                    Text="The server is local to your Windows account and only connects to the project currently open in PZ Tools."/>
 
+                        <StackPanel Margin="0,0,0,16">
+                            <TextBlock Text="Responsible AI use" FontWeight="SemiBold"/>
+                            <TextBlock Style="{DynamicResource Text.Muted}" TextWrapping="Wrap" Margin="0,6,0,0"
+                                       Text="Use AI to support your learning and work. You remain responsible for understanding, testing, and maintaining your mod."/>
+                            <TextBlock Style="{DynamicResource Text.Muted}" TextWrapping="Wrap" Margin="0,6,0,0"
+                                       Text="Check generated code against the actual game APIs for your target build and test it in-game. AI can invent functions or hide errors without fixing the underlying problem."/>
+                            <TextBlock Style="{DynamicResource Text.Muted}" TextWrapping="Wrap" Margin="0,6,0,0"
+                                       Text="Respect other creators' permissions and licences, be transparent about AI contributions, and review changes before sharing. Prefer an honest in-game screenshot or a human-made Workshop preview."/>
+                            <TextBlock TextWrapping="Wrap" Margin="0,8,0,0">
+                                <Hyperlink NavigateUri="https://pzwiki.net/wiki/Getting_started_with_modding#Warning_on_AI_usage"
+                                           Foreground="{DynamicResource Brush.TextInfo}"
+                                           RequestNavigate="AiGuidance_RequestNavigate">Read PZwiki's guidance on AI in modding</Hyperlink>
+                            </TextBlock>
+                        </StackPanel>
+
                         <TextBlock Text="Capabilities" FontWeight="SemiBold" Margin="0,0,0,8"/>
                         <CheckBox Style="{DynamicResource ModernCheckBox}" Margin="0,0,0,6"
                                   Content="Inspect and control the live editor"
@@ -228,10 +243,10 @@
                                   Content="Create and update project files"
                                   IsChecked="{Binding Settings.AgentMcpAllowProjectWrites, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                         <CheckBox Style="{DynamicResource ModernCheckBox}" Margin="0,0,0,6"
-                                  Content="Run Lua tests and full Project Health checks"
+                                  Content="Discover and run tests, inspect reports, profiles, and Project Health"
                                   IsChecked="{Binding Settings.AgentMcpAllowTesting, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                         <CheckBox Style="{DynamicResource ModernCheckBox}" Margin="0,0,0,6"
-                                  Content="Deploy the active project to the local Mods folder"
+                                  Content="Deploy to local Mods and isolated Playtest Lab workspaces"
                                   IsChecked="{Binding Settings.AgentMcpAllowDeployment, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                         <CheckBox Style="{DynamicResource ModernCheckBox}"
                                   Content="Start, debug, stop, and inspect Project Zomboid"
