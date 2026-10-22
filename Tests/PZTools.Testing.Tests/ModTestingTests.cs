@@ -167,7 +167,7 @@ public sealed class ModTestingTests : IDisposable
     }
 
     [Fact]
-    public void DriverHeartbeatReportsPauseWithoutAdvancingTestsOrRepairingPlayer()
+    public void DriverClearsStartupButDoesNotRepairDeadPlayersOrOverrideTestsAfterRelease()
     {
         var script = new Script();
         script.DoString("""
@@ -193,6 +193,7 @@ public sealed class ModTestingTests : IDisposable
                     fire = function() for _, fn in ipairs(handlers) do fn() end end }; t[name] = event; return event
             end })
             """);
+        CompanionStartupTests.Install(script);
         script.DoString(ModTestService.Resource("Driver.lua"));
         script.DoString("Events.OnTickEvenPaused.fire(); Events.OnGameStart.fire()");
         Assert.Contains("awaiting_player|0|true|false|false", script.Globals.Get("output").String);
@@ -200,11 +201,15 @@ public sealed class ModTestingTests : IDisposable
         Assert.True(script.Globals.Get("supportRegistered").Boolean);
         Assert.Equal(0, script.Globals.Get("ticks").Number);
         script.DoString("dead = true; Events.OnTickEvenPaused.fire()");
-        Assert.Contains("|true|false|true", script.Globals.Get("output").String);
-        Assert.Equal(0, script.Globals.Get("speed").Number);
+        Assert.Contains("|false|false|true", script.Globals.Get("output").String);
+        Assert.Equal(1, script.Globals.Get("speed").Number);
         Assert.True(script.Globals.Get("dead").Boolean);
         script.DoString("dead = false; speed = 1; gateRun = 'run'; Events.OnTick.fire(); dead = true; Events.OnTickEvenPaused.fire()");
         Assert.Contains("running|", script.Globals.Get("output").String);
+        script.DoString("speed = 0; guideVisible = true; characterVisible = true; Events.OnTickEvenPaused.fire()");
+        Assert.Equal(0, script.Globals.Get("speed").Number);
+        Assert.True(script.Globals.Get("guideVisible").Boolean);
+        Assert.True(script.Globals.Get("characterVisible").Boolean);
         Assert.Contains("|false|false|true", script.Globals.Get("output").String);
     }
 
@@ -292,6 +297,7 @@ public sealed class ModTestingTests : IDisposable
                 assert(mode == "Sandbox" and name == "fixture"); continued = true
             end }
             """);
+        CompanionStartupTests.Install(script);
         script.DoString(ModTestService.Resource("Driver.lua"));
         script.DoString("Events.OnMainMenuEnter.callback()");
         Assert.Equal(continues, script.Globals.Get("continued").Boolean);

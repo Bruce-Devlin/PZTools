@@ -103,7 +103,10 @@ public static class PlaytestSetupService
                 .Any(x => x.Port == profile.ServerPort || x.Port == profile.ServerPort + 1);
             checks.Add(new("Local connection", busy ? $"Port {profile.ServerPort} or {profile.ServerPort + 1} is busy. Stop the other session or choose another port." :
                 $"127.0.0.1:{profile.ServerPort} · {profile.ClientCount} separate clients · {(profile.NoSteam ? "No Steam account juggling" : "Steam enabled")}", busy));
-            if (automated && !profile.AutoConnectClients) checks.Add(new("Joining the server", "Auto-connect is off. Join the local server in every client before tests can start."));
+            if (automated && (!profile.AutoConnectClients || !profile.NoSteam))
+                checks.Add(new("Joining the server", "Unattended runs require No-Steam local testing and Auto-connect clients. Configure these in Playtest Lab.", true));
+            if (automated && profile.SaveMode != PlaytestSaveMode.FreshSessionClone)
+                checks.Add(new("Test characters", "Unattended multiplayer runs require a Fresh Session Clone fixture with a living character for every client. Capture a fixture once in guided setup.", true));
         }
         if (automated && profile.SaveMode == PlaytestSaveMode.ReuseProfileData)
             checks.Add(new("Fresh test data", "Use guided setup to capture a fixture. Automated runs must start from a fresh copy.", true));

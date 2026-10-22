@@ -21,7 +21,7 @@ public sealed class AgentMcpIntegrationTests
         var calls = new List<string>();
         async Task ServeCallsAsync()
         {
-            for (var i = 0; i < 4; i++)
+            for (var i = 0; i < 8; i++)
             {
                 await using var server = new NamedPipeServerStream(pipeName, PipeDirection.InOut, 1,
                     PipeTransmissionMode.Byte, PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
@@ -29,10 +29,19 @@ public sealed class AgentMcpIntegrationTests
                 await AgentMcpEditorServer.HandleClientAsync(server, (request, _) =>
                 {
                     calls.Add(request.Method);
+                    if (request.Method == "start_playtest")
+                    {
+                        Assert.Equal("Local test", request.Arguments!.Value<string>("profile"));
+                        var unattended = request.Arguments.Value<bool>("unattended");
+                        Assert.Equal(unattended ? 600 : 45, request.Arguments.Value<int>("timeoutSeconds"));
+                        return Task.FromResult<object?>(new { runId = "test-run", unattended });
+                    }
                     return Task.FromResult<object?>(request.Method switch
                     {
                         "capabilities" => new { editorConnected = true, project = "Stdio test" },
                         "playtest_profiles" => new[] { new { profile = new { Name = "Local test" } } },
+                        "run_status" => new { runId = "test-run", state = "running", ready = true },
+                        "cancel_run" => new { runId = "test-run", state = "cancelling", ready = false },
                         "read_file" => throw new UnauthorizedAccessException("Editor rejected this request."),
                         _ => throw new InvalidOperationException("Unexpected method: " + request.Method)
                     });
@@ -115,8 +124,14 @@ public sealed class AgentMcpIntegrationTests
             Assert.False(rejected.GetProperty("ok").GetBoolean());
             Assert.Equal("Editor rejected this request.", rejected.GetProperty("error").GetString());
             Assert.True((await CallAsync("pztools_capabilities")).GetProperty("editorConnected").GetBoolean());
+            var automatic = await CallAsync("pztools_start_playtest", new { profile = "Local test" });
+            Assert.True(automatic.GetProperty("unattended").GetBoolean());
+            var manual = await CallAsync("pztools_start_playtest", new { profile = "Local test", unattended = false, timeoutSeconds = 45 });
+            Assert.False(manual.GetProperty("unattended").GetBoolean());
+            Assert.True((await CallAsync("pztools_get_run_status", new { runId = "test-run" })).GetProperty("ready").GetBoolean());
+            Assert.False((await CallAsync("pztools_cancel_run", new { runId = "test-run" })).GetProperty("ready").GetBoolean());
             await serving;
-            Assert.Equal(new[] { "capabilities", "playtest_profiles", "read_file", "capabilities" }, calls);
+            Assert.Equal(new[] { "capabilities", "playtest_profiles", "read_file", "capabilities", "start_playtest", "start_playtest", "run_status", "cancel_run" }, calls);
         }
         finally
         {

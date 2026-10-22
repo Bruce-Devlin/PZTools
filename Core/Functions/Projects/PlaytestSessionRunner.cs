@@ -25,6 +25,7 @@ namespace PZTools.Core.Functions.Projects
 
         public event EventHandler<string>? Output;
         public event Action<Process>? FirstClientStarted;
+        internal event Action<int, Process>? ClientStarted;
         public bool DockFirstClient { get; init; }
         public bool IsRunning => ProcessSnapshot().Any(IsAlive);
         internal Action<PlaytestSessionWorkspace>? PrepareAutomation { get; init; }
@@ -222,6 +223,7 @@ namespace PZTools.Core.Functions.Projects
                 Arguments = arguments,
                 WorkingDirectory = clientBuildRoot
             }, $"CLIENT {number}", detectServerReady: false);
+            ClientStarted?.Invoke(number, client);
             if (number == 1) FirstClientStarted?.Invoke(client);
             return client;
         }

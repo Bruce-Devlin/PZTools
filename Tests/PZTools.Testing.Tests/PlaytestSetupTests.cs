@@ -54,26 +54,63 @@ public sealed class PlaytestSetupTests : IDisposable
         foreach (var endpoint in endpoints) Directory.CreateDirectory(Path.Combine(endpoint.Cache, "Lua"));
         void Emit(int index, int seq, string kind, string message = "") => File.AppendAllText(Path.Combine(endpoints[index].Cache, "Lua/pztests-events.txt"),
             $"{report.RunId}\t{endpoints[index].Name}\t{seq}\t{kind}\t\t\t{message}\t{(kind == "status" ? DateTimeOffset.UtcNow.ToUnixTimeSeconds() : 0)}\n");
-        Emit(0, 1, "status", "awaiting_barrier|2|false|true|true"); Emit(2, 1, "status", "awaiting_barrier|2|unknown|true|true");
+        Emit(0, 1, "status", "awaiting_barrier|2|false|true|true|true"); Emit(2, 1, "status", "awaiting_barrier|2|unknown|true|true|true");
         Emit(2, 2, "ready", "World started");
         using var cancel = new CancellationTokenSource();
         var observed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var run = GameTestService.MonitorAsync(workspace, profile, report,
-            line => { if (line.Contains("[server] ready")) observed.TrySetResult(); }, () => null, cancel.Token);
+            line => { if (line.Contains("[server] ready")) observed.TrySetResult(); }, cancel.Token);
         await observed.Task.WaitAsync(TimeSpan.FromSeconds(3));
         Assert.All(endpoints, e => Assert.False(File.Exists(Path.Combine(e.Cache, "Lua/pztests-go.txt"))));
         cancel.Cancel(); await Assert.ThrowsAnyAsync<OperationCanceledException>(() => run);
         Assert.Contains(report.Errors, e => e.StartsWith("Still waiting for: client-2."));
 
-        Emit(1, 1, "status", "awaiting_barrier|2|false|true|true");
+        Emit(1, 1, "status", "awaiting_barrier|2|false|true|true|true");
         var released = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(3));
         run = GameTestService.MonitorAsync(workspace, profile, report,
-            line => { if (line.StartsWith("Every endpoint")) released.TrySetResult(); }, () => null, timeout.Token);
+            line => { if (line.StartsWith("Every endpoint")) released.TrySetResult(); }, timeout.Token);
         await released.Task.WaitAsync(TimeSpan.FromSeconds(3));
         Assert.All(endpoints, e => Assert.Equal(report.RunId, File.ReadAllText(Path.Combine(e.Cache, "Lua/pztests-go.txt")).Trim()));
         for (var i = 0; i < endpoints.Length; i++) Emit(i, i == 2 ? 3 : 2, "complete");
         await run;
+    }
+
+    [Fact]
+    public async Task ReadySessionStaysOpenWithoutRunningTestsUntilCancelled()
+    {
+        var profile = new PlaytestProfile();
+        var workspace = PlaytestWorkspaceService.Prepare(Project, profile);
+        var report = ModTestService.CreateReport(Project, "playtest");
+        var lua = Path.Combine(workspace.ClientCachePaths[0], "Lua");
+        Directory.CreateDirectory(lua);
+        File.WriteAllText(Path.Combine(lua, "pztests-events.txt"),
+            $"{report.RunId}\tclient-1\t1\tstatus\t\t\tawaiting_barrier|2|false|true|true|true\t{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}\n");
+        using var cancel = new CancellationTokenSource();
+        var ready = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var run = GameTestService.MonitorAsync(workspace, profile, report,
+            line => { if (line.Contains("Session ready")) ready.TrySetResult(); }, cancel.Token,
+            keepAlive: true, startupDeadline: DateTime.UtcNow.AddSeconds(2));
+        await ready.Task.WaitAsync(TimeSpan.FromSeconds(3));
+        Assert.False(run.IsCompleted);
+        Assert.Empty(report.Tests);
+        Assert.Equal(report.RunId, File.ReadAllText(Path.Combine(lua, "pztests-go.txt")).Trim());
+        cancel.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => run);
+        Assert.Empty(report.Errors);
+        Assert.True(File.Exists(Path.Combine(report.ArtifactDirectory, "endpoints.json")));
+    }
+
+    [Fact]
+    public async Task UnattendedSessionTimesOutWithoutClaimingReady()
+    {
+        var profile = new PlaytestProfile();
+        var workspace = PlaytestWorkspaceService.Prepare(Project, profile);
+        var report = ModTestService.CreateReport(Project, "playtest");
+        var ex = await Assert.ThrowsAsync<TimeoutException>(() => GameTestService.MonitorAsync(workspace, profile, report,
+            null, CancellationToken.None, keepAlive: true, startupDeadline: DateTime.UtcNow.AddSeconds(-1)));
+        Assert.Contains("client-1: No companion heartbeat", ex.Message);
+        Assert.False(File.Exists(Path.Combine(workspace.ClientCachePaths[0], "Lua/pztests-go.txt")));
     }
 
     [Fact]
@@ -179,6 +216,7 @@ public sealed class PlaytestSetupTests : IDisposable
     [Theory]
     [InlineData("tests", true)]
     [InlineData("setup", false)]
+    [InlineData("session", false)]
     public void CompanionWaitsForMatchingRunBarrierAndSetupNeverExecutesTests(string purpose, bool runs)
     {
         var script = new Script(); script.Globals["purpose"] = purpose;
@@ -200,6 +238,7 @@ public sealed class PlaytestSetupTests : IDisposable
                 local e = { Add = function(fn) t[k].callback = fn end }; t[k] = e; return e
             end })
             """);
+        CompanionStartupTests.Install(script);
         script.DoString(ModTestService.Resource("Driver.lua"));
         script.DoString("Events.OnGameStart.callback(); if Events.OnTick.callback then Events.OnTick.callback() end");
         Assert.Contains("World started", script.Globals.Get("output").String);

@@ -9,6 +9,7 @@ local saveName = reader:readLine()
 local purpose = reader:readLine()
 reader:close()
 if not runId or not endpoint then return end
+local startup
 local sequence = 0
 local function escape(value)
     return tostring(value or ""):gsub("%%", "%%25"):gsub("\t", "%%09"):gsub("\r", "%%0D"):gsub("\n", "%%0A")
@@ -31,6 +32,13 @@ PZT.emit = function(kind, file, name, message, duration)
     writer:close()
 end
 PZT.emit("ready", "", "", "Driver loaded", 0)
+if not isServer() and purpose ~= "setup" then
+    local ok, err = pcall(function()
+        startup = require "PZToolsTesting/Startup"
+        startup.prepare()
+    end)
+    if not ok then PZT.emit("error", "", "", "Startup preparation: " .. tostring(err), 0); return end
+end
 
 local adapters = {}
 PZTest = { endpoint = endpoint }
@@ -153,6 +161,7 @@ local worldEntered = false
 local supportReady = false
 local released = false
 local simulationTicks = 0
+local uiReady = isServer()
 local nextHeartbeat = 0
 local function heartbeat(force)
     if PZT.finished then return end
@@ -166,11 +175,24 @@ local function heartbeat(force)
         if controls then paused = tostring(controls:getCurrentGameSpeed() == 0) end
     end
     local phase = released and "running" or not worldEntered and "awaiting_world" or not present and "awaiting_player"
-        or not supportReady and "support_setup" or not released and "awaiting_barrier" or "running"
-    PZT.emit("status", "", PZT.current and PZT.current.name or "", phase .. "|" .. simulationTicks .. "|" .. paused .. "|" .. tostring(present) .. "|" .. tostring(supportReady), PZT.now())
+        or not supportReady and "support_setup" or not uiReady and "awaiting_ui" or "awaiting_barrier"
+    PZT.emit("status", "", PZT.current and PZT.current.name or "", phase .. "|" .. simulationTicks .. "|" .. paused .. "|" .. tostring(present) .. "|" .. tostring(supportReady) .. "|" .. tostring(uiReady), PZT.now())
+end
+local function prepareUI()
+    if PZT.finished then return end
+    if worldEntered and not released and startup then
+        local ok, ready = pcall(startup.dismiss)
+        if not ok then
+            PZT.emit("error", "", "", "Startup UI: " .. tostring(ready), 0)
+            PZT.finished = true
+            return
+        end
+        uiReady = ready
+    end
 end
 if Events.OnTickEvenPaused then
     Events.OnTickEvenPaused.Add(function()
+        prepareUI()
         if PZT.watchdog then PZT.watchdog() end
         heartbeat(false)
     end)
@@ -206,6 +228,8 @@ local function start()
     local nextCheck = 0
     Events.OnTick.Add(function()
         if PZT.finished then return end
+        prepareUI()
+        if PZT.finished then return end
         simulationTicks = simulationTicks + 1
         if not released and PZT.now() >= nextCheck then
             nextCheck = PZT.now() + 0.25
@@ -213,7 +237,7 @@ local function start()
             if gate then released = gate:readLine() == runId; gate:close() end
         end
         heartbeat(simulationTicks <= 2)
-        if released then PZT.tick() end
+        if released and purpose ~= "session" then PZT.tick() end
     end)
 end
 if isServer() then Events.OnServerStarted.Add(start)

@@ -26,11 +26,21 @@ Remove old project-local replacements of `PZT.context` or `PZT.tick` when adopti
 
 ## Runnable endpoint diagnostics
 
-Test Explorer and `pztools_get_run_status` expose per-endpoint phase, heartbeat timestamp, last observed simulation progress, tick count, pause state, living-player presence, support-registration state, current case and blocking reason. Final reports also retain these states in `results.json` and `endpoints.json`, including on timeout or cancellation.
+Test Explorer and `pztools_get_run_status` expose per-endpoint phase, heartbeat timestamp, last observed simulation progress, tick count, pause state, living-player presence, support-registration state, startup UI readiness (`UiReady`), current case and blocking reason. Final reports also retain these states in `results.json` and `endpoints.json`, including on timeout or cancellation.
 
 The companion uses `OnTickEvenPaused` when available for a heartbeat and watchdog, independently of normal `OnTick` simulation progress. It also emits heartbeats from normal ticks for runtimes without that hook. Missing pre-world callbacks remain an unknown screen state, never an inferred Click to Start screen. Pause is nullable when the runtime cannot expose speed controls.
 
-The barrier opens only after every endpoint has registered support, observed at least two simulation ticks, reported a living character (or a server endpoint), and has fresh heartbeat and simulation observations within five seconds. The companion includes its event timestamp so old buffered events cannot masquerade as fresh readiness. One endpoint waiting on a screen, paused or stalled holds the barrier closed. Existing single-player startup-click assistance remains available. No pause dismissal, guide closing, resurrection or fixture co-location is added; intentional pauses and deaths during a case are reported without repair. Case timeouts still use wall time.
+The barrier opens only after every endpoint has registered support, observed at least two simulation ticks, reported a living character (or a server endpoint), and has fresh heartbeat and simulation observations within five seconds. The companion includes its event timestamp so old buffered events cannot masquerade as fresh readiness. One endpoint waiting on a screen, paused or stalled holds the barrier closed. The companion disables the survival guide and pause-on-focus-loss in the isolated client, closes restored character/health panels and resumes startup pauses. Windows startup input advances Click to Start for each owned client after loading finishes. This may briefly foreground each game window and requires an unlocked interactive desktop. Startup cleanup ends when the barrier opens; tests can then open panels or pause deliberately. Characters are never resurrected. Case timeouts still use wall time.
+
+## Unattended MCP sessions
+
+`pztools_start_playtest(profile, unattended=true, timeoutSeconds=600)` installs the same companion and startup handling as automated game tests. Use a single-player **FreshClone** profile with a living saved character, or a local multiplayer **FreshSessionClone** fixture with a living character for each client, **No-Steam** and **Auto-connect clients**. Capture a fixture once in guided setup. Missing prerequisites fail before launching; normal test runs never wait for character creation.
+
+Poll `pztools_get_run_status(runId)` until `ready=true`. Process launch, driver load and server startup alone are insufficient. All endpoints must report cleared startup UI, registered support, living players and fresh advancing simulation ticks. Readiness becomes false on pause, death, stalled observations, cancellation or completion. A ready playtest stays open for the agent to operate and does not execute discovered test cases. `timeoutSeconds` bounds client readiness; after readiness the session remains open until `pztools_cancel_run(runId)`. Poll until cancellation completes to ensure owned clients and server have stopped.
+
+`pztools_start_test_run(kind="game", profile=...)` handles startup automatically, releases all endpoints together, executes the tests and shuts down its processes. Its timeout covers the entire run. Inspect `result.Passed` and `result.Errors`; `completed` alone is not a pass. Both paths retain isolated workspace logs, endpoint states and runtime snapshot information in the saved report directory.
+
+For intentional manual fixture setup, `pztools_start_playtest(..., unattended=false)` preserves the original Playtest Lab workflow and does not claim companion readiness. `pztools_stop_game` controls the separate ordinary debug launch; stop MCP test/playtest runs with `pztools_cancel_run`.
 
 ## Runtime snapshots
 

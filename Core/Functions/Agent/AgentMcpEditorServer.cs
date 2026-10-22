@@ -262,8 +262,20 @@ namespace PZTools.Core.Functions.Agent
                     Require(settings.AgentMcpAllowTesting && settings.AgentMcpAllowDeployment && settings.AgentMcpAllowGameControl, "Testing, deployment and game control");
                     ValidatePlaytestPaths();
                     var playtest = FindProfile(args.Value<string>("profile"));
+                    var unattended = args.Value<bool?>("unattended") ?? true;
+                    var startupTimeout = args.Value<int?>("timeoutSeconds") ?? 600;
+                    if (startupTimeout is < 10 or > 86400) throw new ArgumentException("Timeout must be between 10 and 86400 seconds.");
+                    if (unattended)
+                    {
+                        ResolvePath(".pztools/test-results", false, true);
+                        ResolvePath(".pztests", false, true);
+                    }
                     return _runs.Start("playtest", async (progress, ct) =>
                     {
+                        if (unattended)
+                            return (object)await GameTestService.RunAsync(_window.ModProject, playtest, GameRoot(playtest),
+                                timeoutSeconds: startupTimeout, progress: progress, cancellationToken: ct,
+                                endpointProgress: states => _runs.UpdateEndpoints(states), keepAlive: true);
                         var health = await ProjectHealthService.AnalyzeAsync(_window.ModProject, true, ct);
                         if (!health.IsReadyToDeploy) return new { started = false, health.Diagnostics };
                         using var runner = new PlaytestSessionRunner();

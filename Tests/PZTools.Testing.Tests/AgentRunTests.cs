@@ -1,12 +1,46 @@
 using Newtonsoft.Json.Linq;
 using PZTools.Core.Functions.Agent;
 using PZTools.Core.Models;
+using PZTools.Core.Models.Test;
 
 namespace PZTools.Testing.Tests;
 
 public sealed class AgentRunTests
 {
     private static JObject Snapshot(AgentRunTracker tracker) => JObject.FromObject(tracker.Snapshot());
+
+    [Fact]
+    public async Task ReadinessRequiresAllLiveEndpointsAndIsRevokedOnStallPauseAndCancel()
+    {
+        await using var tracker = new AgentRunTracker();
+        tracker.Start("playtest", async (_, ct) => { await Task.Delay(Timeout.Infinite, ct); return new { }; });
+        Assert.False(Snapshot(tracker).Value<bool>("ready"));
+        var now = DateTime.UtcNow;
+        var endpoints = new[] { "client-1", "client-2", "server" }.Select(name => new GameTestEndpointState
+        {
+            Endpoint = name, Phase = "running", SupportReady = true, UiReady = true, PlayerPresent = true,
+            Paused = false, SimulationTicks = 10, LastHeartbeat = now, LastSimulationTick = now
+        }).ToArray();
+        tracker.UpdateEndpoints(endpoints);
+        Assert.True(Snapshot(tracker).Value<bool>("ready"));
+        endpoints[1].UiReady = false;
+        tracker.UpdateEndpoints(endpoints);
+        Assert.False(Snapshot(tracker).Value<bool>("ready"));
+        endpoints[1].UiReady = true; endpoints[1].Paused = true;
+        tracker.UpdateEndpoints(endpoints);
+        Assert.False(Snapshot(tracker).Value<bool>("ready"));
+        endpoints[1].Paused = false; endpoints[1].LastSimulationTick = now.AddSeconds(-10);
+        tracker.UpdateEndpoints(endpoints);
+        Assert.False(Snapshot(tracker).Value<bool>("ready"));
+        Assert.Contains("ticks", Snapshot(tracker)["endpoints"]![1]!.Value<string>("BlockingReason"));
+        endpoints[1].LastSimulationTick = now;
+        tracker.UpdateEndpoints(endpoints);
+        // Updates copy the states: subsequent caller mutation cannot change an already published snapshot.
+        endpoints[1].PlayerPresent = false;
+        Assert.True(Snapshot(tracker).Value<bool>("ready"));
+        tracker.Cancel(Snapshot(tracker).Value<string>("runId")!);
+        Assert.False(Snapshot(tracker).Value<bool>("ready"));
+    }
 
     [Fact]
     public async Task CancellationWaitsForCleanupAndRejectsOtherRunIds()

@@ -1,4 +1,5 @@
 using Newtonsoft.Json.Linq;
+using PZTools.Core.Models.Test;
 
 namespace PZTools.Core.Functions.Agent;
 
@@ -13,7 +14,7 @@ public sealed class AgentRunTracker : IAsyncDisposable
     private string? kind;
     private string state = "idle";
     private JToken? result;
-    private JToken? endpoints;
+    private List<GameTestEndpointState>? endpoints;
     private string? error;
     private bool disposed;
 
@@ -47,13 +48,17 @@ public sealed class AgentRunTracker : IAsyncDisposable
         lock (gate)
         {
             CheckId(runId);
-            return new { runId = id, kind, state, result = result?.DeepClone(), endpoints = endpoints?.DeepClone(), error, output = output.TakeLast(Math.Clamp(lines, 1, 2000)).ToArray() };
+            var now = DateTime.UtcNow;
+            if (endpoints is not null) foreach (var endpoint in endpoints) endpoint.Refresh(now);
+            var ready = state == "running" && endpoints is { Count: > 0 } && endpoints.All(e => e.IsReady(now));
+            return new { runId = id, kind, state, ready, result = result?.DeepClone(),
+                endpoints = endpoints is null ? null : JToken.FromObject(endpoints), error, output = output.TakeLast(Math.Clamp(lines, 1, 2000)).ToArray() };
         }
     }
 
-    public void UpdateEndpoints(object value)
+    public void UpdateEndpoints(IReadOnlyList<GameTestEndpointState> value)
     {
-        lock (gate) endpoints = JToken.FromObject(value);
+        lock (gate) endpoints = JToken.FromObject(value).ToObject<List<GameTestEndpointState>>();
     }
 
     public object Cancel(string runId)

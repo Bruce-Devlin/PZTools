@@ -88,7 +88,7 @@ public static class PzToolsTools
         => client.CallAsync("deploy_project", cancellationToken: cancellationToken);
 
     [McpServerTool(Name = "pztools_start_game")]
-    [Description("Starts Project Zomboid for a test/debug session after Project Health passes. Defaults to the -debug launch argument.")]
+    [Description("Starts an ordinary Project Zomboid debug launch after Project Health passes. Defaults to -debug and uses the normal game UI. For unattended startup with a living-character fixture and client readiness, use pztools_start_playtest; for automated test cases use pztools_start_test_run.")]
     public static Task<string> StartGame(
         PzToolsPipeClient client,
         [Description("Optional managed build folder name. Existing-install mode ignores this value.")] string? build = null,
@@ -101,12 +101,12 @@ public static class PzToolsTools
         }, cancellationToken);
 
     [McpServerTool(Name = "pztools_stop_game")]
-    [Description("Stops the Project Zomboid process started by PZTools.")]
+    [Description("Stops the ordinary Project Zomboid debug launch. Stop MCP test/playtest runs using pztools_cancel_run with their run ID and poll until cleanup completes.")]
     public static Task<string> StopGame(PzToolsPipeClient client, CancellationToken cancellationToken)
         => client.CallAsync("stop_game", cancellationToken: cancellationToken);
 
     [McpServerTool(Name = "pztools_get_game_status")]
-    [Description("Gets Project Zomboid start/running state, process ID, game directory, and console-log path.")]
+    [Description("Gets the ordinary debug launch process state, ID, game directory and log path. For MCP test/playtest client readiness, use pztools_get_run_status and its ready field.")]
     public static Task<string> GetGameStatus(PzToolsPipeClient client, CancellationToken cancellationToken)
         => client.CallAsync("game_status", cancellationToken: cancellationToken);
 
@@ -137,7 +137,7 @@ public static class PzToolsTools
         => client.CallAsync("playtest_profiles", cancellationToken: cancellationToken);
 
     [McpServerTool(Name = "pztools_start_test_run")]
-    [Description("Starts background unit or game tests and returns a run ID immediately. Poll get_run_status for the final structured report and artifact directory. Unit runs write test artifacts; game runs additionally require deployment and game control. Runs use saved files. A completed operation does not imply tests passed: inspect result.Passed and Errors.")]
+    [Description("Starts background unit or game tests and returns a run ID immediately. Game tests automatically install the companion, resume living-character fixtures, advance Click to Start and clear startup panels on every client, then run once all endpoints are ready. SP requires FreshClone; local MP requires FreshSessionClone, NoSteam and AutoConnectClients. Poll get_run_status for the final report and artifacts. Game runs require deployment and game control. Runs use saved files. Completed does not imply tests passed: inspect result.Passed and Errors.")]
     public static Task<string> StartTestRun(PzToolsPipeClient client,
         [Description("unit or game.")] string kind = "unit",
         [Description("Optional substring of a path relative to .pztests, e.g. example.unit.lua.")] string? filter = null,
@@ -147,12 +147,15 @@ public static class PzToolsTools
         => client.CallAsync("start_test_run", new { kind, filter, profile, timeoutSeconds }, cancellationToken);
 
     [McpServerTool(Name = "pztools_start_playtest")]
-    [Description("Starts an isolated Playtest Lab session from a saved profile after Project Health passes. Supports single player and dedicated server with multiple clients. Requires testing, deployment and game control. Returns a run ID; poll status for output and final diagnostics, or cancel to stop owned processes.")]
-    public static Task<string> StartPlaytest(PzToolsPipeClient client, string profile, CancellationToken cancellationToken = default)
-        => client.CallAsync("start_playtest", new { profile }, cancellationToken);
+    [Description("Starts an isolated Playtest Lab session. By default installs the test companion, resumes a saved living-character fixture, advances Click to Start and clears startup panels on every client. Poll get_run_status until ready=true before operating; cancel_run stops all owned processes. Requires testing, deployment and game control. Set unattended=false only for manual setup. SP requires FreshClone; local MP requires FreshSessionClone, NoSteam and AutoConnectClients.")]
+    public static Task<string> StartPlaytest(PzToolsPipeClient client, string profile,
+        bool unattended = true,
+        [Description("Client readiness timeout, 10 to 86400 seconds. A ready session stays open until cancelled.")] int timeoutSeconds = 600,
+        CancellationToken cancellationToken = default)
+        => client.CallAsync("start_playtest", new { profile, unattended, timeoutSeconds }, cancellationToken);
 
     [McpServerTool(Name = "pztools_get_run_status")]
-    [Description("Gets the latest MCP run: running/cancelling/completed/cancelled/failed, bounded recent output, final result and runner error. Active game tests include endpoint phase, heartbeat, simulation progress, pause/player state, current case and blocking reason. Final game reports identify the runtime snapshot and payload manifest. Only the latest run is retained in memory; test reports persist in .pztools/test-results. Live desktop-initiated runs are not included.")]
+    [Description("Gets the latest MCP run: running/cancelling/completed/cancelled/failed, ready, bounded output, result and error. ready=true means every endpoint has cleared startup UI, registered support, a living player and recent advancing simulation ticks. It becomes false on pause, death, stale heartbeat or stop. Game tests and unattended playtests include endpoint phase, UiReady, heartbeat, simulation progress and blocking reason. Only the latest MCP run is retained; reports persist in .pztools/test-results.")]
     public static Task<string> RunStatus(PzToolsPipeClient client, string? runId = null, int lines = 200, CancellationToken cancellationToken = default)
         => client.CallAsync("run_status", new { runId, lines }, cancellationToken);
 

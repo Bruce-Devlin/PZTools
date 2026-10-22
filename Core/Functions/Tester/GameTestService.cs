@@ -14,18 +14,19 @@ public static class GameTestService
     private const string CompanionId = "PZToolsTesting";
     public static async Task<ModTestReport> RunAsync(ModProject project, PlaytestProfile selected, string gameRoot,
         string? filter = null, int timeoutSeconds = 300, Action<string>? progress = null, CancellationToken cancellationToken = default,
-        Action<Process>? dockClient = null, Action<IReadOnlyList<GameTestEndpointState>>? endpointProgress = null)
+        Action<Process>? dockClient = null, Action<IReadOnlyList<GameTestEndpointState>>? endpointProgress = null,
+        bool keepAlive = false)
     {
-        var report = ModTestService.CreateReport(project, "game");
+        var report = ModTestService.CreateReport(project, keepAlive ? "playtest" : "game");
         report.GameRoot = gameRoot; report.Profile = selected.Name;
         PlaytestSessionWorkspace? workspace = null;
         try
         {
             if (timeoutSeconds is < 10 or > 86400) throw new ArgumentException("Run timeout must be between 10 and 86400 seconds.");
-            var files = ModTestService.Discover(project, "game", filter);
-            if (files.Count == 0) throw new InvalidOperationException("No game tests found. Add .pztests/*.game.lua, *.e2e.lua, or *.server.lua.");
+            var files = keepAlive ? Array.Empty<string>() : ModTestService.Discover(project, "game", filter);
+            if (!keepAlive && files.Count == 0) throw new InvalidOperationException("No game tests found. Add .pztests/*.game.lua, *.e2e.lua, or *.server.lua.");
             var profile = JsonConvert.DeserializeObject<PlaytestProfile>(JsonConvert.SerializeObject(selected))!;
-            if (profile.SaveMode == PlaytestSaveMode.ReuseProfileData) throw new InvalidOperationException("Automated tests require a fresh workspace. Choose FreshClone or Empty in the playtest profile.");
+            if (profile.SaveMode == PlaytestSaveMode.ReuseProfileData) throw new InvalidOperationException("Unattended runs require a fresh workspace. Choose FreshClone for single player or FreshSessionClone for multiplayer.");
             if (profile.Mode == PlaytestMode.SinglePlayer && profile.SaveMode != PlaytestSaveMode.FreshClone)
                 throw new InvalidOperationException("Unattended single-player tests require a FreshClone profile with a saved, living character. Configure a source save in Playtest Lab.");
             if (profile.Mode == PlaytestMode.SinglePlayer && files.Any(f => f.EndsWith(".server.lua", StringComparison.OrdinalIgnoreCase)))
@@ -39,15 +40,16 @@ public static class GameTestService
             if (validation.Count > 0) throw new InvalidDataException(string.Join("\n", validation));
             File.WriteAllText(Path.Combine(report.ArtifactDirectory, "profile.json"), JsonConvert.SerializeObject(profile, Formatting.Indented));
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            timeout.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
-            Process? firstClient = null;
+            if (!keepAlive) timeout.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
+            var clients = new Dictionary<string, Process>();
             using var runner = new PlaytestSessionRunner
             {
                 DockFirstClient = dockClient is not null,
-                PrepareAutomation = w => { workspace = w; Prepare(project, profile, w, files, report); },
-                RunAutomation = (w, ct) => MonitorAsync(w, profile, report, progress, () => firstClient, ct, endpointProgress)
+                PrepareAutomation = w => { workspace = w; Prepare(project, profile, w, files, report, keepAlive: keepAlive); },
+                RunAutomation = (w, ct) => MonitorAsync(w, profile, report, progress, ct, endpointProgress,
+                    clients, keepAlive, keepAlive ? DateTime.UtcNow.AddSeconds(timeoutSeconds) : null)
             };
-            runner.FirstClientStarted += process => firstClient = process;
+            runner.ClientStarted += (number, process) => clients["client-" + number] = process;
             if (dockClient is not null) runner.FirstClientStarted += dockClient;
             var logGate = new object();
             runner.Output += (_, line) =>
@@ -57,7 +59,7 @@ public static class GameTestService
             };
             var result = await runner.RunAsync(project, profile, gameRoot, timeout.Token);
             foreach (var diagnostic in result.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error)) report.Errors.Add(diagnostic.Message);
-            if (report.Tests.Count == 0) report.Errors.Add("The companion completed without executing tests.");
+            if (!keepAlive && report.Tests.Count == 0) report.Errors.Add("The companion completed without executing tests.");
         }
         catch (OperationCanceledException) { report.Errors.Add(cancellationToken.IsCancellationRequested ? "Run cancelled." : "Game test run timed out before completion. Inspect session.log and the isolated cache logs."); }
         catch (Exception ex) { report.Errors.Add(ex.Message); }
@@ -72,7 +74,7 @@ public static class GameTestService
     private static string LuaString(string value) => "\"" + value.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\r", "\\r").Replace("\n", "\\n") + "\"";
 
     internal static void Prepare(ModProject project, PlaytestProfile profile, PlaytestSessionWorkspace workspace,
-        IReadOnlyList<string> files, ModTestReport report, bool setupOnly = false)
+        IReadOnlyList<string> files, ModTestReport report, bool setupOnly = false, bool keepAlive = false)
     {
         var sources = new Dictionary<string, string>();
         report.SourceSnapshotId = workspace.SourceSnapshotId;
@@ -86,6 +88,7 @@ public static class GameTestService
         }
         manifest.Append("}\n");
         sources["PZToolsTesting/Harness.lua"] = ModTestService.Resource("Harness.lua");
+        sources["PZToolsTesting/Startup.lua"] = ModTestService.Resource("Startup.lua");
         // Support modules and multiplayer adapter registrations run on every endpoint.
         var supportRoot = Path.Combine(project.RootPath, ModTestService.TestFolder, "support");
         manifest.Append("PZTestSupport = {\n");
@@ -126,7 +129,7 @@ public static class GameTestService
                     ?? throw new InvalidOperationException("The cloned save must contain exactly one players.db with a living character.");
                 mode = new DirectoryInfo(Path.GetDirectoryName(save)!).Name; name = Path.GetFileName(save);
             }
-            File.WriteAllLines(Path.Combine(lua, "pztests-config.txt"), new[] { report.RunId, endpoint.Name, mode, name, setupOnly ? "setup" : "tests" });
+            File.WriteAllLines(Path.Combine(lua, "pztests-config.txt"), new[] { report.RunId, endpoint.Name, mode, name, setupOnly ? "setup" : keepAlive ? "session" : "tests" });
             var id = profile.Build >= 42 ? "\\" + CompanionId : CompanionId;
             var lists = Directory.EnumerateFiles(endpoint.Cache, "mods.txt", SearchOption.AllDirectories).Append(Path.Combine(endpoint.Cache, "mods", "default.txt"));
             foreach (var list in lists.Where(File.Exists))
@@ -145,8 +148,9 @@ public static class GameTestService
         File.WriteAllText(Path.Combine(report.ArtifactDirectory, "manifest.lua"), manifest.ToString());
     }
 
-    internal static async Task MonitorAsync(PlaytestSessionWorkspace workspace, PlaytestProfile profile, ModTestReport report, Action<string>? progress, Func<Process?> firstClient, CancellationToken ct,
-        Action<IReadOnlyList<GameTestEndpointState>>? endpointProgress = null)
+    internal static async Task MonitorAsync(PlaytestSessionWorkspace workspace, PlaytestProfile profile, ModTestReport report, Action<string>? progress, CancellationToken ct,
+        Action<IReadOnlyList<GameTestEndpointState>>? endpointProgress = null, IReadOnlyDictionary<string, Process>? clients = null,
+        bool keepAlive = false, DateTime? startupDeadline = null)
     {
         var endpoints = workspace.ClientCachePaths.Select((p, i) => (Path: Path.Combine(p, "Lua", "pztests-events.txt"), Name: "client-" + (i + 1))).ToList();
         if (profile.Mode == PlaytestMode.DedicatedServer) endpoints.Add((Path.Combine(workspace.ServerCachePath, "Lua", "pztests-events.txt"), "server"));
@@ -156,13 +160,12 @@ public static class GameTestService
         report.Endpoints = endpoints.Select(e => new GameTestEndpointState { Endpoint = e.Name }).ToList();
         var states = report.Endpoints.ToDictionary(e => e.Endpoint);
         var released = false;
-        var worldStarted = false;
-        var loadingFinished = false;
+        var worldStarted = new HashSet<string>();
+        var loadingFinished = new HashSet<string>();
         var nextStartupClick = DateTime.MinValue;
-        var startupClicks = 0;
         try
         {
-            while (completed.Count < endpoints.Count)
+            while (keepAlive || completed.Count < endpoints.Count)
             {
                 ct.ThrowIfCancellationRequested();
                 foreach (var endpoint in endpoints)
@@ -183,8 +186,8 @@ public static class GameTestService
                         sequences[endpoint.Name] = sequence;
                         if (!released && fields[3] is "begin" or "complete")
                             throw new InvalidDataException("An endpoint ran tests before every endpoint was ready.");
-                        if (endpoint.Name == "client-1" && (fields[3] == "begin" || fields[3] == "ready" && Decode(fields[6]) == "World started"))
-                            worldStarted = true;
+                        if (fields[3] == "begin" || fields[3] == "ready" && Decode(fields[6]) == "World started")
+                            worldStarted.Add(endpoint.Name);
                         if (completed.Contains(endpoint.Name)) throw new InvalidDataException("Event after endpoint completion.");
                         if (!double.TryParse(fields[7], NumberStyles.Float, CultureInfo.InvariantCulture, out var duration) || !double.IsFinite(duration) || duration < 0) throw new InvalidDataException("Invalid test duration.");
                         var state = states[endpoint.Name];
@@ -220,22 +223,28 @@ public static class GameTestService
                     foreach (var endpoint in endpoints)
                         File.WriteAllText(Path.Combine(Path.GetDirectoryName(endpoint.Path)!, "pztests-go.txt"), report.RunId + Environment.NewLine);
                     released = true;
-                    progress?.Invoke("Every endpoint has registered support and advancing simulation ticks. Starting tests.");
+                    progress?.Invoke("Every endpoint has cleared startup panels, registered support and advancing simulation ticks. " +
+                        (keepAlive ? "Session ready; cancel this run to stop it." : "Starting tests."));
                 }
-                if (profile.Mode == PlaytestMode.SinglePlayer && !worldStarted && startupClicks < 20 && DateTime.UtcNow >= nextStartupClick)
+                if (!released && startupDeadline <= DateTime.UtcNow)
+                    throw new TimeoutException("Client readiness timed out. " + string.Join("; ", report.Endpoints.Select(e => e.Endpoint + ": " + e.BlockingReason)));
+                if (!released && clients is not null && DateTime.UtcNow >= nextStartupClick)
                 {
                     nextStartupClick = DateTime.UtcNow.AddSeconds(1);
-                    var console = Path.Combine(workspace.ClientCachePaths[0], "console.txt");
-                    if (!loadingFinished && File.Exists(console))
+                    foreach (var endpoint in endpoints.Where(e => clients.ContainsKey(e.Name) && sequences[e.Name] > 0 && !worldStarted.Contains(e.Name)))
                     {
-                        using var stream = new FileStream(console, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-                        using var reader = new StreamReader(stream);
-                        loadingFinished = (await reader.ReadToEndAsync(ct)).Contains("game loading took", StringComparison.OrdinalIgnoreCase);
-                    }
-                    if (loadingFinished && firstClient() is { } client)
-                    {
-                        if (startupClicks++ == 0) progress?.Invoke("World loaded; advancing Click to Start in the test client.");
-                        await GameTestStartupClick.ClickAsync(client, ct);
+                        var console = Path.Combine(Path.GetDirectoryName(Path.GetDirectoryName(endpoint.Path)!)!, "console.txt");
+                        if (!loadingFinished.Contains(endpoint.Name) && File.Exists(console))
+                        {
+                            using var stream = new FileStream(console, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+                            using var reader = new StreamReader(stream);
+                            if ((await reader.ReadToEndAsync(ct)).Contains("game loading took", StringComparison.OrdinalIgnoreCase))
+                            {
+                                loadingFinished.Add(endpoint.Name);
+                                progress?.Invoke($"[{endpoint.Name}] World loaded; advancing Click to Start automatically.");
+                            }
+                        }
+                        if (loadingFinished.Contains(endpoint.Name)) await GameTestStartupClick.ClickAsync(clients[endpoint.Name], ct);
                     }
                 }
                 await Task.Delay(100, ct);
@@ -258,15 +267,16 @@ public static class GameTestService
     internal static void ApplyStatus(GameTestEndpointState state, string message, string currentCase, DateTime now)
     {
         var parts = message.Split('|');
-        if (parts.Length != 5 || !long.TryParse(parts[1], out var ticks) || ticks < state.SimulationTicks ||
+        if (parts.Length != 6 || !long.TryParse(parts[1], out var ticks) || ticks < state.SimulationTicks ||
             !bool.TryParse(parts[3], out var player) || !bool.TryParse(parts[4], out var support) ||
+            !bool.TryParse(parts[5], out var uiReady) ||
             parts[2] is not ("unknown" or "true" or "false") ||
-            parts[0] is not ("awaiting_world" or "awaiting_player" or "support_setup" or "awaiting_barrier" or "running"))
+            parts[0] is not ("awaiting_world" or "awaiting_player" or "support_setup" or "awaiting_ui" or "awaiting_barrier" or "running"))
             throw new InvalidDataException("Invalid endpoint heartbeat: " + state.Endpoint);
         if (ticks > state.SimulationTicks) state.LastSimulationTick = now;
         state.SimulationTicks = ticks; state.LastHeartbeat = now; state.Phase = parts[0];
         state.Paused = bool.TryParse(parts[2], out var paused) ? paused : null;
-        state.PlayerPresent = player; state.SupportReady = support; state.CurrentCase = currentCase;
+        state.PlayerPresent = player; state.SupportReady = support; state.UiReady = uiReady; state.CurrentCase = currentCase;
         state.Refresh(now);
     }
 

@@ -353,7 +353,7 @@ Setup creates a new profile without replacing existing ones. Playtest profiles s
 
 ## Run and inspect
 Click Run game tests and follow the status. Game startup can take longer than a unit run. Review endpoint and test messages in the result table, then use Open report folder for collected artifacts.
-Tests wait for every endpoint to register support and demonstrate advancing simulation ticks with a living player (or server endpoint). Test Explorer shows each endpoint's phase, heartbeat and blocking reason. A paused world, missing character or stalled tick holds the startup barrier closed. Unknown screen state is reported honestly. The game timeout is editable in Test Explorer; the default is ten minutes. Multiplayer profiles without a fixture still require character creation in each fresh session. Final endpoint states are saved in endpoints.json and the test report, including on timeout.
+Tests wait for every endpoint to register support and demonstrate advancing simulation ticks with a living player (or server endpoint). Test Explorer shows each endpoint's phase, heartbeat and blocking reason. A paused world, missing character or stalled tick holds the startup barrier closed. Unknown screen state is reported honestly. The game timeout is editable in Test Explorer; the default is ten minutes. Automated multiplayer runs require a captured Fresh Session Clone fixture, No-Steam and Auto-connect clients. The companion closes startup help and character panels, resumes the world, and the runner advances Click to Start for every client automatically. Startup input may briefly foreground the game windows and requires an unlocked desktop. Once tests begin, intentional UI changes and pauses are left alone. Final endpoint states are saved in endpoints.json and the test report, including on timeout.
 If startup fails or times out, inspect the profile's selected executable, dependencies, and session output before changing the tests. A runner error may mean the game never reached the test stage.
 
 ## Cancel safely
@@ -559,6 +559,9 @@ The setup action writes the app-managed pztools server block in the project's .c
 - Deploy the active project to the local Mods folder controls deployment and is disabled by default.
 - Start, debug, stop, and inspect Project Zomboid controls supported game-session operations.
 These are independent app permissions. Enabling game control does not automatically enable deployment. A debug launch that needs a refreshed copy can remain blocked until deployment is permitted and health passes.
+
+## Unattended tests and playtests
+Start a game test run to handle startup, run tests and stop automatically. MCP playtests also install the companion by default: use a living-character fixture, poll run status until ready is true, then operate normally. Cancel the run and poll until it stops to clean up all owned clients and the server. The ordinary Stop Game control is separate from MCP run cancellation. Manual setup remains available with unattended=false.
 
 ## Change or diagnose access
 Requests are checked against the live settings. After changing capabilities, run Configure Current Project for Codex again so the generated configuration also reflects your choices. Disable the server when you want the app integration unavailable.
