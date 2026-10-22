@@ -101,6 +101,8 @@ namespace PZTools.Core.Windows.Dialogs.Project
             txtWindowHeight.Text = profile.WindowHeight.ToString(CultureInfo.InvariantCulture);
             cmbSaveMode.SelectedItem = profile.SaveMode;
             txtSourceSave.Text = profile.SourceSavePath;
+            txtSourceSession.Text = profile.SourceSessionPath;
+            chkLocalOnly.IsChecked = profile.LocalServerOnly;
             chkKeepSession.IsChecked = profile.KeepSessionData;
             _dependencyRows.Clear();
             foreach (var dependency in profile.Dependencies)
@@ -130,6 +132,8 @@ namespace PZTools.Core.Windows.Dialogs.Project
             profile.WindowHeight = ParseInt(txtWindowHeight.Text, 720);
             profile.SaveMode = cmbSaveMode.SelectedItem is PlaytestSaveMode save ? save : PlaytestSaveMode.Empty;
             profile.SourceSavePath = txtSourceSave.Text.Trim();
+            profile.SourceSessionPath = txtSourceSession.Text.Trim();
+            profile.LocalServerOnly = chkLocalOnly.IsChecked == true;
             profile.KeepSessionData = chkKeepSession.IsChecked == true;
             DependencyGrid.CommitEdit(DataGridEditingUnit.Cell, true);
             DependencyGrid.CommitEdit(DataGridEditingUnit.Row, true);
@@ -148,8 +152,29 @@ namespace PZTools.Core.Windows.Dialogs.Project
             profile.AdditionalServerOptions = txtServerOptions.Text;
         }
 
+        private async void PreviewPayload_Click(object sender, RoutedEventArgs e)
+        {
+            if (_project is null) return;
+            try
+            {
+                var entries = await Task.Run(() => DeploymentSnapshotService.Preview(_project.RootPath));
+                var preview = new System.Windows.Controls.TextBox
+                {
+                    IsReadOnly = true, AcceptsReturn = true, FontFamily = new System.Windows.Media.FontFamily("Consolas"),
+                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+                    Text = "Project deployment preview. Excluded directories include all their children.\n" +
+                        "Local dependencies are also filtered and captured at launch; Workshop content is outside the snapshot guarantee.\n\n" +
+                        string.Join(Environment.NewLine, entries.Select(e => (e.Included ? "Include  " : "Exclude  ") + e.Path))
+                };
+                new Window { Title = "Deployment preview", Owner = this, Width = 800, Height = 560,
+                    WindowStartupLocation = WindowStartupLocation.CenterOwner, Content = preview }.ShowDialog();
+            }
+            catch (Exception ex) { StatusText.Text = ex.Message; }
+        }
+
         private async Task RunSelectedProfileAsync()
         {
+            if (_runCts is not null) return;
             if (_project is null || cmbProfiles.SelectedItem is not PlaytestProfile profile)
                 return;
             ReadProfile(profile);
@@ -183,6 +208,7 @@ namespace PZTools.Core.Windows.Dialogs.Project
             Config.StoreVariable(VariableType.user, $"playtest-profile-{_project.ModInfo.Id}", profile.Id.ToString());
             txtOutputLog.Clear();
             btnLaunch.IsEnabled = false;
+            btnGuidedSetup.IsEnabled = false;
             btnStopGame.IsEnabled = true;
             StatusText.Text = "Preparing session...";
             _runCts = new CancellationTokenSource();
@@ -220,22 +246,12 @@ namespace PZTools.Core.Windows.Dialogs.Project
                 _runCts?.Dispose();
                 _runCts = null;
                 btnLaunch.IsEnabled = true;
+                btnGuidedSetup.IsEnabled = true;
                 btnStopGame.IsEnabled = false;
             }
         }
 
-        private string ResolveClientBuildRoot(double build)
-        {
-            if (!ZomboidGame.GameMode.Equals("Managed", StringComparison.OrdinalIgnoreCase))
-                return ZomboidGame.GameDirectory;
-            var exact = Path.Combine(ZomboidGame.GameDirectory, build.ToString("0.################", CultureInfo.InvariantCulture));
-            if (Directory.Exists(exact))
-                return exact;
-            if (!Directory.Exists(ZomboidGame.GameDirectory))
-                return exact;
-            return Directory.GetDirectories(ZomboidGame.GameDirectory)
-                .FirstOrDefault(x => double.TryParse(Path.GetFileName(x), NumberStyles.Float, CultureInfo.InvariantCulture, out var found) && Math.Truncate(found) == Math.Truncate(build)) ?? exact;
-        }
+        private string ResolveClientBuildRoot(double build) => PlaytestSetupService.ResolveGameRoot(build);
 
         private void Runner_Output(object? sender, string message) => Dispatcher.BeginInvoke(() => AppendOutput(message));
         private void AppendOutput(string message)
@@ -253,6 +269,17 @@ namespace PZTools.Core.Windows.Dialogs.Project
             _profiles.Add(profile);
             cmbProfiles.Items.Refresh();
             cmbProfiles.SelectedItem = profile;
+        }
+
+        private void GuidedSetup_Click(object sender, RoutedEventArgs e)
+        {
+            if (_project is null || _runCts is not null) return;
+            var setup = new TestRunnerSetup(_project, cmbProfiles.SelectedItem as PlaytestProfile) { Owner = this };
+            if (setup.ShowDialog() != true) return;
+            _profiles.Clear(); _profiles.AddRange(PlaytestProfileStore.Load(_project));
+            cmbProfiles.Items.Refresh();
+            cmbProfiles.SelectedItem = _profiles.FirstOrDefault(p => p.Id == setup.SavedProfile?.Id);
+            StatusText.Text = "Profile ready. Run profile starts a fresh session; Test Explorer runs automated tests.";
         }
 
         private void DeleteProfile_Click(object sender, RoutedEventArgs e)
@@ -322,7 +349,11 @@ namespace PZTools.Core.Windows.Dialogs.Project
             Config.StoreVariable(VariableType.user, "showRunWindowBeforeLaunch", chkShowEveryRun.IsChecked == true);
         }
         private void UpdateModeState() => ServerPanel.IsEnabled = cmbMode.SelectedItem is PlaytestMode.DedicatedServer;
-        private void UpdateSaveState() => txtSourceSave.IsEnabled = cmbSaveMode.SelectedItem is PlaytestSaveMode.FreshClone;
+        private void UpdateSaveState()
+        {
+            txtSourceSave.IsEnabled = cmbSaveMode.SelectedItem is PlaytestSaveMode.FreshClone;
+            txtSourceSession.IsEnabled = cmbSaveMode.SelectedItem is PlaytestSaveMode.FreshSessionClone;
+        }
 
         private void SelectBuild(double build)
         {

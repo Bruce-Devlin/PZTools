@@ -114,7 +114,7 @@ namespace PZTools.Core.Functions.Agent
                 try
                 {
                     await pipe.WaitForConnectionAsync(cancellationToken);
-                    await HandleClientAsync(pipe, cancellationToken);
+                    await HandleClientAsync(pipe, DispatchAsync, cancellationToken);
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
                 catch (Exception ex)
@@ -124,27 +124,39 @@ namespace PZTools.Core.Functions.Agent
             }
         }
 
-        private async Task HandleClientAsync(Stream stream, CancellationToken cancellationToken)
+        internal static async Task HandleClientAsync(Stream stream,
+            Func<AgentRequest, CancellationToken, Task<object?>> dispatch, CancellationToken cancellationToken)
         {
             using var reader = new StreamReader(stream, new UTF8Encoding(false), false, 4096, leaveOpen: true);
-            using var writer = new StreamWriter(stream, new UTF8Encoding(false), 4096, leaveOpen: true) { AutoFlush = true };
-            while (!cancellationToken.IsCancellationRequested && stream.CanRead)
+            try
             {
-                var line = await reader.ReadLineAsync(cancellationToken);
-                if (line == null)
-                    break;
-                AgentResponse response;
-                try
+                while (!cancellationToken.IsCancellationRequested && stream.CanRead)
                 {
-                    var request = JsonConvert.DeserializeObject<AgentRequest>(line)
-                        ?? throw new InvalidOperationException("The Agent MCP request was empty.");
-                    response = new AgentResponse { Id = request.Id, Result = await DispatchAsync(request, cancellationToken) };
+                    var line = await reader.ReadLineAsync(cancellationToken);
+                    if (line == null)
+                        break;
+                    AgentRequest? request = null;
+                    AgentResponse response;
+                    try
+                    {
+                        request = JsonConvert.DeserializeObject<AgentRequest>(line)
+                            ?? throw new InvalidOperationException("The Agent MCP request was empty.");
+                        response = new AgentResponse { Id = request.Id, Result = await dispatch(request, cancellationToken) };
+                    }
+                    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+                    catch (Exception ex)
+                    {
+                        response = new AgentResponse { Id = request?.Id, Error = ex.Message };
+                    }
+                    // Write a complete frame without a StreamWriter that flushes again on disposal,
+                    // after the one-call client may already have disconnected.
+                    await stream.WriteAsync(Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(response) + "\n"), cancellationToken);
                 }
-                catch (Exception ex)
-                {
-                    response = new AgentResponse { Error = ex.Message };
-                }
-                await writer.WriteLineAsync(JsonConvert.SerializeObject(response));
+            }
+            catch (IOException ex) when ((ex.HResult & 0xffff) is 109 or 232 or 233)
+            {
+                // A cancelled tool call can close its pipe before the reply is written.
+                // The operation may already have run; never replay it on a new connection.
             }
         }
 
@@ -244,7 +256,8 @@ namespace PZTools.Core.Functions.Agent
                         ? await ModTestService.RunUnitAsync(_window.ModProject, args.Value<string>("filter"), ct)
                         : await GameTestService.RunAsync(_window.ModProject, profile!, GameRoot(profile!),
                             args.Value<string>("filter"), timeout, progress, ct,
-                            process => _window.Dispatcher.BeginInvoke(() => _window.TrackGameClient(process))));
+                            process => _window.Dispatcher.BeginInvoke(() => _window.TrackGameClient(process)),
+                            endpointProgress: states => _runs.UpdateEndpoints(states)));
                 case "start_playtest":
                     Require(settings.AgentMcpAllowTesting && settings.AgentMcpAllowDeployment && settings.AgentMcpAllowGameControl, "Testing, deployment and game control");
                     ValidatePlaytestPaths();
@@ -518,17 +531,23 @@ namespace PZTools.Core.Functions.Agent
                 throw new UnauthorizedAccessException($"{capability} is disabled in PZTools Agent MCP settings.");
         }
 
-        private sealed class AgentRequest
+        internal sealed class AgentRequest
         {
+            [JsonProperty("id")]
             public string? Id { get; init; }
+            [JsonProperty("method")]
             public string Method { get; init; } = string.Empty;
+            [JsonProperty("arguments")]
             public JObject? Arguments { get; init; }
         }
 
         private sealed class AgentResponse
         {
+            [JsonProperty("id")]
             public string? Id { get; init; }
+            [JsonProperty("result")]
             public object? Result { get; init; }
+            [JsonProperty("error")]
             public string? Error { get; init; }
         }
     }

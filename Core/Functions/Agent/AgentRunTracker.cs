@@ -13,6 +13,7 @@ public sealed class AgentRunTracker : IAsyncDisposable
     private string? kind;
     private string state = "idle";
     private JToken? result;
+    private JToken? endpoints;
     private string? error;
     private bool disposed;
 
@@ -26,7 +27,7 @@ public sealed class AgentRunTracker : IAsyncDisposable
             cancellation = new CancellationTokenSource();
             var token = cancellation.Token;
             id = Guid.NewGuid().ToString("N"); kind = runKind; state = "running";
-            result = null; error = null; output.Clear();
+            result = null; endpoints = null; error = null; output.Clear();
             task = Task.Run(async () =>
             {
                 try
@@ -46,8 +47,13 @@ public sealed class AgentRunTracker : IAsyncDisposable
         lock (gate)
         {
             CheckId(runId);
-            return new { runId = id, kind, state, result = result?.DeepClone(), error, output = output.TakeLast(Math.Clamp(lines, 1, 2000)).ToArray() };
+            return new { runId = id, kind, state, result = result?.DeepClone(), endpoints = endpoints?.DeepClone(), error, output = output.TakeLast(Math.Clamp(lines, 1, 2000)).ToArray() };
         }
+    }
+
+    public void UpdateEndpoints(object value)
+    {
+        lock (gate) endpoints = JToken.FromObject(value);
     }
 
     public object Cancel(string runId)

@@ -20,7 +20,7 @@ namespace PZTools.Core.Functions.Projects
             var profileRoot = Path.Combine(pzToolsRoot, "playtests", profile.Id.ToString("N"));
             var sessionRoot = profile.SaveMode == PlaytestSaveMode.ReuseProfileData
                 ? Path.Combine(profileRoot, "reusable")
-                : Path.Combine(profileRoot, "sessions", DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff"));
+                : Path.Combine(profileRoot, "sessions", DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff") + "-" + Guid.NewGuid().ToString("N")[..8]);
             var serverCache = Path.Combine(sessionRoot, "server");
             var clientCaches = Enumerable.Range(1, profile.Mode == PlaytestMode.DedicatedServer ? profile.ClientCount : 1)
                 .Select(x => Path.Combine(sessionRoot, $"client-{x}"))
@@ -34,6 +34,24 @@ namespace PZTools.Core.Functions.Projects
             {
                 var destinationCache = profile.Mode == PlaytestMode.DedicatedServer ? serverCache : clientCaches[0];
                 CloneSave(profile.SourceSavePath, destinationCache);
+            }
+            if (profile.SaveMode == PlaytestSaveMode.FreshSessionClone)
+            {
+                var errors = PlaytestFixtureService.Validate(profile);
+                if (errors.Count > 0) throw new InvalidDataException(string.Join(Environment.NewLine, errors));
+                foreach (var cache in clientCaches.Append(serverCache))
+                {
+                    var sourceCache = Path.Combine(profile.SourceSessionPath, Path.GetFileName(cache));
+                    foreach (var folder in cache == serverCache ? new[] { "Saves", "db", "Server" } : new[] { "Saves", "db" })
+                        if (Directory.Exists(Path.Combine(sourceCache, folder)))
+                            CopyDirectory(Path.Combine(sourceCache, folder), Path.Combine(cache, folder));
+                    var login = Path.Combine(sourceCache, "Lua", "pztools-local-login.txt");
+                    if (File.Exists(login))
+                    {
+                        Directory.CreateDirectory(Path.Combine(cache, "Lua"));
+                        File.Copy(login, Path.Combine(cache, "Lua", "pztools-local-login.txt"));
+                    }
+                }
             }
 
             return new PlaytestSessionWorkspace
@@ -70,6 +88,10 @@ namespace PZTools.Core.Functions.Projects
 
         private static void CopyDirectory(string source, string destination)
         {
+            EnsureNoLinks(source);
+            var sourceRoot = Path.GetFullPath(source).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+            if ((Path.GetFullPath(destination) + Path.DirectorySeparatorChar).StartsWith(sourceRoot, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("The destination must not be inside the source save.");
             Directory.CreateDirectory(destination);
             foreach (var directory in Directory.EnumerateDirectories(source, "*", SearchOption.AllDirectories))
                 Directory.CreateDirectory(Path.Combine(destination, Path.GetRelativePath(source, directory)));
@@ -79,6 +101,21 @@ namespace PZTools.Core.Functions.Projects
                 Directory.CreateDirectory(Path.GetDirectoryName(target)!);
                 File.Copy(file, target, overwrite: true);
             }
+        }
+
+        internal static void EnsureNoLinks(string path)
+        {
+            for (var parent = new DirectoryInfo(path); parent is not null; parent = parent.Parent)
+                if ((parent.Attributes & FileAttributes.ReparsePoint) != 0)
+                    throw new InvalidDataException("Linked save folders are not supported. Select the original folder.");
+            var pending = new Stack<string>(); pending.Push(path);
+            while (pending.Count > 0)
+                foreach (var entry in Directory.EnumerateFileSystemEntries(pending.Pop()))
+                {
+                    var attributes = File.GetAttributes(entry);
+                    if ((attributes & FileAttributes.ReparsePoint) != 0) throw new InvalidDataException("The save contains a linked file or folder.");
+                    if ((attributes & FileAttributes.Directory) != 0) pending.Push(entry);
+                }
         }
     }
 }

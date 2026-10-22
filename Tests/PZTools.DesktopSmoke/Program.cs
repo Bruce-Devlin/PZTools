@@ -15,6 +15,9 @@ internal static class Program
     [STAThread]
     private static int Main(string[] args)
     {
+        if (args.Contains("--setup-only"))
+            return SetupSmoke.Run();
+
         if (args.Contains("--game-window-fixture"))
         {
             var fixtureApp = new Application();

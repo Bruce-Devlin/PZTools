@@ -10,7 +10,7 @@ namespace PZTools.Core.Functions.Projects
     {
         public const string ManifestFileName = ".pztools-deployment.json";
 
-        public static void Write(string deployedRoot, string projectId)
+        public static void Write(string deployedRoot, string projectId, string? sourceSnapshotId = null)
         {
             if (!Directory.Exists(deployedRoot))
                 throw new DirectoryNotFoundException(deployedRoot);
@@ -18,6 +18,7 @@ namespace PZTools.Core.Functions.Projects
             var manifest = new DeploymentManifest
             {
                 ProjectId = projectId,
+                SourceSnapshotId = sourceSnapshotId,
                 DeployedAtUtc = DateTime.UtcNow,
                 Files = ProjectDeployer.EnumeratePayloadFiles(deployedRoot)
                     .Where(x => !Path.GetFileName(x).Equals(ManifestFileName, StringComparison.OrdinalIgnoreCase))
@@ -175,6 +176,7 @@ namespace PZTools.Core.Functions.Projects
         private sealed class DeploymentManifest
         {
             public string ProjectId { get; set; } = "";
+            public string? SourceSnapshotId { get; set; }
             public DateTime DeployedAtUtc { get; set; }
             public List<DeploymentManifestEntry> Files { get; set; } = new();
         }

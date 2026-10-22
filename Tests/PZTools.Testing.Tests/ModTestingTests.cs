@@ -57,6 +57,79 @@ public sealed class ModTestingTests : IDisposable
     }
 
     [Fact]
+    public async Task ProtectedFailuresAndCleanupFinalizeOnceAndKeepOriginalMessage()
+    {
+        Write(".pztests/contained.unit.lua", """
+            local cleaned = 0
+            test("assertion", function(t)
+                t:cleanup(function() cleaned = cleaned + 1; error('cleanup broke') end)
+                t:equal(1, 2, 'original failure')
+                error('must not continue')
+            end)
+            test("after assertion", function(t) t:equal(cleaned, 1) end)
+            test("native", function(t) t:phase('engine call', function() error('native broke') end) end)
+            test("after native", function(t) t:truthy(true) end)
+            test("wait", function(t) t:waitUntil(function() return false end, 0) end)
+            test("after wait", function(t) t:truthy(true) end)
+            """);
+        var report = await ModTestService.RunUnitAsync(Project);
+        Assert.Empty(report.Errors);
+        Assert.Equal(new[] { "failed", "passed", "failed", "passed", "failed", "passed" }, report.Tests.Select(t => t.Status));
+        Assert.Contains("original failure", report.Tests[0].Message);
+        Assert.Contains("cleanup broke", report.Tests[0].Message);
+        Assert.DoesNotContain("must not continue", report.Tests[0].Message);
+        Assert.Equal("assertion", report.Tests[0].FailureOrigin);
+        Assert.Equal("native_phase", report.Tests[2].FailureOrigin);
+    }
+
+    [Fact]
+    public async Task LoggedNativeErrorsCannotPassProtectedOrUnprotectedCases()
+    {
+        Write(".pztests/logged.unit.lua", """
+            local count = 0
+            local escaped = false
+            PZT.errorCount = function() return count end
+            PZT.lastError = function() return 'native exception logged by host' end
+            test('protected', function(t)
+                t:phase('native', function() count = count + 1 end)
+                escaped = true
+            end)
+            test('after protected', function(t) t:equal(escaped, false) end)
+            test('expected throw', function(t) t:throws(function() count = count + 1 end, 'native exception') end)
+            test('unprotected', function(t) count = count + 1 end)
+            test('must not run', function(t) error('unsafe') end)
+            """);
+        var report = await ModTestService.RunUnitAsync(Project);
+        Assert.Equal(new[] { "failed", "passed", "passed", "failed" }, report.Tests.Select(t => t.Status));
+        Assert.Equal("native_phase", report.Tests[0].FailureOrigin);
+        Assert.Equal("harness", report.Tests[3].FailureOrigin);
+        Assert.Single(report.Errors);
+        Assert.Contains("native exception logged", report.Tests[0].Message);
+    }
+
+    [Fact]
+    public async Task DamagedCoroutineStopsOnceWithoutRunningNextCase()
+    {
+        Write(".pztests/damaged.unit.lua", """
+            local cleanups = 0
+            test('damaged', function(t)
+                t:cleanup(function() cleanups = cleanups + 1; assert(cleanups == 1) end)
+                PZT.current.thread = coroutine.running()
+                PZT.current.resuming = true
+                -- Emulate resume escaping into the event host, leaving the guard set.
+                PZT.watchdog()
+            end)
+            test('must not execute', function(t) error('unexpected') end)
+            """);
+        var report = await ModTestService.RunUnitAsync(Project);
+        Assert.Single(report.Tests);
+        Assert.Equal("failed", report.Tests[0].Status);
+        Assert.Equal("harness", report.Tests[0].FailureOrigin);
+        Assert.Single(report.Errors);
+        Assert.Contains("cannot safely continue", report.Errors[0]);
+    }
+
+    [Fact]
     public async Task ModulesLoadFromProjectAndFilesHaveSeparateGlobals()
     {
         Write("common/media/lua/shared/Rules.lua", "return { value = 42 }");
@@ -91,6 +164,48 @@ public sealed class ModTestingTests : IDisposable
         Assert.Equal("passed", report.Tests[0].Status);
         Assert.Equal("failed", report.Tests[1].Status);
         Assert.Contains("timed out", report.Tests[1].Message);
+    }
+
+    [Fact]
+    public void DriverHeartbeatReportsPauseWithoutAdvancingTestsOrRepairingPlayer()
+    {
+        var script = new Script();
+        script.DoString("""
+            require = function() end
+            output = ''; clock = 100000; ticks = 0; present = false; dead = false; speed = 0
+            PZT = { tick = function() ticks = ticks + 1 end }
+            PZTestSupport = { function() supportRegistered = true end }; PZTestManifest = {}
+            local config = { 'run', 'client-1', '', '', 'tests' }
+            function getFileReader(path)
+                if path == 'pztests-go.txt' then
+                    if gateRun then return { readLine = function() return gateRun end, close = function() end } end
+                    return nil
+                end
+                local i = 0; return { readLine = function() i=i+1; return config[i] end, close = function() end }
+            end
+            function getFileWriter() return { write = function(_, text) output = output .. text end, close = function() end } end
+            function getTimestampMs() clock = clock + 1000; return clock end
+            function isServer() return false end
+            function getSpecificPlayer() if present then return { isDead = function() return dead end } end end
+            UIManager = { getSpeedControls = function() return { getCurrentGameSpeed = function() return speed end } end }
+            Events = setmetatable({}, { __index = function(t, name)
+                local handlers = {}; local event = { Add = function(fn) table.insert(handlers, fn) end,
+                    fire = function() for _, fn in ipairs(handlers) do fn() end end }; t[name] = event; return event
+            end })
+            """);
+        script.DoString(ModTestService.Resource("Driver.lua"));
+        script.DoString("Events.OnTickEvenPaused.fire(); Events.OnGameStart.fire()");
+        Assert.Contains("awaiting_player|0|true|false|false", script.Globals.Get("output").String);
+        script.DoString("present = true; Events.OnTick.fire(); Events.OnTickEvenPaused.fire()");
+        Assert.True(script.Globals.Get("supportRegistered").Boolean);
+        Assert.Equal(0, script.Globals.Get("ticks").Number);
+        script.DoString("dead = true; Events.OnTickEvenPaused.fire()");
+        Assert.Contains("|true|false|true", script.Globals.Get("output").String);
+        Assert.Equal(0, script.Globals.Get("speed").Number);
+        Assert.True(script.Globals.Get("dead").Boolean);
+        script.DoString("dead = false; speed = 1; gateRun = 'run'; Events.OnTick.fire(); dead = true; Events.OnTickEvenPaused.fire()");
+        Assert.Contains("running|", script.Globals.Get("output").String);
+        Assert.Contains("|false|false|true", script.Globals.Get("output").String);
     }
 
     [Fact]

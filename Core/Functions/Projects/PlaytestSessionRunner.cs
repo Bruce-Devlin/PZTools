@@ -61,6 +61,8 @@ namespace PZTools.Core.Functions.Projects
 
                 if (profile.Mode == PlaytestMode.DedicatedServer)
                     PlaytestServerConfig.Write(profile, workspace, project.ModInfo.Id, project);
+                if (profile.Mode == PlaytestMode.DedicatedServer && profile.NoSteam && profile.AutoConnectClients)
+                    PlaytestLocalConnection.Prepare(profile, workspace);
                 PrepareAutomation?.Invoke(workspace);
 
                 if (profile.Mode == PlaytestMode.DedicatedServer)
@@ -102,7 +104,7 @@ namespace PZTools.Core.Functions.Projects
                     var failedClient = clients.FirstOrDefault(x => SafeExitCode(x) != 0);
                     if (failedClient is not null)
                         throw new InvalidOperationException($"A Project Zomboid client exited unexpectedly (exit code {SafeExitCode(failedClient)}). Review the session output and isolated console.txt.");
-                    await StopProcessAsync(server);
+                    await StopServerGracefullyAsync(server, linked.Token);
                 }
                 else
                 {
@@ -169,21 +171,19 @@ namespace PZTools.Core.Functions.Projects
         private async Task DeployProfileAsync(ModProject project, PlaytestProfile profile,
             PlaytestSessionWorkspace workspace, CancellationToken cancellationToken)
         {
+            var snapshot = await Task.Run(() => DeploymentSnapshotService.Capture(project, profile, workspace.RootPath, cancellationToken), cancellationToken);
+            workspace.SourceSnapshotId = snapshot.Id;
+            workspace.PayloadManifestPath = snapshot.ManifestPath;
+            Emit($"Runtime snapshot {snapshot.Id}: {snapshot.Bytes:N0} bytes; manifest: {snapshot.ManifestPath}");
+            if (profile.Mode == PlaytestMode.DedicatedServer && !profile.NoSteam && profile.Dependencies.Any(d => d.Enabled && !string.IsNullOrWhiteSpace(d.WorkshopId)))
+                Emit("Steam Workshop dependencies remain outside the local runtime snapshot guarantee.");
             var caches = workspace.ClientCachePaths.Append(workspace.ServerCachePath).Distinct(StringComparer.OrdinalIgnoreCase);
             foreach (var cache in caches)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 var modsRoot = Path.Combine(cache, "mods");
-                await ProjectDeployer.DeployProject(project, modsRoot, cancellationToken);
-                foreach (var dependency in profile.Dependencies.Where(x => x.Enabled && Directory.Exists(x.SourcePath) &&
-                             (profile.Mode != PlaytestMode.DedicatedServer || profile.NoSteam || string.IsNullOrWhiteSpace(x.WorkshopId))))
-                {
-                    var folderName = ModInfoUtil.NormalizeModId(dependency.ModId);
-                    if (string.IsNullOrWhiteSpace(folderName))
-                        folderName = new DirectoryInfo(dependency.SourcePath).Name;
-                    await Task.Run(() => CopyDependency(dependency.SourcePath,
-                        Path.Combine(modsRoot, folderName), cancellationToken), cancellationToken);
-                }
+                foreach (var payload in snapshot.Payloads)
+                    await ProjectDeployer.DeploySnapshot(payload, modsRoot, cancellationToken);
                 if (workspace.ClientCachePaths.Contains(cache, StringComparer.OrdinalIgnoreCase))
                     WriteClientModList(cache, profile, project);
             }
@@ -191,28 +191,16 @@ namespace PZTools.Core.Functions.Projects
 
         private Process StartServer(PlaytestProfile profile, PlaytestSessionWorkspace workspace, string clientBuildRoot)
         {
-            var launcher = ResolveServerLauncher(profile.ServerInstallPath, clientBuildRoot);
+            var launcher = PlaytestServerLauncher.Resolve(profile.ServerInstallPath, clientBuildRoot);
             var password = Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
             var arguments = $"-cachedir={Quote(workspace.ServerCachePath)} -servername {Quote(profile.ServerName)} " +
                             $"-port {profile.ServerPort} -udpport {profile.ServerPort + 1} -adminusername PZToolsAdmin " +
-                            $"-adminpassword {password} {(profile.NoSteam ? "-nosteam -modfolders mods" : "-modfolders workshop,steam,mods")} {profile.LaunchArguments}";
+                            $"-adminpassword {password} {(profile.NoSteam ? "-nosteam -modfolders mods" : "-modfolders workshop,steam,mods")} " +
+                            (profile.LocalServerOnly ? "-ip 127.0.0.1 " : "") + profile.LaunchArguments;
             Emit($"Starting dedicated server '{profile.ServerName}' on 127.0.0.1:{profile.ServerPort}.");
 
-            ProcessStartInfo start;
-            if (Path.GetExtension(launcher).Equals(".bat", StringComparison.OrdinalIgnoreCase) ||
-                Path.GetExtension(launcher).Equals(".cmd", StringComparison.OrdinalIgnoreCase))
-            {
-                start = new ProcessStartInfo
-                {
-                    FileName = Environment.GetEnvironmentVariable("ComSpec") ?? "cmd.exe",
-                    Arguments = $"/d /s /c \"\"{launcher}\" {arguments}\"",
-                    WorkingDirectory = Path.GetDirectoryName(launcher)!
-                };
-            }
-            else
-            {
-                start = new ProcessStartInfo { FileName = launcher, Arguments = arguments, WorkingDirectory = Path.GetDirectoryName(launcher)! };
-            }
+            var start = PlaytestServerLauncher.Create(launcher, arguments, profile.NoSteam);
+            start.RedirectStandardInput = true;
             return StartProcess(start, "SERVER", detectServerReady: true);
         }
 
@@ -221,7 +209,7 @@ namespace PZTools.Core.Functions.Projects
             var executable = Path.Combine(clientBuildRoot, "ProjectZomboid64.exe");
             if (!File.Exists(executable))
                 throw new FileNotFoundException("Project Zomboid client executable was not found.", executable);
-            var connect = profile.Mode == PlaytestMode.DedicatedServer && profile.AutoConnectClients
+            var connect = profile.Mode == PlaytestMode.DedicatedServer && profile.AutoConnectClients && !profile.NoSteam
                 ? $" +connect 127.0.0.1:{profile.ServerPort}"
                 : "";
             var modFolders = profile.Mode == PlaytestMode.DedicatedServer && profile.NoSteam ? "mods" : "mods,steam,workshop";
@@ -268,43 +256,26 @@ namespace PZTools.Core.Functions.Projects
                 _serverReady.TrySetResult();
         }
 
-        private static string ResolveServerLauncher(string configuredPath, string fallbackRoot)
+        private async Task StopServerGracefullyAsync(Process server, CancellationToken ct)
         {
-            var candidates = new List<string>();
-            if (!string.IsNullOrWhiteSpace(configuredPath))
-            {
-                if (File.Exists(configuredPath))
-                    candidates.Add(configuredPath);
-                else if (Directory.Exists(configuredPath))
-                {
-                    candidates.Add(Path.Combine(configuredPath, "StartServer64.bat"));
-                    candidates.Add(Path.Combine(configuredPath, "ProjectZomboid64.exe"));
-                }
-            }
-            candidates.Add(Path.Combine(fallbackRoot, "StartServer64.bat"));
-            return candidates.FirstOrDefault(File.Exists) ??
-                   throw new FileNotFoundException("Dedicated server launcher was not found. Select StartServer64.bat or the dedicated-server installation folder in the profile.");
-        }
-
-        private static void CopyDependency(string source, string destination, CancellationToken cancellationToken)
-        {
-            Directory.CreateDirectory(destination);
-            foreach (var file in Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories))
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                var relative = Path.GetRelativePath(source, file);
-                if (!ProjectDeployer.ShouldIncludePath(relative))
-                    continue;
-                var target = Path.Combine(destination, relative);
-                Directory.CreateDirectory(Path.GetDirectoryName(target)!);
-                File.Copy(file, target, overwrite: true);
-            }
+            if (server.HasExited) throw new InvalidOperationException("The server exited before it could save the fixture.");
+            Emit("Clients closed. Saving and stopping the dedicated server...");
+            await server.StandardInput.WriteLineAsync("quit");
+            await server.StandardInput.FlushAsync(ct);
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeout.CancelAfter(TimeSpan.FromSeconds(60));
+            try { await server.WaitForExitAsync(timeout.Token); }
+            catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+            { throw new TimeoutException("The server did not finish saving. Session data was retained, but no fixture was captured."); }
+            if (server.ExitCode != 0) throw new InvalidOperationException("The server did not close cleanly. No fixture was captured.");
         }
 
         private static void WriteClientModList(string cache, PlaytestProfile profile, ModProject project)
         {
             var ids = DependencyLoadOrder.Resolve(project, profile)
                 .Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            if (profile.Mode == PlaytestMode.DedicatedServer && profile.NoSteam && profile.AutoConnectClients)
+                ids.Add(PlaytestLocalConnection.ModId);
             if (profile.Build >= 42)
                 ids = ids.Select(x => x.StartsWith('\\') ? x : "\\" + x).ToList();
             var lines = new List<string> { "VERSION = 1,", "", "mods", "{" };

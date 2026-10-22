@@ -35,7 +35,18 @@ namespace PZTools.Core.Functions.Projects
             finally { DeploymentGate.Release(); }
         }
 
-        private static async Task DeployProjectCore(ModProject project, string deployRoot, CancellationToken ct)
+        internal static async Task DeploySnapshot(DeploymentSnapshotPayload payload, string deployRoot, CancellationToken ct)
+        {
+            await DeploymentGate.WaitAsync(ct);
+            try
+            {
+                await DeployProjectCore(new ModProject { RootPath = payload.RootPath, ModInfo = new() { Id = payload.ModId } },
+                    deployRoot, ct, Path.Combine(payload.RootPath, DeploymentManifestService.ManifestFileName));
+            }
+            finally { DeploymentGate.Release(); }
+        }
+
+        private static async Task DeployProjectCore(ModProject project, string deployRoot, CancellationToken ct, string? snapshotManifest = null)
         {
             ArgumentNullException.ThrowIfNull(project);
             if (string.IsNullOrWhiteSpace(project.RootPath) || !Directory.Exists(project.RootPath))
@@ -78,15 +89,23 @@ namespace PZTools.Core.Functions.Projects
                         ct: ct);
                 }, ct);
 
-                DeploymentManifestService.Write(stagingDest, project.ModInfo.Id.Length > 0 ? project.ModInfo.Id : projectName);
+                if (snapshotManifest is null)
+                    DeploymentManifestService.Write(stagingDest, project.ModInfo.Id.Length > 0 ? project.ModInfo.Id : projectName);
+                else
+                {
+                    File.Copy(snapshotManifest, Path.Combine(stagingDest, DeploymentManifestService.ManifestFileName));
+                    var errors = DeploymentManifestService.Verify(stagingDest, stagingDest, project.ModInfo.Id)
+                        .Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
+                    if (errors.Length > 0) throw new IOException("Snapshot copy failed verification: " + string.Join("; ", errors.Select(e => e.Message)));
+                }
 
                 await Console.Log($"Deploying {stagedFilesCount} files from staging folder...");
-                await Task.Run(() => ReplaceDeployment(stagingDest, finalDest, backupDest, ct), ct);
+                await ReplaceDeploymentAsync(stagingDest, finalDest, backupDest, ct);
                 await Console.Log("Project deployed successfully.");
             }
             finally
             {
-                TryDeleteDirectory(stagingDest);
+                await TryDeleteDirectoryAsync(stagingDest);
             }
         }
 
@@ -133,29 +152,65 @@ namespace PZTools.Core.Functions.Projects
             };
         }
 
-        private static void ReplaceDeployment(string stagingDest, string finalDest, string backupDest, CancellationToken ct)
+        internal static async Task ReplaceDeploymentAsync(string stagingDest, string finalDest, string backupDest, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
-            TryDeleteDirectory(backupDest);
 
             var hadExistingDeployment = Directory.Exists(finalDest);
             if (hadExistingDeployment)
-                Directory.Move(finalDest, backupDest);
+                await MoveDirectoryWithRetryAsync(finalDest, backupDest, ct);
 
             try
             {
-                ct.ThrowIfCancellationRequested();
-                Directory.Move(stagingDest, finalDest);
+                await MoveDirectoryWithRetryAsync(stagingDest, finalDest, ct);
             }
-            catch
+            catch (Exception deploymentError)
             {
-                TryDeleteDirectory(finalDest);
+                // A failed rename does not install a partial deployment. Do not delete
+                // an unexpected destination, and restore the backup even on cancellation.
                 if (hadExistingDeployment && Directory.Exists(backupDest))
-                    Directory.Move(backupDest, finalDest);
+                {
+                    try
+                    {
+                        await MoveDirectoryWithRetryAsync(backupDest, finalDest, CancellationToken.None);
+                    }
+                    catch (Exception restoreError) when (restoreError is IOException or UnauthorizedAccessException)
+                    {
+                        throw new IOException($"Deployment failed and the previous deployment could not be restored to '{finalDest}'. " +
+                            $"The previous files are preserved at '{backupDest}'. Close processes using these folders before restoring them.",
+                            new AggregateException(deploymentError, restoreError));
+                    }
+                }
                 throw;
             }
             // A cleanup failure must not roll back an already committed deployment.
-            TryDeleteDirectory(backupDest);
+            await TryDeleteDirectoryAsync(backupDest);
+        }
+
+        private static async Task MoveDirectoryWithRetryAsync(string source, string destination, CancellationToken ct)
+        {
+            const int attempts = 7;
+            for (var attempt = 0; ; attempt++)
+            {
+                ct.ThrowIfCancellationRequested();
+                try
+                {
+                    Directory.Move(source, destination);
+                    return;
+                }
+                catch (Exception ex) when ((ex is IOException or UnauthorizedAccessException) &&
+                                           (ex.HResult & 0xffff) is 5 or 32 or 33)
+                {
+                    // Windows can report ACCESS_DENIED for a directory rename while
+                    // a scanner or reader holds a child file without delete sharing.
+                    if (attempt == attempts - 1)
+                        throw new IOException($"Could not move deployment folder '{source}' to '{destination}' after retrying. " +
+                            "Close processes using these folders and check their permissions before retrying.", ex);
+                    if (attempt == 0)
+                        await Console.Log($"Deployment folder is unavailable; retrying move from '{source}' to '{destination}'.", Console.LogLevel.Warning);
+                    await Task.Delay(Math.Min(100 << attempt, 500), ct);
+                }
+            }
         }
 
         private static int CopyDirectory(
@@ -212,6 +267,7 @@ namespace PZTools.Core.Functions.Projects
                     p.Equals(".idea", StringComparison.OrdinalIgnoreCase) ||
                     p.Equals(".vscode", StringComparison.OrdinalIgnoreCase) ||
                     p.Equals(".codex", StringComparison.OrdinalIgnoreCase) ||
+                    p.Equals(".agents", StringComparison.OrdinalIgnoreCase) ||
                     p.Equals(".pztools", StringComparison.OrdinalIgnoreCase)))
                 return false;
 
@@ -246,10 +302,20 @@ namespace PZTools.Core.Functions.Projects
             return normalized.Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries);
         }
 
-        private static void TryDeleteDirectory(string path)
+        private static async Task TryDeleteDirectoryAsync(string path)
         {
-            if (Directory.Exists(path))
-                WindowsHelpers.DeleteDirectoryRobust(path);
+            try
+            {
+                if (Directory.Exists(path))
+                    await Task.Run(() => WindowsHelpers.DeleteDirectoryRobust(path));
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // Retain locked temporary files without hiding a deployment failure
+                // or reporting a committed deployment as failed.
+                await Console.Log($"Deployment cleanup could not remove '{path}': {ex.Message} " +
+                    "The remaining files have been preserved.", Console.LogLevel.Warning);
+            }
         }
     }
 }

@@ -7,6 +7,7 @@ public sealed class ModTestCase
     public string Endpoint { get; set; } = "unit";
     public string Status { get; set; } = "running";
     public string Message { get; set; } = "";
+    public string? FailureOrigin { get; set; }
     public double DurationSeconds { get; set; }
     public List<string> Steps { get; set; } = new();
 }
@@ -20,7 +21,10 @@ public sealed class ModTestReport
     public string GameRoot { get; set; } = "";
     public string Profile { get; set; } = "";
     public string ArtifactDirectory { get; set; } = "";
+    public string? SourceSnapshotId { get; set; }
+    public string? PayloadManifestPath { get; set; }
     public List<ModTestCase> Tests { get; set; } = new();
     public List<string> Errors { get; set; } = new();
+    public List<GameTestEndpointState> Endpoints { get; set; } = new();
     public bool Passed => Tests.Count > 0 && Errors.Count == 0 && Tests.All(t => t.Status == "passed");
 }

@@ -344,19 +344,24 @@ Use [game tests](game-tests) for the app's automated game-session workflow. Use 
 Game tests use a configured playtest profile to exercise tests in an isolated game session and collect results.
 
 ## Before running
-1. Configure and save the intended profile in Debug > Run Game Settings.
-2. Confirm the game build, save mode, dependencies, and server/client settings as appropriate.
-3. Run health checks and resolve errors.
-4. Open Project > Test Explorer and select the intended game-test file, or Clear selection for all matching files.
-The Playtest profiles button in Test Explorer opens profile setup. Test examples provide starting files; writing game test logic is outside the scope of this app manual.
+1. Open Project > Test Explorer > Set up game tests.
+2. Choose Singleplayer or Local server + two clients and the intended build. Setup finds installed dependencies and shows anything still needed.
+3. For Singleplayer, select a detected save or Create a test character. Create one world and a living character, enter the world, then quit to desktop. Existing saves are structurally checked; the game checks living-character and build compatibility when opening a copy.
+4. For multiplayer, Launch server + two clients sets up a local-only server, separate accounts, and automatic joining. Create a character in each client and enter the world. Quit both clients to desktop normally; the server saves and stops, and setup captures the fixture.
+5. Choose Use this profile, then select a test file or Clear selection for all matching files.
+Setup creates a new profile without replacing existing ones. Playtest profiles still exposes the complete advanced configuration. Unit tests require none of this setup.
 
 ## Run and inspect
 Click Run game tests and follow the status. Game startup can take longer than a unit run. Review endpoint and test messages in the result table, then use Open report folder for collected artifacts.
+Tests wait for every endpoint to register support and demonstrate advancing simulation ticks with a living player (or server endpoint). Test Explorer shows each endpoint's phase, heartbeat and blocking reason. A paused world, missing character or stalled tick holds the startup barrier closed. Unknown screen state is reported honestly. The game timeout is editable in Test Explorer; the default is ten minutes. Multiplayer profiles without a fixture still require character creation in each fresh session. Final endpoint states are saved in endpoints.json and the test report, including on timeout.
 If startup fails or times out, inspect the profile's selected executable, dependencies, and session output before changing the tests. A runner error may mean the game never reached the test stage.
 
 ## Cancel safely
 Cancel run requests cancellation and stopping of owned test processes. Closing the test window during a run also waits for cancellation handling rather than abandoning the runner. Allow cleanup to finish.
 For manual reproduction, run the same [Playtest Lab profile](playtest) and compare its [logs](logs).
+
+## Test failure handling
+Assertions and wait timeouts finalize the case once, then allow the next case to run. Teardown and cleanup failures are appended to the original message. Use t:phase(name, function) for synchronous native calls that may throw; do not yield or wait inside a protected phase, teardown or cleanup. Do not wrap yielding test bodies in pcall. A damaged coroutine ends the endpoint with an explicit harness error instead of repeated resumes. Intentional in-case pauses and deaths are observed without automatic repair.
 
 # lua-checks | Validation and testing | Quick Lua checks and watermarks
 The Debug menu includes quick saved-file checks. The File menu includes actions for applying the project's configured Lua watermark.
@@ -389,12 +394,14 @@ If a run reports stale deployment, save the intended source files and deploy aga
 
 ## Different destinations
 Playtest Lab prepares isolated session content for its profiles. Workshop upload stages a separate publication package and requires review. Neither should be confused with modifying your managed project directly.
+Preview payload in Playtest Lab lists included project files and excluded directories. Each run captures the project and included local dependencies once, then copies that snapshot to every endpoint. Research under .agents is excluded. Active runtime writes or runtime file-list changes during capture fail before launch with the path; edits after capture do not change that run. Snapshot IDs and manifest paths appear in session output and reports. Steam-managed Workshop dependencies are explicitly outside the local snapshot guarantee. Retained sessions keep the extra snapshot copy; parity and deployed-file checks remain enabled.
 See [Playtest Lab](playtest), [Workshop upload](workshop-upload), and [logs](logs).
 
 # playtest | Running the game | Playtest Lab profiles
 Playtest Lab stores reusable launch settings so you can repeat a test with the intended build, content, and isolated game data.
 
 ## Create a profile
+Quick Start > Set up a test session provides guided Singleplayer and local two-client defaults. It detects server files bundled with supported game installations; if those are unavailable, it explains how to select a matching dedicated-server installation. Capture characters once for repeatable fresh sessions. This path keeps all advanced controls available.
 Open Debug > Run Game Settings, or Run / Playtest Lab on the Game tab. Choose an existing profile or New. Set Profile name, Mode, Game build, and any Launch arguments. Review the display choice and window size; the default window is 1280 × 720.
 Choose the save mode, configure dependencies, and fill the Dedicated Server tab if using that mode. Click Save profile to retain the setup. Delete removes a profile from the list; choose carefully when you have several similar profiles.
 
@@ -411,6 +418,7 @@ The profile's save mode determines how its isolated world is prepared. Choose it
 
 ## Choose a save mode
 - Fresh Clone copies the selected source save into the session workspace. Use Browse beside Source save folder to choose the source you intend to clone.
+- FreshSessionClone copies a captured multiplayer fixture: the server world, accounts, sandbox settings and each client's saved character. The fixture's build, client count, server name, port and Steam mode must match the profile. Recapture after changing those settings. Old logs and deployed mods are not copied.
 - Empty starts with a clean isolated world instead of copying a source save.
 - Reuse keeps the profile's isolated world so that later runs can continue its state.
 The source save and the isolated copy have different roles. Changes made while testing belong to the test-session copy; do not expect them to be written back into the source save.
@@ -427,6 +435,7 @@ Record the selected mode with your [test report](test-explorer) or [game log](lo
 Dedicated-server profiles coordinate an isolated local server and optional clients through Playtest Lab.
 
 ## Configure the profile
+For the common case, use Quick Start > Set up a test session > Local server + two clients. Defaults include two 1280 × 720 windows, No-Steam mode, separate local accounts, automatic login, loopback binding and an available port pair. Port availability is checked again before setup; another process can still claim a port after the check. No router or firewall changes are made.
 Choose the dedicated-server Mode on the Profile tab. In Dedicated Server, browse for the Server install/launcher and set Server name, Port, Maximum players, Local clients, and Startup timeout. These fields describe the local session PZ Tools will try to start.
 No-Steam local test selects the local testing mode. Auto-connect clients controls whether launched clients connect automatically. Additional non-secret server options accepts one Key=Value setting per line; use the dedicated fields for settings already represented by the form.
 Review Dependencies & Load Order and ensure required content has valid source paths. Local copies are prepared into isolated caches; Workshop IDs are emitted for Steam-enabled servers.
@@ -436,6 +445,7 @@ Save profile, then Run profile. Watch SESSION OUTPUT while the server starts and
 If startup times out, check the launcher, selected build, dependencies, and server messages. Increasing the timeout is useful only when startup is valid but slower than the configured allowance.
 
 ## End the session
+When capturing a fixture, quit to desktop normally in every client while the characters are alive. PZTools then asks the server to save and quit. Cancel setup stops the owned processes but does not certify or save a fixture. Captured data remains under the project's .pztools/playtests directory; later runs copy it rather than modify it.
 Use Stop session and wait for cleanup. PZ Tools manages the processes belonging to its session. Review the output and retained artifacts when a client or server behaves differently.
 For automated endpoint results, see [game tests](game-tests). For dependency cycles or missing content, see [dependencies](dependencies).
 

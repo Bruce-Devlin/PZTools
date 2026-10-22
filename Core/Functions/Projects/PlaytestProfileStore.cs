@@ -1,6 +1,7 @@
 using System.IO;
 using System.Text;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using PZTools.Core.Functions.Zomboid;
 using PZTools.Core.Models;
 
@@ -12,6 +13,28 @@ namespace PZTools.Core.Functions.Projects
         private const string FileName = "playtest-profiles.json";
 
         public static string GetPath(ModProject project) => Path.Combine(project.RootPath, DirectoryName, FileName);
+
+        public static void Add(ModProject project, PlaytestProfile profile)
+        {
+            Normalize(profile, project);
+            var errors = Validate(profile, project);
+            if (errors.Count > 0) throw new InvalidDataException(string.Join(Environment.NewLine, errors));
+            var path = GetPath(project);
+            // Existing profiles may refer to moved installations or old fixtures. A new
+            // guided profile must neither rewrite nor require repairing those profiles.
+            var saved = File.Exists(path) ? JArray.Parse(File.ReadAllText(path)) : new JArray();
+            if (saved.OfType<JObject>().Any(p => Guid.TryParse((string?)p["Id"], out var id) && id == profile.Id))
+                throw new InvalidDataException("A profile with this ID already exists.");
+            saved.Add(JObject.FromObject(profile));
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            var temporary = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            try
+            {
+                File.WriteAllText(temporary, saved.ToString(Formatting.Indented) + Environment.NewLine, new UTF8Encoding(false));
+                File.Move(temporary, path, overwrite: true);
+            }
+            finally { if (File.Exists(temporary)) File.Delete(temporary); }
+        }
 
         public static List<PlaytestProfile> Load(ModProject project)
         {
@@ -92,6 +115,10 @@ namespace PZTools.Core.Functions.Projects
                 errors.Add("Server name contains invalid filename characters.");
             if (profile.SaveMode == PlaytestSaveMode.FreshClone && !Directory.Exists(profile.SourceSavePath))
                 errors.Add("The source save folder does not exist.");
+            if (profile.SaveMode == PlaytestSaveMode.FreshSessionClone)
+                errors.AddRange(PlaytestFixtureService.Validate(profile));
+            if (profile.Mode == PlaytestMode.DedicatedServer && profile.MaxPlayers < profile.ClientCount)
+                errors.Add("Maximum players must allow all local clients to join.");
             if (profile.Dependencies.Where(x => x.Enabled).Any(x => string.IsNullOrWhiteSpace(x.ModId)))
                 errors.Add("Every enabled dependency needs a mod ID.");
             if (profile.Dependencies.Where(x => x.Enabled).GroupBy(x => x.ModId, StringComparer.OrdinalIgnoreCase).Any(x => x.Count() > 1))
@@ -107,7 +134,9 @@ namespace PZTools.Core.Functions.Projects
                 errors.Add("Launch arguments contain shell control characters.");
             try
             {
-                PlaytestServerConfig.ParseAdditionalOptions(profile.AdditionalServerOptions);
+                var options = PlaytestServerConfig.ParseAdditionalOptions(profile.AdditionalServerOptions);
+                if (profile.LocalServerOnly && options.Any(o => o.StartsWith("UPnP=", StringComparison.OrdinalIgnoreCase) && !o.Equals("UPnP=false", StringComparison.OrdinalIgnoreCase)))
+                    errors.Add("Local-only sessions disable UPnP port forwarding. Remove the UPnP override or turn off local-only binding.");
             }
             catch (Exception ex) { errors.Add(ex.Message); }
             if (project is not null)

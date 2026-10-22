@@ -6,6 +6,7 @@ local runId = reader:readLine()
 local endpoint = reader:readLine()
 local saveMode = reader:readLine()
 local saveName = reader:readLine()
+local purpose = reader:readLine()
 reader:close()
 if not runId or not endpoint then return end
 local sequence = 0
@@ -13,6 +14,16 @@ local function escape(value)
     return tostring(value or ""):gsub("%%", "%%25"):gsub("\t", "%%09"):gsub("\r", "%%0D"):gsub("\n", "%%0A")
 end
 PZT.now = function() return getTimestampMs() / 1000 end
+if type(getLuaDebuggerErrorCount) == "function" then
+    PZT.errorCount = getLuaDebuggerErrorCount
+    PZT.lastError = function()
+        if type(getLuaDebuggerErrors) == "function" then
+            local errors = getLuaDebuggerErrors()
+            if errors and errors:size() > 0 then return tostring(errors:get(errors:size() - 1)) end
+        end
+        return "Native error logged by the game; see console.txt"
+    end
+end
 PZT.emit = function(kind, file, name, message, duration)
     sequence = sequence + 1
     local writer = getFileWriter("pztests-events.txt", true, true)
@@ -59,10 +70,10 @@ PZT.extend = function(t)
     t.endpoint = endpoint
     function t:remote(target, action, arguments, timeout)
         if target == endpoint then
-            assert(adapters[action], "Unknown adapter: " .. action)
+            self:truthy(adapters[action], "Unknown adapter: " .. action)
             return adapters[action](arguments)
         end
-        assert(isClient() or isServer(), "Remote actors require a multiplayer session")
+        self:truthy(isClient() or isServer(), "Remote actors require a multiplayer session")
         rpcId = rpcId + 1
         local id = endpoint .. ":" .. rpcId
         local args = { runId = runId, id = id, source = endpoint, target = target, action = action, arguments = arguments or {} }
@@ -70,13 +81,13 @@ PZT.extend = function(t)
         else sendClientCommand("PZToolsTesting", "request", args) end
         self:waitUntil(function() return replies[id] ~= nil end, timeout or 15)
         local reply = replies[id]; replies[id] = nil
-        assert(reply.ok, reply.error)
+        self:truthy(reply.ok, reply.error)
         return reply.value
     end
     function t:actor(index)
-        assert(not isServer(), "Player actions require a client endpoint")
+        self:truthy(not isServer(), "Player actions require a client endpoint")
         local player = getSpecificPlayer(type(index) == "number" and index or 0)
-        assert(player, "Player is not loaded")
+        self:truthy(player, "Player is not loaded")
         local actor = {}
         function actor:player() return player end
         function actor:inventoryCount(fullType)
@@ -86,7 +97,7 @@ PZT.extend = function(t)
         end
         function actor:givenItem(fullType)
             local item = player:getInventory():AddItem(fullType)
-            assert(item, "Unknown item: " .. fullType)
+            t:truthy(item, "Unknown item: " .. fullType)
             return item
         end
         function actor:givenItems(items)
@@ -98,7 +109,7 @@ PZT.extend = function(t)
         return actor
     end
     function t:fixture(name)
-        assert(adapters["fixture:" .. name], "Register fixture with PZTest.register('fixture:" .. name .. "', fn)")
+        self:truthy(adapters["fixture:" .. name], "Register fixture with PZTest.register('fixture:" .. name .. "', fn)")
         return adapters["fixture:" .. name](self)
     end
 end
@@ -123,7 +134,7 @@ function Tasks.equip(fullType)
     return Tasks.perform("Equip " .. fullType, function(actor, t)
         require "TimedActions/ISEquipWeaponAction"
         local item = actor:player():getInventory():getFirstTypeRecurse(fullType)
-        assert(item, "Item is not in inventory: " .. fullType)
+        t:truthy(item, "Item is not in inventory: " .. fullType)
         ISTimedActionQueue.add(ISEquipWeaponAction:new(actor:player(), item, 50, true, false))
         t:waitUntil(function() return actor:player():getPrimaryHandItem() == item end, 15)
     end)
@@ -131,17 +142,52 @@ end
 function Tasks.action(name, factory, completed, timeout)
     return Tasks.perform(name, function(actor, t)
         local action = factory(actor:player())
-        assert(action, "Action factory did not return an action")
+        t:truthy(action, "Action factory did not return an action")
         ISTimedActionQueue.add(action)
         t:waitUntil(function() return completed(actor:player(), action) end, timeout or 30)
     end)
 end
 
 local started = false
+local worldEntered = false
+local supportReady = false
+local released = false
+local simulationTicks = 0
+local nextHeartbeat = 0
+local function heartbeat(force)
+    if PZT.finished then return end
+    if not force and PZT.now() < nextHeartbeat then return end
+    nextHeartbeat = PZT.now() + 1
+    local player = not isServer() and getSpecificPlayer(0) or nil
+    local present = isServer() or player ~= nil and not player:isDead()
+    local paused = "unknown"
+    if not isServer() and UIManager and UIManager.getSpeedControls then
+        local controls = UIManager.getSpeedControls()
+        if controls then paused = tostring(controls:getCurrentGameSpeed() == 0) end
+    end
+    local phase = released and "running" or not worldEntered and "awaiting_world" or not present and "awaiting_player"
+        or not supportReady and "support_setup" or not released and "awaiting_barrier" or "running"
+    PZT.emit("status", "", PZT.current and PZT.current.name or "", phase .. "|" .. simulationTicks .. "|" .. paused .. "|" .. tostring(present) .. "|" .. tostring(supportReady), PZT.now())
+end
+if Events.OnTickEvenPaused then
+    Events.OnTickEvenPaused.Add(function()
+        if PZT.watchdog then PZT.watchdog() end
+        heartbeat(false)
+    end)
+end
 local function start()
+    worldEntered = true
     if started then return end
+    if not isServer() then
+        local player = getSpecificPlayer(0)
+        if not player or player:isDead() then
+            heartbeat(true)
+            return
+        end
+    end
     started = true
     PZT.emit("ready", "", "", "World started", 0)
+    if purpose == "setup" then return end
     local ok, err = pcall(function()
         require "PZToolsTesting/Manifest"
         for _, setup in ipairs(PZTestSupport or {}) do setup() end
@@ -153,12 +199,34 @@ local function start()
             end
         end
     end)
-    if not ok then PZT.emit("error", "", "", tostring(err), 0) end
-    Events.OnTick.Add(PZT.tick)
+    if not ok then PZT.emit("error", "", "", tostring(err), 0); PZT.finished = true; return end
+    supportReady = true
+    -- Support adapters are registered before the barrier opens. Client 1 cannot
+    -- race client 2's character creation, nor can server tests run too early.
+    local nextCheck = 0
+    Events.OnTick.Add(function()
+        if PZT.finished then return end
+        simulationTicks = simulationTicks + 1
+        if not released and PZT.now() >= nextCheck then
+            nextCheck = PZT.now() + 0.25
+            local gate = getFileReader("pztests-go.txt", false)
+            if gate then released = gate:readLine() == runId; gate:close() end
+        end
+        heartbeat(simulationTicks <= 2)
+        if released then PZT.tick() end
+    end)
 end
 if isServer() then Events.OnServerStarted.Add(start)
 else
     Events.OnGameStart.Add(start)
+    Events.OnTick.Add(function() if worldEntered and not started then start() end end)
+    if purpose == "setup" then
+        Events.OnPlayerDeath.Add(function(player)
+            if player == getSpecificPlayer(0) then
+                PZT.emit("error", "", "", "The test character died. Capture a new fixture with a living character.", 0)
+            end
+        end)
+    end
     -- Uses the game's own continue-save workflow, including its compatibility checks.
     local loading = false
     Events.OnMainMenuEnter.Add(function()

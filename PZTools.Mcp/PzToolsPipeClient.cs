@@ -23,22 +23,42 @@ public sealed class PzToolsPipeClient(McpLaunchOptions options)
         }
 
         using var reader = new StreamReader(pipe, new UTF8Encoding(false), false, 4096, leaveOpen: true);
-        using var writer = new StreamWriter(pipe, new UTF8Encoding(false), 4096, leaveOpen: true) { AutoFlush = true };
         var id = Guid.NewGuid().ToString("N");
-        await writer.WriteLineAsync(JsonSerializer.Serialize(new
+        await pipe.WriteAsync(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new
         {
             id,
             method,
             arguments
-        }, JsonOptions));
+        }, JsonOptions) + "\n"), cancellationToken);
         var line = await reader.ReadLineAsync(cancellationToken)
             ?? throw new IOException("PZTools closed the Agent MCP connection without a response.");
-        using var response = JsonDocument.Parse(line);
-        if (response.RootElement.TryGetProperty("error", out var error) && error.ValueKind == JsonValueKind.String)
-            return Error(error.GetString() ?? "PZTools rejected the request.");
-        if (!response.RootElement.TryGetProperty("result", out var result))
-            return "null";
-        return result.GetRawText();
+        PipeResponse? response;
+        try
+        {
+            // Web options deserialize names case-insensitively, including replies from
+            // older editors that wrote Id/Result/Error using Newtonsoft's defaults.
+            response = JsonSerializer.Deserialize<PipeResponse>(line, JsonOptions);
+        }
+        catch (JsonException)
+        {
+            return Error("PZTools returned an invalid Agent MCP response.");
+        }
+        if (response == null)
+            return Error("PZTools returned an empty Agent MCP response.");
+        if (response.Id != null && response.Id != id)
+            return Error("PZTools returned an Agent MCP response for a different request.");
+        if (response.Error != null)
+            return Error(response.Error);
+        if (response.Result.ValueKind == JsonValueKind.Undefined)
+            return Error("PZTools returned an Agent MCP response without a result or error.");
+        return response.Result.GetRawText();
+    }
+
+    private sealed class PipeResponse
+    {
+        public string? Id { get; init; }
+        public JsonElement Result { get; init; }
+        public string? Error { get; init; }
     }
 
     private static string Error(string message)

@@ -22,9 +22,11 @@ namespace PZTools.Core.Functions.Projects
             var modIds = project is not null && project.ModInfo.Id.Equals(projectId, StringComparison.OrdinalIgnoreCase)
                 ? DependencyLoadOrder.Resolve(project, profile).AsEnumerable()
                 : dependencies.Select(x => x.ModId).Append(projectId).Where(x => !string.IsNullOrWhiteSpace(x));
+            if (profile.NoSteam && profile.AutoConnectClients)
+                modIds = modIds.Append(PlaytestLocalConnection.ModId);
             if (profile.Build >= 42)
                 modIds = modIds.Select(x => x.StartsWith('\\') ? x : "\\" + x);
-            var workshopIds = dependencies.Select(x => x.WorkshopId).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct();
+            var workshopIds = dependencies.Where(_ => !profile.NoSteam).Select(x => x.WorkshopId).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct();
 
             var lines = new List<string>
             {
@@ -44,6 +46,7 @@ namespace PZTools.Core.Functions.Projects
                 $"SteamVAC={!profile.NoSteam}"
             };
             lines.AddRange(ParseAdditionalOptions(profile.AdditionalServerOptions));
+            if (profile.LocalServerOnly) lines.Add("UPnP=false");
             File.WriteAllLines(path, lines, new UTF8Encoding(false));
             return path;
         }

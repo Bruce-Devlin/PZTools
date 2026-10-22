@@ -14,6 +14,7 @@ namespace PZTools.Core.Windows.Dialogs
         private CancellationTokenSource cancelSetupSource = new CancellationTokenSource();
         private Task<bool>? _setupTask;
         private bool _isFinishing;
+        private bool _isCancelling;
         private bool _allowClose;
         private string? _stagingDirectory;
         private string? _managedGameStagingDirectory;
@@ -97,18 +98,9 @@ namespace PZTools.Core.Windows.Dialogs
         #endregion
 
         #region Buttons
-        private async void CancelButton_Click(object sender, RoutedEventArgs e)
+        private void CancelButton_Click(object sender, RoutedEventArgs e)
         {
-            var result = MessageBox.Show(
-                            "Are you sure you want to cancel the setup? The application will exit.",
-                            "Cancel Setup",
-                            MessageBoxButton.YesNo,
-                            MessageBoxImage.Question);
-
-            if (result != MessageBoxResult.Yes)
-                return;
-
-            await RequestCancelAndCloseAsync();
+            Close();
         }
 
         private async void FinishButton_Click(object sender, RoutedEventArgs e)
@@ -128,6 +120,12 @@ namespace PZTools.Core.Windows.Dialogs
                 if (string.IsNullOrWhiteSpace(txtExistingGamePath.Text) || !Directory.Exists(txtExistingGamePath.Text))
                 {
                     MessageBox.Show("Please select a valid Project Zomboid installation folder.", "Invalid Path",
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+                if (!File.Exists(Path.Combine(txtExistingGamePath.Text, "ProjectZomboid64.exe")))
+                {
+                    MessageBox.Show("The selected folder does not contain ProjectZomboid64.exe.", "Invalid Game Folder",
                         MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
@@ -173,13 +171,6 @@ namespace PZTools.Core.Windows.Dialogs
                         MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
-                if (!File.Exists(Path.Combine(txtExistingGamePath.Text, "ProjectZomboid64.exe")))
-                {
-                    MessageBox.Show("The selected folder does not contain ProjectZomboid64.exe.", "Invalid Game Folder",
-                        MessageBoxButton.OK, MessageBoxImage.Warning);
-                    return;
-                }
-
                 var dlg = new SteamLogin { Owner = this };
                 if (dlg.ShowDialog() != true)
                 {
@@ -243,6 +234,10 @@ namespace PZTools.Core.Windows.Dialogs
                 await Console.Log("Setup failed: " + ex.Message, Console.LogLevel.Warning);
                 installResult = false;
             }
+
+            // The cancellation flow owns cleanup and closing once the worker has stopped.
+            if (_isCancelling)
+                return;
 
             if (!installResult)
             {
@@ -461,20 +456,24 @@ namespace PZTools.Core.Windows.Dialogs
             if (_allowClose)
                 return;
 
+            e.Cancel = true;
+            if (_isCancelling)
+                return;
+
             var result = MessageBox.Show(
+                this,
                 "Are you sure you want to exit and cancel the setup? The application will exit.",
                 "Exit Setup",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Question);
 
-            if (result == MessageBoxResult.No)
-            {
-                e.Cancel = true;
+            if (result != MessageBoxResult.Yes)
                 return;
-            }
 
-            e.Cancel = true;
-            cancelSetupSource.Cancel();
+            _isCancelling = true;
+            // Let this cancelled Closing event finish before DialogResult closes the window.
+            // Without yielding, WPF ignores the nested close when no setup task is running.
+            await System.Windows.Threading.Dispatcher.Yield();
             await RequestCancelAndCloseAsync();
         }
 
@@ -516,14 +515,14 @@ namespace PZTools.Core.Windows.Dialogs
                 UpdateSetupStatus("Cancelling setup...", null);
             }
 
-            await WaitSetupTaskOrTimeoutAsync(TimeSpan.FromSeconds(3));
+            await WaitSetupTaskAsync();
             AppPaths.SetCurrentDirectory(_originalWorkingDirectory);
             CleanupFailedInstall();
             _allowClose = true;
             DialogResult = false;
         }
 
-        private async Task WaitSetupTaskOrTimeoutAsync(TimeSpan timeout)
+        private async Task WaitSetupTaskAsync()
         {
             var t = _setupTask;
             if (t is null)
@@ -531,9 +530,8 @@ namespace PZTools.Core.Windows.Dialogs
 
             try
             {
-                var completed = await Task.WhenAny(t, Task.Delay(timeout));
-                if (completed == t)
-                    await t;
+                // Do not remove staging files while SteamCMD or decompilation is still using them.
+                await t;
             }
             catch
             {

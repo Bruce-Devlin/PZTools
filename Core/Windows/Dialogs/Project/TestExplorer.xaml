@@ -5,11 +5,12 @@
         Background="{DynamicResource Brush.BgApp}" Foreground="{DynamicResource Brush.TextPrimary}"
         WindowStartupLocation="CenterOwner" Closing="Window_Closing">
     <Grid Margin="16">
-        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="150"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="2*"/><RowDefinition Height="*" MaxHeight="150"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
         <StackPanel>
             <TextBlock Text="Mod tests" FontSize="23" FontWeight="SemiBold"/>
             <TextBlock Text="Run Lua unit tests or automate an isolated game session. Select a file to run it; leave the selection empty to run all matching files." TextWrapping="Wrap" Margin="0,6,0,10"/>
             <WrapPanel>
+                <Button x:Name="Setup" Content="Set up game tests" Click="Setup_Click" Margin="0,0,8,8"/>
                 <Button Content="Create test examples" Click="Scaffold_Click" Margin="0,0,8,8"/>
                 <Button Content="Refresh" Click="Refresh_Click" Margin="0,0,8,8"/>
                 <Button Content="Edit selected file" Click="Edit_Click" Margin="0,0,8,8"/>
@@ -18,14 +19,22 @@
             </WrapPanel>
         </StackPanel>
         <WrapPanel Grid.Row="1" Margin="0,0,0,10">
-            <ComboBox x:Name="Profiles" Width="180" DisplayMemberPath="Name" Margin="0,0,8,8" ToolTip="Saved Playtest Lab profile"/>
+            <ComboBox x:Name="Profiles" Width="180" DisplayMemberPath="Name" Margin="0,0,8,8" ToolTip="Saved Playtest Lab profile" SelectionChanged="Profile_Changed"/>
             <TextBox x:Name="Filter" Width="140" Margin="0,0,8,8" ToolTip="Filter test file names"/>
+            <TextBlock Text="Timeout (s)" VerticalAlignment="Center" Margin="0,0,6,8"/>
+            <TextBox x:Name="Timeout" Text="600" Width="58" Margin="0,0,8,8" ToolTip="Game run timeout, 10 to 86400 seconds"/>
             <Button x:Name="Unit" Content="Run unit tests" Click="Unit_Click" Margin="0,0,8,8"/>
             <Button x:Name="Game" Content="Run game tests" Click="Game_Click" Margin="0,0,8,8"/>
             <Button x:Name="Stop" Content="Cancel run" IsEnabled="False" Click="Stop_Click" Margin="0,0,8,8"/>
             <Button x:Name="Artifacts" Content="Open report folder" IsEnabled="False" Click="Artifacts_Click" Margin="0,0,8,8"/>
         </WrapPanel>
-        <Grid Grid.Row="2">
+        <StackPanel Grid.Row="2" Margin="0,0,0,12">
+            <TextBlock x:Name="SetupSummary" TextWrapping="Wrap" Foreground="{DynamicResource Brush.TextMuted}"/>
+            <ScrollViewer MaxHeight="96" VerticalScrollBarVisibility="Auto">
+                <TextBlock x:Name="EndpointStatus" TextWrapping="Wrap" Margin="0,6,0,0"/>
+            </ScrollViewer>
+        </StackPanel>
+        <Grid Grid.Row="3">
             <Grid.ColumnDefinitions><ColumnDefinition Width="240"/><ColumnDefinition Width="8"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
             <ListBox x:Name="Files" DisplayMemberPath="Display"/>
             <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Stretch"/>
@@ -38,7 +47,7 @@
                 </DataGrid.Columns>
             </DataGrid>
         </Grid>
-        <TextBox Grid.Row="3" x:Name="Details" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Margin="0,10,0,10"/>
-        <TextBlock Grid.Row="4" x:Name="Status" Text="Ready. Unit tests run without the game. Game tests require a configured playtest profile." TextWrapping="Wrap"/>
+        <TextBox Grid.Row="4" x:Name="Details" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Margin="0,10,0,10"/>
+        <TextBlock Grid.Row="5" x:Name="Status" Text="Unit tests need no game setup. Set up game tests creates a guided Singleplayer or local multiplayer profile." TextWrapping="Wrap"/>
     </Grid>
 </Window>

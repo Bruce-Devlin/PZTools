@@ -1,0 +1,87 @@
+<Window x:Class="PZTools.Core.Windows.Dialogs.Project.TestRunnerSetup"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Set up a test session" Width="850" Height="790" MinWidth="720" MinHeight="640"
+        Background="{DynamicResource Brush.BgApp}" Foreground="{DynamicResource Brush.TextPrimary}"
+        WindowStartupLocation="CenterOwner" Loaded="Window_Loaded" Closing="Window_Closing">
+    <Grid Margin="22">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <StackPanel Margin="0,0,0,16">
+            <TextBlock Text="From project to playable" FontSize="25" FontWeight="SemiBold"/>
+            <TextBlock Text="A guided start, with a full playtest profile behind it." Foreground="{DynamicResource Brush.TextMuted}" Margin="0,5,0,12"/>
+            <WrapPanel x:Name="ModePanel">
+                <RadioButton x:Name="SinglePlayer" Content="Singleplayer" GroupName="Mode" Checked="Mode_Changed" Margin="0,0,26,0" VerticalContentAlignment="Center"/>
+                <RadioButton x:Name="Multiplayer" Content="Local server + two clients" GroupName="Mode" Checked="Mode_Changed" VerticalContentAlignment="Center"/>
+            </WrapPanel>
+        </StackPanel>
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel>
+                <StackPanel x:Name="SetupForm">
+                    <Border Style="{StaticResource InsetCard}" Margin="0,0,0,12">
+                        <StackPanel>
+                            <TextBlock Text="1   Choose the game build" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,9"/>
+                            <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="145"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                <ComboBox x:Name="Builds" Style="{StaticResource ModernComboBox}" SelectionChanged="Build_Changed" ToolTip="Game compatibility build"/>
+                                <TextBlock Grid.Column="1" x:Name="GamePath" TextWrapping="Wrap" Foreground="{DynamicResource Brush.TextMuted}" VerticalAlignment="Center" Margin="14,0,0,0"/>
+                            </Grid>
+                            <TextBlock Text="Use an installed build that matches your project. Existing installations use the version currently installed there." TextWrapping="Wrap" Foreground="{DynamicResource Brush.TextMuted}" Margin="0,9,0,0"/>
+                            <Button Content="Game installation settings" HorizontalAlignment="Left" Style="{StaticResource ModernButton}" Click="Installation_Click" Margin="0,10,0,0"/>
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource InsetCard}" Margin="0,0,0,12">
+                        <StackPanel>
+                            <TextBlock x:Name="CharacterTitle" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,9"/>
+                            <TextBlock x:Name="CharacterHelp" TextWrapping="Wrap" Margin="0,0,0,12"/>
+                            <StackPanel x:Name="SavePanel">
+                                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <ComboBox x:Name="Saves" DisplayMemberPath="Display" Style="{StaticResource ModernComboBox}" SelectionChanged="Save_Changed" ToolTip="Detected single-player worlds"/>
+                                    <Button Grid.Column="1" Content="Browse save…" Style="{StaticResource ModernButton}" Margin="8,0,0,0" Click="BrowseSave_Click"/>
+                                </Grid>
+                                <TextBlock x:Name="SavePath" TextWrapping="Wrap" Foreground="{DynamicResource Brush.TextMuted}" Margin="0,7,0,10"/>
+                            </StackPanel>
+                            <WrapPanel>
+                                <Button x:Name="Capture" Style="{StaticResource PrimaryButton}" Click="Capture_Click" Margin="0,0,8,5"/>
+                                <Button x:Name="NewWorld" Content="Start with a new world" Style="{StaticResource ModernButton}" Click="NewWorld_Click" Margin="0,0,0,5"/>
+                            </WrapPanel>
+                            <TextBlock x:Name="CaptureHelp" TextWrapping="Wrap" Foreground="{DynamicResource Brush.TextMuted}" Margin="0,9,0,0"/>
+                            <Expander x:Name="ServerOptions" Header="Server location and connection" Margin="0,12,0,0">
+                                <StackPanel Margin="0,9,0,0">
+                                    <TextBlock x:Name="Connection" TextWrapping="Wrap" Margin="0,0,0,9"/>
+                                    <TextBlock Text="Server folder (leave blank to detect the bundled server)" Margin="0,0,0,5"/>
+                                    <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                        <TextBox x:Name="ServerPath" Style="{StaticResource ModernTextBox}" TextChanged="Server_Changed"/>
+                                        <Button Grid.Column="1" Content="Browse…" Style="{StaticResource ModernButton}" Margin="8,0,0,0" Click="BrowseServer_Click"/>
+                                    </Grid>
+                                    <TextBlock Text="If detection finds nothing: Steam Library > Tools > Project Zomboid Dedicated Server. Install the same build as your clients, then select that folder here." TextWrapping="Wrap" Foreground="{DynamicResource Brush.TextMuted}" Margin="0,8,0,0"/>
+                                </StackPanel>
+                            </Expander>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+                <Border Style="{StaticResource InsetCard}" Margin="0,0,0,12">
+                    <StackPanel>
+                        <DockPanel Margin="0,0,0,9"><Button x:Name="Recheck" DockPanel.Dock="Right" Content="Check again" Style="{StaticResource ModernButton}" Click="Recheck_Click"/><TextBlock Text="3   Ready for the next run?" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/></DockPanel>
+                        <ItemsControl x:Name="Checks">
+                            <ItemsControl.ItemTemplate><DataTemplate>
+                                <StackPanel Margin="0,0,0,10">
+                                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold"/>
+                                    <TextBlock Text="{Binding Detail}" TextWrapping="Wrap" Foreground="{DynamicResource Brush.TextMuted}" Margin="0,3,0,0"/>
+                                </StackPanel>
+                            </DataTemplate></ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock x:Name="Progress" TextWrapping="Wrap" FontWeight="SemiBold"/>
+                        <Button x:Name="OpenLogs" Content="Open setup logs" HorizontalAlignment="Left" Style="{StaticResource ModernButton}" Click="OpenLogs_Click" Visibility="Collapsed" Margin="0,10,0,0"/>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+        <Grid Grid.Row="2" Margin="0,14,0,0">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <TextBlock Text="Creates a new profile. More clients, dependencies, launch arguments and server options stay in Playtest Lab." TextWrapping="Wrap" Foreground="{DynamicResource Brush.TextMuted}" VerticalAlignment="Center" Margin="0,0,18,0"/>
+            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <Button x:Name="Cancel" Content="Close" Style="{StaticResource ModernButton}" Click="Cancel_Click" Margin="0,0,8,0"/>
+                <Button x:Name="UseProfile" Content="Use this profile" Style="{StaticResource PrimaryButton}" Click="UseProfile_Click" IsEnabled="False"/>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>

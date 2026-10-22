@@ -152,7 +152,7 @@ public static class PzToolsTools
         => client.CallAsync("start_playtest", new { profile }, cancellationToken);
 
     [McpServerTool(Name = "pztools_get_run_status")]
-    [Description("Gets the latest MCP run: running/cancelling/completed/cancelled/failed, bounded recent output, final result and runner error. Only the latest run is retained in memory; test reports persist in .pztools/test-results. Live desktop-initiated runs are not included.")]
+    [Description("Gets the latest MCP run: running/cancelling/completed/cancelled/failed, bounded recent output, final result and runner error. Active game tests include endpoint phase, heartbeat, simulation progress, pause/player state, current case and blocking reason. Final game reports identify the runtime snapshot and payload manifest. Only the latest run is retained in memory; test reports persist in .pztools/test-results. Live desktop-initiated runs are not included.")]
     public static Task<string> RunStatus(PzToolsPipeClient client, string? runId = null, int lines = 200, CancellationToken cancellationToken = default)
         => client.CallAsync("run_status", new { runId, lines }, cancellationToken);
 

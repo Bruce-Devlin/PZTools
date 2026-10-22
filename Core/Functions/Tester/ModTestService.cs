@@ -121,7 +121,8 @@ public static class ModTestService
         if (kind is "complete" or "ready") return;
         var test = report.Tests.LastOrDefault(t => t.Endpoint == endpoint && t.File == file && t.Name == name && t.Status == "running");
         if (test is null) { report.Errors.Add("Unexpected test event: " + kind + " " + name); return; }
-        if (kind == "step") test.Steps.Add(message);
+        if (kind == "failure_origin") test.FailureOrigin = message;
+        else if (kind == "step") test.Steps.Add(message);
         else if (kind is "passed" or "failed") { test.Status = kind; test.Message = message; test.DurationSeconds = seconds; }
         else report.Errors.Add("Unknown test event: " + kind);
     }

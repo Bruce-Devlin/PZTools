@@ -10,7 +10,8 @@ namespace PZTools.Core.Models
     {
         Empty,
         FreshClone,
-        ReuseProfileData
+        ReuseProfileData,
+        FreshSessionClone
     }
 
     public enum PlaytestWindowMode
@@ -43,6 +44,7 @@ namespace PZTools.Core.Models
         public int WindowHeight { get; set; } = 720;
         public PlaytestSaveMode SaveMode { get; set; } = PlaytestSaveMode.Empty;
         public string SourceSavePath { get; set; } = "";
+        public string SourceSessionPath { get; set; } = "";
         public bool KeepSessionData { get; set; }
         public List<PlaytestDependency> Dependencies { get; set; } = new();
 
@@ -54,6 +56,7 @@ namespace PZTools.Core.Models
         public int ServerStartupTimeoutSeconds { get; set; } = 90;
         public bool NoSteam { get; set; } = true;
         public bool AutoConnectClients { get; set; } = true;
+        public bool LocalServerOnly { get; set; }
         public string AdditionalServerOptions { get; set; } = "";
 
         public override string ToString() => Name;
@@ -65,5 +68,7 @@ namespace PZTools.Core.Models
         public required string ServerCachePath { get; init; }
         public required IReadOnlyList<string> ClientCachePaths { get; init; }
         public bool IsReusable { get; init; }
+        public string? SourceSnapshotId { get; set; }
+        public string? PayloadManifestPath { get; set; }
     }
 }
