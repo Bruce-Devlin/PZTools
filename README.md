@@ -17,6 +17,16 @@
 
 PZTools brings the repetitive parts of Project Zomboid mod development into one desktop application. Create or import a mod, work across Build 42 and legacy Build 41 targets, catch common mistakes before launch, deploy a known-good copy, and run repeatable local playtests without continually rearranging your normal game data.
 
+## Quick links
+
+| Section | Jump to |
+| --- | --- |
+| Getting started | [Key features](#key-features) · [Using the app](#using-the-app) · [Prerequisites](#prerequisites) · [Build and run](#build-and-run-from-source) |
+| Modding workflow | [Overview](#recommended-modding-workflow) · [Projects and targets](#projects-and-build-targets) · [Finding and previewing files](#finding-and-previewing-files) · [Build 42 layout](#build-42-project-structure) · [Content managers](#content-managers) · [Dependencies](#dependencies-and-load-order) · [Project Health](#project-health-checks) · [Playtesting and tests](#playtesting-and-automated-tests) |
+| Configuration and integrations | [Configuration](#configuration) · [Java](#java-path) · [Game path](#project-zomboid-path) · [Decompilation and game code](#cfr-decompiler) · [Updates](#updates) · [Steam Workshop](#steam-workshop) · [Agent MCP and Codex](#agent-mcp-and-codex) |
+| Development | [Project structure](#project-structure) · [Development checks](#development) · [Contributing](#contributing) |
+| Help and project information | [Notes](#notes) · [Troubleshooting](#troubleshooting) · [Project status and licensing](#project-status-and-licensing) |
+
 [![PZTools workspace showing a Lua preview, project explorer, file inspector, and output panel](https://publiczeus.com/devlin/03-main-editor.png)](https://publiczeus.com/devlin/03-main-editor.png)
 
 *Browse your mod's files, preview Lua, and inspect file settings and version-sync controls alongside the output panel. Click any screenshot to view it at full size.*
