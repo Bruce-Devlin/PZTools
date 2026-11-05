@@ -18,6 +18,10 @@ namespace PZTools.Core.Functions.Projects
             var serverDirectory = Path.Combine(workspace.ServerCachePath, "Server");
             Directory.CreateDirectory(serverDirectory);
             var path = Path.Combine(serverDirectory, profile.ServerName + ".ini");
+            // Keep the server identity of a retained world. Regenerating ResetID tells
+            // clients to discard their saved local caches on an otherwise normal restart.
+            var resetId = File.Exists(path) && profile.SaveMode is PlaytestSaveMode.FreshSessionClone or PlaytestSaveMode.ReuseProfileData
+                ? File.ReadLines(path).FirstOrDefault(l => Regex.IsMatch(l, @"^ResetID=\d+$")) : null;
             var dependencies = profile.Dependencies.Where(x => x.Enabled).ToList();
             var modIds = project is not null && project.ModInfo.Id.Equals(projectId, StringComparison.OrdinalIgnoreCase)
                 ? DependencyLoadOrder.Resolve(project, profile).AsEnumerable()
@@ -46,6 +50,7 @@ namespace PZTools.Core.Functions.Projects
                 $"SteamVAC={!profile.NoSteam}"
             };
             lines.AddRange(ParseAdditionalOptions(profile.AdditionalServerOptions));
+            if (resetId is not null && !lines.Any(l => l.StartsWith("ResetID=", StringComparison.Ordinal))) lines.Add(resetId);
             if (profile.LocalServerOnly) lines.Add("UPnP=false");
             File.WriteAllLines(path, lines, new UTF8Encoding(false));
             return path;

@@ -17,7 +17,7 @@ namespace PZTools.Core.Functions.Projects
         /// <summary>
         /// The root directory where all mods are stored.
         /// </summary>
-        public static string ProjectsRootPath { get; set; } = Path.Combine(AppPaths.CurrentDirectory.FullName, "Projects");
+        public static string ProjectsRootPath { get; set; } = ProjectStorageService.DefaultRoot;
 
         private static readonly List<ModProject> LoadedProjects = new();
         public static ModProject? CurrentProject { get; private set; } = null;
@@ -74,7 +74,9 @@ namespace PZTools.Core.Functions.Projects
             if (!Directory.Exists(ProjectsRootPath))
                 Directory.CreateDirectory(ProjectsRootPath);
 
-            foreach (var projectDir in Directory.GetDirectories(ProjectsRootPath))
+            var roots = new[] { ProjectsRootPath, Path.Combine(AppPaths.CurrentDirectory.FullName, "Projects") }
+                .Where(Directory.Exists).Distinct(StringComparer.OrdinalIgnoreCase);
+            foreach (var projectDir in roots.SelectMany(Directory.GetDirectories).Distinct(StringComparer.OrdinalIgnoreCase))
             {
                 bool hasModInfo = File.Exists(projectDir + Path.DirectorySeparatorChar + "mod.info");
                 bool hasWorkshopInfo = File.Exists(projectDir + Path.DirectorySeparatorChar + "workshop.txt");

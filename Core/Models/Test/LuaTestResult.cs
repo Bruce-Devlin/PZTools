@@ -2,6 +2,10 @@ namespace PZTools.Core.Models.Test
 {
     public class LuaTestResult
     {
+        public string Interpreter { get; set; } = "MoonSharp 2.0";
+        public string Scope { get; set; } = "Syntax only; no game APIs executed";
+        public string? GameBuild { get; set; }
+        public string? BinaryFingerprint { get; set; }
         public bool Ok { get; set; }
         public string Type { get; set; } = string.Empty;
         public string Message { get; set; } = string.Empty;

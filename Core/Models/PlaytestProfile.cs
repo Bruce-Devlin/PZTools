@@ -45,7 +45,7 @@ namespace PZTools.Core.Models
         public PlaytestSaveMode SaveMode { get; set; } = PlaytestSaveMode.Empty;
         public string SourceSavePath { get; set; } = "";
         public string SourceSessionPath { get; set; } = "";
-        public bool KeepSessionData { get; set; }
+        public bool KeepSessionData { get; set; } = true;
         public List<PlaytestDependency> Dependencies { get; set; } = new();
 
         public string ServerInstallPath { get; set; } = "";
@@ -70,5 +70,6 @@ namespace PZTools.Core.Models
         public bool IsReusable { get; init; }
         public string? SourceSnapshotId { get; set; }
         public string? PayloadManifestPath { get; set; }
+        public string? SessionId { get; set; }
     }
 }

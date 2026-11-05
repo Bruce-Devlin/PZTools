@@ -59,6 +59,9 @@ namespace PZTools.Core.Functions.Decompile
                 .ToList();
             var fingerprint = CreateFingerprint(sourcePath, files);
             var indexPath = GetIndexPath(sourcePath);
+            var originPath = Path.Combine(sourcePath, ".pztools-reference-origin.json");
+            var origin = File.Exists(originPath) ? JsonConvert.DeserializeObject<GameInstallationIdentity>(
+                await File.ReadAllTextAsync(originPath, cancellationToken)) : null;
 
             if (!force && File.Exists(indexPath))
             {
@@ -70,6 +73,7 @@ namespace PZTools.Core.Functions.Decompile
                     {
                         existing.SourceRoot = sourcePath;
                         existing.Build = build;
+                        existing.Origin = origin;
                         return existing;
                     }
                 }
@@ -92,6 +96,7 @@ namespace PZTools.Core.Functions.Decompile
             var index = new GameKnowledgeIndex
             {
                 Build = build,
+                Origin = origin,
                 SourceRoot = sourcePath,
                 SourceFingerprint = fingerprint,
                 GeneratedAt = DateTimeOffset.Now,

@@ -74,8 +74,24 @@ else
     end)
 end
 
+PZTest.register("pztools:positions", function(args)
+    assert(isServer(), "Positions must be confirmed by the server")
+    local found = {}
+    local players = getOnlinePlayers()
+    for i = 0, players:size() - 1 do
+        local p = players:get(i)
+        if not p:isDead() then found[tostring(p:getOnlineID())] = { x=p:getX(), y=p:getY(), z=p:getZ() } end
+    end
+    return found
+end)
+
 PZT.extend = function(t)
     t.endpoint = endpoint
+    function t:observeApi(symbol, fn)
+        local result = self:phase("API probe " .. symbol, fn)
+        PZT.emit("api_observed", PZT.current.file, PZT.current.name, symbol, 0)
+        return result
+    end
     function t:remote(target, action, arguments, timeout)
         if target == endpoint then
             self:truthy(adapters[action], "Unknown adapter: " .. action)
@@ -96,6 +112,7 @@ PZT.extend = function(t)
         self:truthy(not isServer(), "Player actions require a client endpoint")
         local player = getSpecificPlayer(type(index) == "number" and index or 0)
         self:truthy(player, "Player is not loaded")
+        self:truthy(not player:isDead(), "Fixture prerequisite unmet: living character")
         local actor = {}
         function actor:player() return player end
         function actor:inventoryCount(fullType)
@@ -119,6 +136,57 @@ PZT.extend = function(t)
     function t:fixture(name)
         self:truthy(adapters["fixture:" .. name], "Register fixture with PZTest.register('fixture:" .. name .. "', fn)")
         return adapters["fixture:" .. name](self)
+    end
+    function t:livingCharacter(index, timeout)
+        local player
+        self:prerequisite("living character " .. tostring(index or 0), function()
+            player = not isServer() and getSpecificPlayer(index or 0)
+            return player and not player:isDead()
+        end, timeout)
+        return player
+    end
+    function t:loadedSquare(x, y, z, timeout)
+        local square
+        self:prerequisite("loaded square " .. x .. "," .. y .. "," .. z, function()
+            square = getCell():getGridSquare(x, y, z); return square ~= nil
+        end, timeout)
+        return square
+    end
+    function t:coLocated(ids, distance, timeout)
+        self:stage("Setup")
+        self:truthy(#ids >= 2, "Co-location requires at least two online player IDs")
+        local unique = {}
+        for _, id in ipairs(ids) do
+            self:truthy(not unique[tostring(id)], "Co-location requires distinct player IDs")
+            unique[tostring(id)] = true
+        end
+        local deadline = PZT.now() + (timeout or 15)
+        repeat
+            local positions = self:remote("server", "pztools:positions", {}, math.max(1, deadline - PZT.now()))
+            local first = positions[tostring(ids[1])]
+            local ready = first ~= nil
+            for _, id in ipairs(ids) do
+                local p = positions[tostring(id)]
+                ready = ready and p ~= nil and math.floor(p.z) == math.floor(first.z)
+                    and (p.x-first.x)^2 + (p.y-first.y)^2 <= (distance or 2)^2
+            end
+            if ready then return positions end
+            if PZT.now() >= deadline then self:fail("Fixture prerequisite unmet: server-confirmed client co-location") end
+            coroutine.yield()
+        until false
+    end
+    function t:reachableInteraction(x, y, z, distance, timeout)
+        self:stage("Setup")
+        local player = self:livingCharacter(0, timeout)
+        local square = self:loadedSquare(x, y, z, timeout)
+        require "TimedActions/WalkToTimedAction"
+        ISTimedActionQueue.add(ISWalkToTimedAction:new(player, square))
+        self:prerequisite("native walk to interaction distance at " .. x .. "," .. y .. "," .. z, function()
+            return not player:isDead() and math.floor(player:getZ()) == z and
+                player:getCurrentSquare() == square and
+                (player:getX()-(x+0.5))^2 + (player:getY()-(y+0.5))^2 <= (distance or 1.5)^2
+        end, timeout or 30)
+        return player, square
     end
 end
 
@@ -163,6 +231,7 @@ local released = false
 local simulationTicks = 0
 local uiReady = isServer()
 local nextHeartbeat = 0
+local lastGameSpeed
 local function heartbeat(force)
     if PZT.finished then return end
     if not force and PZT.now() < nextHeartbeat then return end
@@ -172,7 +241,14 @@ local function heartbeat(force)
     local paused = "unknown"
     if not isServer() and UIManager and UIManager.getSpeedControls then
         local controls = UIManager.getSpeedControls()
-        if controls then paused = tostring(controls:getCurrentGameSpeed() == 0) end
+        if controls then
+            local speed = controls:getCurrentGameSpeed()
+            paused = tostring(speed == 0)
+            if speed ~= lastGameSpeed then
+                lastGameSpeed = speed
+                PZT.emit("condition", "", "", "observed game speed=" .. tostring(speed) .. " (0 paused, 1 normal, higher accelerated)", 0)
+            end
+        end
     end
     local phase = released and "running" or not worldEntered and "awaiting_world" or not present and "awaiting_player"
         or not supportReady and "support_setup" or not uiReady and "awaiting_ui" or "awaiting_barrier"

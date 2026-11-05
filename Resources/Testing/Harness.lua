@@ -6,7 +6,7 @@ PZT = { cases = {}, current = nil, finished = false, before = {}, after = {} }
 local function fail(message, origin)
     local c = PZT.current
     if not c or (c.protectedDepth or 0) > 0 then error(tostring(message), 2) end
-    c.failure = tostring(message); c.failureOrigin = origin or "assertion"
+    c.failure = tostring(message); c.failureOrigin = origin or (c.phase == "Setup" and "setup" or "assertion")
     coroutine.yield()
 end
 local function errorCount() return PZT.errorCount and PZT.errorCount() or nil end
@@ -31,6 +31,22 @@ function beforeEach(fn) table.insert(PZT.before, fn) end
 function afterEach(fn) table.insert(PZT.after, fn) end
 function PZT.context()
     local t = {}
+    function t:stage(name)
+        PZT.current.phase = name
+        PZT.emit("phase", PZT.current.file, PZT.current.name, name, 0)
+    end
+    function t:setup(fn) self:stage("Setup"); local result = fn(self); self:stage("Exercise"); return result end
+    function t:condition(name, value)
+        PZT.emit("condition", PZT.current.file, PZT.current.name, name .. "=" .. tostring(value), 0)
+    end
+    function t:prerequisite(name, query, timeout)
+        self:stage("Setup")
+        local deadline = PZT.now() + (timeout or 10)
+        while not self:phase("Fixture " .. name, query) do
+            if PZT.now() >= deadline then fail("Fixture prerequisite unmet: " .. name, "setup") end
+            coroutine.yield()
+        end
+    end
     function t:fail(message) fail(message or "Test failed") end
     function t:phase(name, fn)
         local c = PZT.current
@@ -80,6 +96,8 @@ end
 local function finalize(c, message, origin, fatal)
     if c.finalized then return end
     c.finalized = true
+    local failedPhase = message and c.phase or nil
+    c.context:stage("Cleanup")
     local function clean(fn, label, context)
         c.protectedDepth = 1
         local ok, err = protected(fn, context)
@@ -91,7 +109,10 @@ local function finalize(c, message, origin, fatal)
     end
     for _, fn in ipairs(c.after) do clean(fn, "teardown", c.context) end
     for i = #c.cleanup, 1, -1 do clean(c.cleanup[i], "cleanup") end
-    if message then PZT.emit("failure_origin", c.file, c.name, origin or "harness", 0) end
+    if message then
+        PZT.emit("failure_origin", c.file, c.name, origin or "harness", 0)
+        PZT.emit("failure_phase", c.file, c.name, failedPhase or "Cleanup", 0)
+    end
     PZT.emit(message and "failed" or "passed", c.file, c.name, message or "", PZT.now() - c.started)
     PZT.current = nil
     if fatal then
@@ -123,7 +144,9 @@ function PZT.tick()
         PZT.current = c; c.started = PZT.now(); c.cleanup = {}; c.context = PZT.context()
         PZT.emit("begin", c.file, c.name, "", 0)
         c.thread = coroutine.create(function()
+            c.context:stage("Setup")
             for _, fn in ipairs(c.before) do fn(c.context) end
+            c.context:stage("Exercise")
             c.body(c.context)
         end)
     end

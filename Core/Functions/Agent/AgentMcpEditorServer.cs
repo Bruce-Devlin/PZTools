@@ -181,7 +181,7 @@ namespace PZTools.Core.Functions.Agent
                         testModes = settings.AgentMcpAllowTesting
                             ? (settings.AgentMcpAllowDeployment && settings.AgentMcpAllowGameControl ? new[] { "unit", "game" } : new[] { "unit" })
                             : Array.Empty<string>(),
-                        runs = new { scope = "latest MCP-started run in this editor", background = true, savedFilesOnly = true,
+                        runs = new { scope = "persistent project session history; live controls belong to the current editor", background = true, savedFilesOnly = true,
                             statusTool = "pztools_get_run_status", cancelTool = "pztools_cancel_run" }
                     };
                 case "editor_state":
@@ -284,7 +284,48 @@ namespace PZTools.Core.Functions.Agent
                     });
                 case "run_status":
                     Require(settings.AgentMcpAllowTesting, "Testing");
+                    if (args.Value<string>("runId") is { } historicalId &&
+                        Newtonsoft.Json.Linq.JObject.FromObject(_runs.Snapshot()).Value<string>("runId") != historicalId)
+                    {
+                        var historical = SessionRegistry.Default.List(_projectRoot).FirstOrDefault(s => s.Id == historicalId || s.OperationId == historicalId || s.ReportId == historicalId);
+                        if (historical is not null) return historical;
+                    }
                     return _runs.Snapshot(args.Value<string>("runId"), args.Value<int?>("lines") ?? 200);
+                case "session_history":
+                    Require(settings.AgentMcpAllowTesting, "Testing");
+                    return SessionRegistry.Default.List(_projectRoot);
+                case "compile_lua_native":
+                    Require(settings.AgentMcpAllowTesting, "Testing");
+                    var nativeProfile = FindProfile(args.Value<string>("profile"));
+                    var nativeFilter = args.Value<string>("filter") ?? "";
+                    var nativeFiles = TestEvidenceService.SourceFiles(_projectRoot).Where(p => p.EndsWith(".lua", StringComparison.OrdinalIgnoreCase) &&
+                        Path.GetRelativePath(_projectRoot, p).Contains(nativeFilter, StringComparison.OrdinalIgnoreCase)).ToArray();
+                    if (nativeFiles.Length == 0) throw new ArgumentException("No Lua files match the native compilation filter.");
+                    var nativeResults = await NativeLuaValidator.CompileAsync(GameRoot(nativeProfile), nativeFiles, cancellationToken);
+                    var nativeFolder = ResolvePath(".pztools/validation", false, true); Directory.CreateDirectory(nativeFolder);
+                    var nativeReport = Path.Combine(nativeFolder, Guid.NewGuid().ToString("N") + "-kahlua.json");
+                    File.WriteAllText(nativeReport, Newtonsoft.Json.JsonConvert.SerializeObject(nativeResults, Newtonsoft.Json.Formatting.Indented));
+                    return new { results = nativeResults, artifact = nativeReport };
+                case "save_session":
+                    Require(settings.AgentMcpAllowTesting && settings.AgentMcpAllowGameControl, "Testing and game control");
+                    var saveId = args.Value<string>("sessionId") ?? throw new ArgumentException("Session ID required.");
+                    await PlaytestSessionRunner.SaveAndShutdownAsync(_projectRoot, saveId);
+                    return SessionRegistry.Default.Get(saveId);
+                case "restart_session":
+                    Require(settings.AgentMcpAllowTesting && settings.AgentMcpAllowGameControl && settings.AgentMcpAllowDeployment, "Testing, deployment and game control");
+                    var restartId = args.Value<string>("sessionId") ?? throw new ArgumentException("Session ID required.");
+                    var previous = SessionRegistry.Default.List(_projectRoot).FirstOrDefault(s => s.Id == restartId) ?? throw new ArgumentException("Unknown project session.");
+                    var restartProfile = SessionLifecycleService.RestartProfile(previous);
+                    return _runs.Start("restart", async (log, ct) =>
+                    {
+                        using var runner = new PlaytestSessionRunner { RestartOf = previous.Id };
+                        runner.Output += (_, line) => log(line);
+                        return await runner.RunAsync(_window.ModProject, restartProfile, previous.GameRoot, ct);
+                    });
+                case "endpoint_log":
+                    Require(settings.AgentMcpAllowTesting, "Testing");
+                    return TestEvidenceService.ReadLog(_projectRoot, args.Value<string>("sessionId") ?? throw new ArgumentException("Session ID required."),
+                        args.Value<string>("endpoint") ?? "client-1", args.Value<long?>("offset") ?? 0, args.Value<int?>("bytes") ?? 32768);
                 case "cancel_run":
                     // Keep cancellation available after individual launch permissions are revoked.
                     return _runs.Cancel(args.Value<string>("runId") ?? throw new ArgumentException("Run ID is required."));
@@ -420,6 +461,7 @@ namespace PZTools.Core.Functions.Agent
         {
             if (ZomboidGame.IsRunning)
                 return GetGameStatus();
+            SessionRegistry.Default.AssertAvailable();
             var settings = Config.GetAppSettings();
             var health = await ProjectHealthService.AnalyzeAsync(_window.ModProject, validateLua: true);
             if (!health.IsReadyToDeploy)

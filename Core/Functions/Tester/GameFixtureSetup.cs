@@ -29,6 +29,7 @@ public static class GameFixtureSetup
         var ready = new HashSet<string>();
         using var runner = new PlaytestSessionRunner
         {
+            Session = SessionRegistry.Default.Get(report.SessionId!), SessionKind = "setup",
             PrepareAutomation = w => { workspace = w; GameTestService.Prepare(project, profile, w, Array.Empty<string>(), report, setupOnly: true); }
         };
         var logGate = new object();
@@ -72,16 +73,21 @@ public static class GameFixtureSetup
                 if (errors.Count > 0) throw new InvalidDataException(string.Join("\n", errors));
             }
             profile.Id = selected.Id;
+            var capturedSession = SessionRegistry.Default.Get(report.SessionId!);
+            capturedSession.Retention = "reusable fixture";
+            SessionRegistry.Default.Save(capturedSession);
             profile.KeepSessionData = selected.KeepSessionData;
             progress("Fixture captured. Future runs use a fresh copy; the original stays unchanged.");
             return profile;
         }
+        catch (Exception ex) { report.Errors.Add(ex.Message); throw; }
         finally
         {
             session.Cancel();
             // Always drain the runner before disposing it, including observation errors.
             if (!run.IsCompleted) { try { await run; } catch { } }
             if (workspace is not null) File.WriteAllText(Path.Combine(report.ArtifactDirectory, "workspace.txt"), workspace.RootPath);
+            ModTestService.SaveReport(report);
         }
 
         void Observe()

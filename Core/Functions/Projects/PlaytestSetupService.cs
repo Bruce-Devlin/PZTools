@@ -86,7 +86,12 @@ public static class PlaytestSetupService
     {
         var checks = new List<PlaytestSetupCheck>();
         var gameFound = File.Exists(Path.Combine(gameRoot, "ProjectZomboid64.exe"));
-        checks.Add(new("Game installation", gameFound ? gameRoot : "Open App Options > System and select your game installation.", !gameFound));
+        checks.Add(new("Selected profile", $"{profile.Name} ({profile.Id}); target family {profile.Build}; {profile.Mode}; {profile.SaveMode}"));
+        checks.Add(new("Game installation", gameFound ? $"{gameRoot} · {GameInstallation.Inspect(gameRoot).Build}" :
+            $"Missing client executable: '{Path.Combine(gameRoot, "ProjectZomboid64.exe")}'. Open App Options > System to select a replacement. Discovered: " +
+            string.Join("; ", GameInstallation.Discover()), !gameFound));
+        checks.Add(new("Source world", profile.SaveMode == PlaytestSaveMode.FreshSessionClone ? profile.SourceSessionPath :
+            profile.SaveMode == PlaytestSaveMode.FreshClone ? profile.SourceSavePath : "New or retained profile world"));
         foreach (var error in PlaytestProfileStore.Validate(profile, project)) checks.Add(new("Profile needs attention", error, true));
         if (profile.Mode == PlaytestMode.SinglePlayer && (profile.LaunchArguments ?? "").Contains("-nosteam", StringComparison.OrdinalIgnoreCase))
             foreach (var dependency in profile.Dependencies.Where(d => d.Enabled && !Directory.Exists(d.SourcePath)))
@@ -96,7 +101,7 @@ public static class PlaytestSetupService
             try
             {
                 var server = PlaytestServerLauncher.Resolve(profile.ServerInstallPath, gameRoot);
-                checks.Add(new("Dedicated server", server));
+                checks.Add(new("Dedicated server", server + " · " + GameInstallation.Inspect(Path.GetDirectoryName(server)!).Build));
             }
             catch (Exception ex) { checks.Add(new("Dedicated server", ex.Message, true)); }
             var busy = IPGlobalProperties.GetIPGlobalProperties().GetActiveUdpListeners()

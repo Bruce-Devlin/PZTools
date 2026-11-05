@@ -77,10 +77,25 @@ internal static class Program
 
                 var explorer = new TestExplorer(project) { Width = 800, Height = 600 };
                 explorer.Show(); Drain();
-                Check(Control<Button>(explorer, "Setup").IsVisible, "Setup is discoverable in Test Explorer");
+                var tools = Descendants(explorer).OfType<Expander>().First();
+                Check(tools.IsVisible, "Setup and tools is discoverable in Test Explorer");
+                tools.IsExpanded = true; Drain();
+                Check(Control<Button>(explorer, "Setup").IsVisible, "Setup action is reachable after expansion");
+                tools.IsExpanded = false; Drain();
                 Control<TextBlock>(explorer, "EndpointStatus").Text = "client-1: awaiting_barrier | ticks 2 | World is paused.\nclient-2: awaiting_player | ticks 0 | No living playable character.\nserver: awaiting_barrier | ticks 50";
                 Drain();
-                Capture(explorer, Path.Combine(captures, $"explorer-{theme}.png")); explorer.Close();
+                Capture(explorer, Path.Combine(captures, $"explorer-{theme}.png"));
+                Directory.CreateDirectory(Path.Combine(project.RootPath, ".pztests"));
+                File.WriteAllText(Path.Combine(project.RootPath, ".pztests", "evidence.unit.lua"), "beforeEach(function(t) t:truthy(false, 'Living character fixture unavailable') end) test('fixture evidence',function(t) t:fail('exercise must not run') end)");
+                var run = PZTools.Core.Functions.Tester.ModTestService.RunUnitAsync(project); Await(run);
+                var history = Control<ComboBox>(explorer, "History");
+                history.ItemsSource = SessionRegistry.Default.List(project.RootPath);
+                history.SelectedItem = history.Items.Cast<RunSession>().Single(s => s.ReportId == run.Result.RunId); Drain();
+                Check(Control<TextBox>(explorer, "Details").Text.Contains("Snapshot:"), "History displays persisted source evidence");
+                Control<DataGrid>(explorer, "Results").SelectedIndex = 0; Drain();
+                Check(Control<TextBox>(explorer, "Details").Text.Contains("Living character fixture unavailable"), "Selecting a failed case displays its diagnostic bundle");
+                Check(Control<TextBox>(explorer, "Details").ActualHeight >= 150, "Case evidence has usable space at minimum size");
+                Capture(explorer, Path.Combine(captures, $"explorer-evidence-{theme}.png")); explorer.Close();
                 var lab = new RunProject { Width = 940, Height = 680 };
                 lab.Show(); Drain();
                 Check(Control<Button>(lab, "btnGuidedSetup").IsVisible, "Playtest Lab opens with guided setup");

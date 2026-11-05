@@ -1,6 +1,53 @@
 # Mod tests and isolated playtests
 
-Use **Set up game tests** in Test Explorer for a disposable single-player or local dedicated-server profile. Existing advanced profiles, support adapters, steps, remote calls, actor helpers and cleanup hooks remain available. Test sources under `.pztests` and development metadata under `.agents`, `.codex` and `.pztools` are excluded from runtime deployment.
+Use **Set up game tests** in Test Explorer for an isolated single-player or local dedicated-server profile. Manual worlds and interrupted sessions are retained, including profiles created before retention became the default. Existing advanced profiles, support adapters, steps, remote calls, actor helpers and cleanup hooks remain available. Test sources under `.pztests` and development metadata under `.agents`, `.codex` and `.pztools` are excluded from runtime deployment.
+
+## History, ownership and evidence
+
+Test Explorer's **Run history** joins manual playtests, ordinary debug launches, setup and automated runs. Receipts live in `%LOCALAPPDATA%/PZTools/sessions`, independently of editor build output. They link operation/report IDs, the frozen profile, process IDs and start times, caches, save folders, logs and source manifests. Starting a competing owned game session fails before deployment or changing the tracked game window. PID reuse does not transfer ownership.
+
+New isolated worlds live under `%LOCALAPPDATA%/PZTools/worlds` so build cleanup cannot remove them and native database paths stay short. Existing reusable profile worlds keep their original location. Cloned multiplayer fixtures preserve the server ResetID, preventing a restart from being mistaken for a reset world.
+
+Reopening history reconciles dead editor owners to **interrupted**. It preserves artifacts and never repeats a launch, save, deployment or test. Live orphaned processes still prevent a competing launch. Corrupt ownership records fail closed with their exact path. Reports are checkpointed during execution so an interrupted case can still be inspected.
+
+**Evidence and diagnostics** separates operation completion, case verdict and runner errors. Runs capture their source before execution; unit module loading and native deployment use that capture. The evidence view compares current project files with the selected run, including additions and removals. Runtime payload manifests also identify local dependency snapshots; Steam Workshop content remains outside that snapshot guarantee.
+
+Every failed or interrupted case has its assertion, failure phase, endpoint state and log excerpt. Client captures include PID and window handle when available. `PrintWindow` may return blank OpenGL content; the capture note records that limitation. **Open capture** opens the associated image. `pztools_get_endpoint_log(sessionId, endpoint, offset, bytes)` returns bounded chunks and `NextOffset`; `Reset` indicates truncation. `pztools_get_session_history` lists retained runs after reconnecting.
+
+Startup failures have endpoint diagnostics even when no gameplay case began. Windows focus rejection, an obscured renderer and missing heartbeat are reported separately. The runner checkpoints endpoint state every five seconds and finishes diagnostic capture before terminating owned processes on timeout.
+
+## Observable fixtures and test conditions
+
+Reports record **Setup → Exercise → Cleanup**. `beforeEach` runs in Setup; a failed prerequisite stops before the test body. Use `t:setup(function(t) ... end)` for explicit in-case preparation. Cleanup still runs after failure. Native fixture helpers are:
+
+- `t:livingCharacter(index, timeout)` waits for a living local player.
+- `t:loadedSquare(x, y, z, timeout)` fails Setup with the exact unloaded square.
+- `t:coLocated(onlineIds, distance, timeout)` requires distinct clients and checks positions returned by the server through `OnClientCommand`/`OnServerCommand`.
+- `t:reachableInteraction(x, y, z, distance, timeout)` uses the native walking action to reach a loaded approach square; it requires arrival on that square and the specified distance. Choose a walkable approach square, rather than an occupied furniture tile.
+
+The generated fixture example subscribes to production `Events.OnTick` and removes its subscription during Cleanup. Game reports record companion use, launch arguments and observed game-speed changes. Tests must record intentional debug placement or other interventions with `t:condition("debug placement", "description")`; an undeclared condition is shown as unknown.
+
+## Save and restart
+
+**Terminate processes** cancels an owned session without claiming it saved. **Save and shutdown** asks the isolated lifecycle companion to use the game's own Quit to desktop path. It records native post-save receipts, error-counter observations, clean process exits and, for dedicated servers, the native `Saving finish` output. Missing receipts produce an unverified save, rather than a passing persistence claim.
+
+**Restart retained session** creates a fresh copy of the retained saves and links the new run to its predecessor. Each endpoint checks a marker stored in game state before shutdown. History records save completion, shutdown mode and restart verification separately. The marker proves that this state survived a new process; mod-specific state still needs gameplay assertions. Ordinary debug launches have no isolated restart profile. Crash worlds remain available for manual recovery.
+
+MCP offers `pztools_save_session` and `pztools_restart_session`. Save requests are supported for retained playtest sessions; finish an automated test exercise before beginning the persistence workflow. Reconnected sessions whose editor no longer controls them must be closed normally in the game.
+
+## Validation and reference provenance
+
+MoonSharp remains the fast syntax checker. **Compile with installed Kahlua** and `pztools_compile_lua_native(profile, filter)` use the selected game's JVM and jar without executing a Lua closure. Results name the interpreter, Steam build, binary SHA-256 and compilation-only scope; JSON artifacts are saved under `.pztools/validation`. The embedded Java helper source is `Resources/Testing/NativeLuaCompiler.java`; rebuild its class with `javac --release 8` when changing it.
+
+The generated API probe uses `t:observeApi(qualifiedJavaSymbol, function() ... end)`. Passing native cases retain the observed symbol and exact binary fingerprint. Knowledge Explorer distinguishes recovered Java declarations from matching native probe evidence, whose scope is only the recorded call and conditions. Fresh reference extraction records its input fingerprint and replaces the complete generated tree, retaining previous and failed extractions. Older references without provenance are explicitly unknown; installation mismatches remain visible.
+
+## Preflight, deployment and source storage
+
+Launch checks identify the chosen profile, client/server paths, Steam build IDs and source saves before copying sources. Missing installations include the exact path, discovered Steam alternatives and the existing App Options action. Living characters and loaded squares are confirmed in the game before gameplay assertions.
+
+Deployment stages beside the game-scanned mods directory in `.pztools-deployment/<operation>`. Its receipt records copying, verification, replacement and cleanup. Failures preserve staged files and the previous installation or its recoverable backup; Windows Restart Manager supplies possible lock owners where it can. Cleanup failures do not undo a completed replacement.
+
+New projects ask for a durable source location, defaulting to Documents/PZTools/Projects. Existing projects in the previous Projects folder remain discoverable. **Project storage** shows source-only Git coverage and build-output warnings. Its reviewable copy workflow verifies a new copy and preserves the original; local run artifacts and Git history stay at the original location. Git setup initializes a repository only; it does not stage, commit or publish.
 
 ## Failure containment
 

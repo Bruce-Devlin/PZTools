@@ -5,7 +5,8 @@ namespace PZTools.Core.Functions.Projects
 {
     public static class PlaytestWorkspaceService
     {
-        public static PlaytestSessionWorkspace Prepare(ModProject project, PlaytestProfile profile)
+        public static string SessionStorageRoot => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PZTools", "worlds");
+        public static PlaytestSessionWorkspace Prepare(ModProject project, PlaytestProfile profile, Action<PlaytestSessionWorkspace>? allocated = null)
         {
             ArgumentNullException.ThrowIfNull(project);
             ArgumentNullException.ThrowIfNull(profile);
@@ -18,13 +19,23 @@ namespace PZTools.Core.Functions.Projects
             else if (!File.ReadAllLines(ignorePath).Any(x => x.Trim().Equals("playtests/", StringComparison.OrdinalIgnoreCase)))
                 File.AppendAllText(ignorePath, $"playtests/{Environment.NewLine}");
             var profileRoot = Path.Combine(pzToolsRoot, "playtests", profile.Id.ToString("N"));
+            var legacyReusable = Path.Combine(profileRoot, "reusable");
+            var identity = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(
+                Path.GetFullPath(project.RootPath).ToUpperInvariant() + "|" + profile.Id.ToString("N"))))[..32];
             var sessionRoot = profile.SaveMode == PlaytestSaveMode.ReuseProfileData
-                ? Path.Combine(profileRoot, "reusable")
-                : Path.Combine(profileRoot, "sessions", DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff") + "-" + Guid.NewGuid().ToString("N")[..8]);
+                ? Directory.Exists(legacyReusable) ? legacyReusable : Path.Combine(SessionStorageRoot, "reusable", identity)
+                : Path.Combine(SessionStorageRoot, "sessions", Guid.NewGuid().ToString("N"));
+            ProjectDeployer.RejectLinkedPath(sessionRoot);
             var serverCache = Path.Combine(sessionRoot, "server");
             var clientCaches = Enumerable.Range(1, profile.Mode == PlaytestMode.DedicatedServer ? profile.ClientCount : 1)
                 .Select(x => Path.Combine(sessionRoot, $"client-{x}"))
                 .ToList();
+            var workspace = new PlaytestSessionWorkspace
+            {
+                RootPath = sessionRoot, ServerCachePath = serverCache, ClientCachePaths = clientCaches,
+                IsReusable = profile.SaveMode == PlaytestSaveMode.ReuseProfileData
+            };
+            allocated?.Invoke(workspace);
 
             Directory.CreateDirectory(serverCache);
             foreach (var cache in clientCaches)
@@ -54,13 +65,7 @@ namespace PZTools.Core.Functions.Projects
                 }
             }
 
-            return new PlaytestSessionWorkspace
-            {
-                RootPath = sessionRoot,
-                ServerCachePath = serverCache,
-                ClientCachePaths = clientCaches,
-                IsReusable = profile.SaveMode == PlaytestSaveMode.ReuseProfileData
-            };
+            return workspace;
         }
 
         public static void Cleanup(PlaytestSessionWorkspace workspace, bool keepSessionData)
@@ -68,8 +73,10 @@ namespace PZTools.Core.Functions.Projects
             if (keepSessionData || workspace.IsReusable || !Directory.Exists(workspace.RootPath))
                 return;
             var fullPath = Path.GetFullPath(workspace.RootPath);
-            if (!fullPath.Contains($"{Path.DirectorySeparatorChar}.pztools{Path.DirectorySeparatorChar}playtests{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase))
+            if (!fullPath.StartsWith(SessionStorageRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) &&
+                !fullPath.Contains($"{Path.DirectorySeparatorChar}.pztools{Path.DirectorySeparatorChar}playtests{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException("Refusing to remove a folder outside the PZTools playtest workspace.");
+            EnsureNoLinks(fullPath);
             WindowsHelpers.DeleteDirectoryRobust(fullPath);
         }
 

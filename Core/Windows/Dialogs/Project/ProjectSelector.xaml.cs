@@ -60,6 +60,7 @@ namespace PZTools.Core.Windows.Dialogs.Project
                 SelectedTarget = null;
             }
             OpenProjectButton.IsEnabled = SelectedProject != null;
+            ProjectFolderTxt.Text = SelectedProject?.RootPath ?? ProjectEngine.ProjectsRootPath;
         }
 
         private void ProjectFilter_TextChanged(object sender, TextChangedEventArgs e)
@@ -201,6 +202,12 @@ namespace PZTools.Core.Windows.Dialogs.Project
 
                 try
                 {
+                    using var location = new Forms.FolderBrowserDialog { Description = "Choose where this project's source will live", UseDescriptionForTitle = true,
+                        SelectedPath = ProjectStorageService.DefaultRoot };
+                    if (location.ShowDialog() != Forms.DialogResult.OK) return;
+                    ProjectEngine.ProjectsRootPath = location.SelectedPath;
+                    ProjectStorageService.RememberRoot(location.SelectedPath);
+                    ProjectFolderTxt.Text = location.SelectedPath;
                     var newProject = ProjectEngine.CreateProject(projectName, targetBuild);
                     ProjectFilter.Clear();
                     ProjectEngine.LoadProjects();
@@ -331,7 +338,7 @@ namespace PZTools.Core.Windows.Dialogs.Project
 
         private void OpenProjectFolderBtn_Click(object sender, RoutedEventArgs e)
         {
-            WindowsHelpers.OpenFile(ProjectEngine.ProjectsRootPath);
+            WindowsHelpers.OpenFile(SelectedProject?.RootPath ?? ProjectEngine.ProjectsRootPath);
         }
     }
 }

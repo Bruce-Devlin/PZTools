@@ -15,6 +15,11 @@ namespace PZTools.Core.Functions.Projects
         {
             ArgumentNullException.ThrowIfNull(project);
             var report = new ProjectHealthReport { Project = project };
+            var storage = ProjectStorageService.Inspect(project.RootPath);
+            if (storage.InBuildOutput || storage.Tracked == 0 || storage.Ignored > 0 || storage.Untracked > 0)
+                Add(report, DiagnosticSeverity.Warning, "PZT050", "Project storage", $"Source: {storage.Path}. " +
+                    (storage.InBuildOutput ? "Project is inside build output. " : "") + storage.Detail,
+                    "Open Test Explorer > Project storage to review relocation or Git setup.");
 
             if (project.Targets.Count == 0)
             {

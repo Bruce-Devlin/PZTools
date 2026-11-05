@@ -15,7 +15,7 @@ public static class GameTestService
     public static async Task<ModTestReport> RunAsync(ModProject project, PlaytestProfile selected, string gameRoot,
         string? filter = null, int timeoutSeconds = 300, Action<string>? progress = null, CancellationToken cancellationToken = default,
         Action<Process>? dockClient = null, Action<IReadOnlyList<GameTestEndpointState>>? endpointProgress = null,
-        bool keepAlive = false)
+        bool keepAlive = false, string? restartOf = null)
     {
         var report = ModTestService.CreateReport(project, keepAlive ? "playtest" : "game");
         report.GameRoot = gameRoot; report.Profile = selected.Name;
@@ -33,9 +33,19 @@ public static class GameTestService
                 throw new InvalidOperationException("Server tests require a dedicated-server profile.");
             var setup = PlaytestSetupService.Check(project, profile, gameRoot, automated: true).Where(c => c.Blocking).ToArray();
             if (setup.Length > 0) throw new InvalidOperationException(string.Join("\n", setup.Select(c => c.Detail)));
+            report.GameBinaryFingerprint = GameInstallation.Inspect(gameRoot, true).Sha256;
+            TestEvidenceService.CaptureSource(report);
+            var capturedProject = new ModProject { Name = project.Name, RootPath = report.SourceDirectory,
+                ModInfo = JsonConvert.DeserializeObject<ModInfo>(JsonConvert.SerializeObject(project.ModInfo))!,
+                Targets = project.Targets.Select(t => new ModTarget { Build = t.Build, IsPrimary = t.IsPrimary,
+                    Path = Path.Combine(report.SourceDirectory, Path.GetRelativePath(project.RootPath, t.Path)) }).ToList() };
+            files = keepAlive ? Array.Empty<string>() : ModTestService.Discover(capturedProject, "game", filter);
             profile.KeepSessionData = true;
-            var health = await ProjectHealthService.AnalyzeAsync(project, true, cancellationToken);
-            if (!health.IsReadyToDeploy) throw new InvalidOperationException("Project health errors block game tests. Open Health Dashboard.");
+            report.Conditions.Add("Installed game runtime; PZToolsTesting companion; automated startup panels");
+            report.Conditions.Add("Debug launch: " + profile.LaunchArguments.Contains("-debug", StringComparison.OrdinalIgnoreCase));
+            report.Conditions.Add("Debug placement: not declared; tests must record deliberate placement with t:condition");
+            var health = await ProjectHealthService.AnalyzeAsync(capturedProject, true, cancellationToken);
+            if (!health.IsReadyToDeploy) throw new InvalidOperationException("Project health errors block game tests: " + string.Join("; ", health.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error).Select(d => d.Message)));
             var validation = PlaytestProfileStore.Validate(profile, project);
             if (validation.Count > 0) throw new InvalidDataException(string.Join("\n", validation));
             File.WriteAllText(Path.Combine(report.ArtifactDirectory, "profile.json"), JsonConvert.SerializeObject(profile, Formatting.Indented));
@@ -45,7 +55,8 @@ public static class GameTestService
             using var runner = new PlaytestSessionRunner
             {
                 DockFirstClient = dockClient is not null,
-                PrepareAutomation = w => { workspace = w; Prepare(project, profile, w, files, report, keepAlive: keepAlive); },
+                Session = SessionRegistry.Default.Get(report.SessionId!), SessionKind = keepAlive ? "manual" : "automated", SourceProject = capturedProject, RestartOf = restartOf,
+                PrepareAutomation = w => { workspace = w; Prepare(capturedProject, profile, w, files, report, keepAlive: keepAlive); },
                 RunAutomation = (w, ct) => MonitorAsync(w, profile, report, progress, ct, endpointProgress,
                     clients, keepAlive, keepAlive ? DateTime.UtcNow.AddSeconds(timeoutSeconds) : null)
             };
@@ -146,6 +157,7 @@ public static class GameTestService
             }
         }
         File.WriteAllText(Path.Combine(report.ArtifactDirectory, "manifest.lua"), manifest.ToString());
+        ModTestService.Checkpoint(report);
     }
 
     internal static async Task MonitorAsync(PlaytestSessionWorkspace workspace, PlaytestProfile profile, ModTestReport report, Action<string>? progress, CancellationToken ct,
@@ -162,7 +174,9 @@ public static class GameTestService
         var released = false;
         var worldStarted = new HashSet<string>();
         var loadingFinished = new HashSet<string>();
+        var startupInput = new Dictionary<string, string>();
         var nextStartupClick = DateTime.MinValue;
+        var nextCheckpoint = DateTime.MinValue;
         try
         {
             while (keepAlive || completed.Count < endpoints.Count)
@@ -201,6 +215,12 @@ public static class GameTestService
                         else
                         {
                             ModTestService.ApplyEvent(report, endpoint.Name, fields[3], Decode(fields[4]), Decode(fields[5]), Decode(fields[6]), duration);
+                            if (fields[3] == "failed")
+                            {
+                                var failed = report.Tests.Last(t => t.Endpoint == endpoint.Name && t.Name == Decode(fields[5]));
+                                TestEvidenceService.AttachDiagnostic(report, failed, Path.GetDirectoryName(Path.GetDirectoryName(endpoint.Path)!),
+                                    clients?.GetValueOrDefault(endpoint.Name));
+                            }
                             if (fields[3] == "begin") { state.CurrentCase = Decode(fields[5]); state.Phase = "running"; }
                             if (fields[3] is "passed" or "failed") state.CurrentCase = "";
                             if (fields[3] is "complete" or "error") state.Phase = fields[3] == "complete" ? "complete" : "failed";
@@ -218,6 +238,11 @@ public static class GameTestService
                     if (state.IsRunnable(DateTime.UtcNow)) ready.Add(state.Endpoint);
                 }
                 endpointProgress?.Invoke(report.Endpoints);
+                if (DateTime.UtcNow >= nextCheckpoint)
+                {
+                    ModTestService.Checkpoint(report);
+                    nextCheckpoint = DateTime.UtcNow.AddSeconds(5);
+                }
                 if (!released && ready.Count == endpoints.Count)
                 {
                     foreach (var endpoint in endpoints)
@@ -244,7 +269,16 @@ public static class GameTestService
                                 progress?.Invoke($"[{endpoint.Name}] World loaded; advancing Click to Start automatically.");
                             }
                         }
-                        if (loadingFinished.Contains(endpoint.Name)) await GameTestStartupClick.ClickAsync(clients[endpoint.Name], ct);
+                        if (loadingFinished.Contains(endpoint.Name))
+                        {
+                            var reason = await GameTestStartupClick.ClickAsync(clients[endpoint.Name], ct);
+                            states[endpoint.Name].StartupInput = reason;
+                            if (startupInput.GetValueOrDefault(endpoint.Name) != reason)
+                            {
+                                progress?.Invoke($"[{endpoint.Name}] {reason}");
+                                startupInput[endpoint.Name] = reason;
+                            }
+                        }
                     }
                 }
                 await Task.Delay(100, ct);
@@ -258,6 +292,22 @@ public static class GameTestService
         }
         finally
         {
+            if (!released)
+            {
+                foreach (var endpoint in endpoints.Where(e => !ready.Contains(e.Name)))
+                {
+                    var startup = new ModTestCase { Name = "Endpoint startup", Endpoint = endpoint.Name, LastPhase = "Setup",
+                        Message = states[endpoint.Name].BlockingReason + " " + startupInput.GetValueOrDefault(endpoint.Name) };
+                    TestEvidenceService.AttachDiagnostic(report, startup, Path.GetDirectoryName(Path.GetDirectoryName(endpoint.Path)!), clients?.GetValueOrDefault(endpoint.Name));
+                    if (startup.Diagnostic is not null) report.StartupDiagnostics.Add(startup.Diagnostic);
+                }
+            }
+            foreach (var test in report.Tests.Where(t => t.Status is "running" or "failed" or "error"))
+            {
+                if (test.Status == "running") { test.Status = "error"; test.Message = "Run ended during " + test.LastPhase; }
+                var endpoint = endpoints.First(e => e.Name == test.Endpoint);
+                TestEvidenceService.AttachDiagnostic(report, test, Path.GetDirectoryName(Path.GetDirectoryName(endpoint.Path)!), clients?.GetValueOrDefault(test.Endpoint));
+            }
             foreach (var state in report.Endpoints) state.Refresh(DateTime.UtcNow);
             endpointProgress?.Invoke(report.Endpoints);
             File.WriteAllText(Path.Combine(report.ArtifactDirectory, "endpoints.json"), JsonConvert.SerializeObject(report.Endpoints, Formatting.Indented));

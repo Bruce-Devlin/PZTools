@@ -69,8 +69,19 @@ namespace PZTools.Core.Functions.Projects
             Directory.CreateDirectory(deployRoot);
 
             var operationId = Guid.NewGuid().ToString("N");
-            var stagingDest = Path.Combine(deployRoot, $".{projectName}.{operationId}.staging");
-            var backupDest = Path.Combine(deployRoot, $".{projectName}.{operationId}.backup");
+            // A sibling of the scanned mods/workshop directory, on the same volume for rename.
+            var privateRoot = Path.Combine(Path.GetDirectoryName(deployRoot)!, ".pztools-deployment", operationId);
+            RejectLinkedPath(privateRoot);
+            var stagingDest = Path.Combine(privateRoot, "staging");
+            var backupDest = Path.Combine(privateRoot, "previous");
+            var receipt = new DeploymentReceipt { Id = operationId, Source = projectRoot, Destination = finalDest,
+                Staging = stagingDest, Backup = backupDest };
+            Directory.CreateDirectory(privateRoot);
+            void Phase(string name)
+            {
+                receipt.Phase = name; receipt.Events.Add($"{DateTime.UtcNow:O} {name}");
+                File.WriteAllText(Path.Combine(privateRoot, "deployment.json"), Newtonsoft.Json.JsonConvert.SerializeObject(receipt, Newtonsoft.Json.Formatting.Indented));
+            }
 
             await Console.Log($"Beginning deployment of project: \"{projectRoot}\" to: \"{finalDest}\"");
 
@@ -79,6 +90,7 @@ namespace PZTools.Core.Functions.Projects
             try
             {
                 await Console.Log("Staging project...");
+                Phase("copying");
 
                 var stagedFilesCount = await Task.Run(() =>
                 {
@@ -89,6 +101,7 @@ namespace PZTools.Core.Functions.Projects
                         ct: ct);
                 }, ct);
 
+                Phase("verification");
                 if (snapshotManifest is null)
                     DeploymentManifestService.Write(stagingDest, project.ModInfo.Id.Length > 0 ? project.ModInfo.Id : projectName);
                 else
@@ -98,15 +111,41 @@ namespace PZTools.Core.Functions.Projects
                         .Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
                     if (errors.Length > 0) throw new IOException("Snapshot copy failed verification: " + string.Join("; ", errors.Select(e => e.Message)));
                 }
+                var verification = DeploymentManifestService.Verify(projectRoot, stagingDest, project.ModInfo.Id.Length > 0 ? project.ModInfo.Id : projectName);
+                if (verification.Any(d => d.Severity == DiagnosticSeverity.Error))
+                    throw new IOException("Staged payload verification failed: " + string.Join("; ", verification.Select(d => d.Message)));
 
                 await Console.Log($"Deploying {stagedFilesCount} files from staging folder...");
+                Phase("replacement");
                 await ReplaceDeploymentAsync(stagingDest, finalDest, backupDest, ct);
+                Phase("cleanup");
+                await TryDeleteDirectoryAsync(backupDest);
+                receipt.Warning = Directory.Exists(backupDest) ? "Installation replaced; previous files could not be cleaned up and remain at " + backupDest : null;
+                Phase("completed");
                 await Console.Log("Project deployed successfully.");
             }
-            finally
+            catch (Exception ex)
             {
-                await TryDeleteDirectoryAsync(stagingDest);
+                receipt.Error = ex.Message;
+                receipt.Events.Add($"{DateTime.UtcNow:O} failed in {receipt.Phase}");
+                File.WriteAllText(Path.Combine(privateRoot, "deployment.json"), Newtonsoft.Json.JsonConvert.SerializeObject(receipt, Newtonsoft.Json.Formatting.Indented));
+                throw new IOException($"Deployment failed during {receipt.Phase}: {ex.Message}\nRecovery receipt: {Path.Combine(privateRoot, "deployment.json")}\n" +
+                    $"Staged files: {stagingDest}\nPrevious installation, if replacement began: {backupDest}\n" +
+                    "Possible lock owners: " + string.Join(", ", DeploymentLockOwners.Find(finalDest)), ex);
             }
+        }
+
+        private sealed class DeploymentReceipt
+        {
+            public string Id { get; set; } = "";
+            public string Source { get; set; } = "";
+            public string Destination { get; set; } = "";
+            public string Staging { get; set; } = "";
+            public string Backup { get; set; } = "";
+            public string Phase { get; set; } = "preparing";
+            public List<string> Events { get; set; } = new();
+            public string? Warning { get; set; }
+            public string? Error { get; set; }
         }
 
         private static bool IsWithin(string path, string root) =>
@@ -183,8 +222,6 @@ namespace PZTools.Core.Functions.Projects
                 }
                 throw;
             }
-            // A cleanup failure must not roll back an already committed deployment.
-            await TryDeleteDirectoryAsync(backupDest);
         }
 
         private static async Task MoveDirectoryWithRetryAsync(string source, string destination, CancellationToken ct)

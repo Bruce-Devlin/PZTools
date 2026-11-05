@@ -20,10 +20,62 @@ public partial class TestExplorer : Window
     private ModTestReport? report;
     private bool closing;
     private bool preflighting;
+    private RunSession? selectedSession;
     private sealed record TestFile(string Path, string Display);
     public TestExplorer(ModProject project)
     {
-        InitializeComponent(); this.project = project; RefreshFiles();
+        InitializeComponent(); this.project = project; RefreshFiles(); RefreshHistory();
+    }
+    private void RefreshHistory()
+    {
+        try { History.ItemsSource = SessionRegistry.Default.List(project.RootPath); }
+        catch (Exception ex) { Status.Text = ex.Message; }
+    }
+    private void HistoryRefresh_Click(object sender, RoutedEventArgs e) => RefreshHistory();
+    private void Restart_Click(object sender, RoutedEventArgs e)
+    {
+        if (running is not null || selectedSession is null) return;
+        try
+        {
+            SessionLifecycleService.RestartProfile(selectedSession);
+            new RunProject(false) { Owner = this, DockClient = DockClient, RestartSession = selectedSession }.Show();
+        }
+        catch (Exception ex) { Status.Text = ex.Message; }
+    }
+    private void History_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        if (running is not null || History.SelectedItem is not RunSession session) return;
+        selectedSession = session;
+        try
+        {
+            var path = Path.Combine(session.ArtifactDirectory, "results.json");
+            report = File.Exists(path) ? Newtonsoft.Json.JsonConvert.DeserializeObject<ModTestReport>(File.ReadAllText(path)) : null;
+            if (report is not null && session.State == "interrupted") report.OperationState = "interrupted; no actions replayed";
+            Results.ItemsSource = report?.Tests;
+            Details.Text = report is null ? Newtonsoft.Json.JsonConvert.SerializeObject(session, Newtonsoft.Json.Formatting.Indented) : TestEvidenceService.Summary(report);
+            EvidenceTabs.SelectedIndex = 1;
+            HistoryPanel.IsExpanded = false;
+            EndpointStatus.Text = $"{session.State} · {session.Retention} · {session.WorkspacePath}\n" +
+                string.Join("\n", session.Processes.Select(p => $"{p.Endpoint}: PID {p.Id}; saves: {(p.SavePaths.Count > 0 ? string.Join(", ", p.SavePaths) : Path.Combine(p.CachePath, "Saves"))}; log: {p.LogPath}"));
+            Artifacts.IsEnabled = Directory.Exists(session.ArtifactDirectory);
+            Status.Text = session.Display;
+        }
+        catch (Exception ex) { Status.Text = ex.Message; }
+    }
+    private void Evidence_Click(object sender, RoutedEventArgs e)
+    {
+        try { if (report is not null) { Details.Text = TestEvidenceService.Summary(report); EvidenceTabs.SelectedIndex = 1; } }
+        catch (Exception ex) { Status.Text = ex.Message; }
+    }
+    private void Capture_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (Results.SelectedItem is ModTestCase { Diagnostic.Screenshot: { } path } && File.Exists(path))
+                Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+            else Status.Text = "No screenshot was available for this case. Select it to see capture details.";
+        }
+        catch (Exception ex) { Status.Text = ex.Message; }
     }
     private void RefreshFiles()
     {
@@ -38,6 +90,25 @@ public partial class TestExplorer : Window
         catch (Exception ex) { Status.Text = ex.Message; }
     }
     private void Refresh_Click(object sender, RoutedEventArgs e) => RefreshFiles();
+    private async void NativeCompile_Click(object sender, RoutedEventArgs e)
+    {
+        if (running is not null || preflighting) return;
+        preflighting = true;
+        try
+        {
+            var profile = Profiles.SelectedItem as PlaytestProfile ?? throw new InvalidOperationException("Choose an installation profile.");
+            Status.Text = "Compiling saved Lua with the installed Kahlua runtime...";
+            var files = TestEvidenceService.SourceFiles(project.RootPath).Where(p => p.EndsWith(".lua", StringComparison.OrdinalIgnoreCase));
+            var results = await NativeLuaValidator.CompileAsync(PlaytestSetupService.ResolveGameRoot(profile.Build), files);
+            Details.Text = Newtonsoft.Json.JsonConvert.SerializeObject(results, Newtonsoft.Json.Formatting.Indented);
+            EvidenceTabs.SelectedIndex = 1;
+            var folder = Path.Combine(project.RootPath, ".pztools", "validation"); Directory.CreateDirectory(folder);
+            File.WriteAllText(Path.Combine(folder, DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff") + "-kahlua.json"), Details.Text);
+            Status.Text = $"Installed Kahlua compilation: {results.Count(r => r.Result.Ok)}/{results.Count}. API behavior requires a native probe test.";
+        }
+        catch (Exception ex) { Status.Text = ex.Message; }
+        finally { preflighting = false; }
+    }
     private void Clear_Click(object sender, RoutedEventArgs e) => Files.SelectedItem = null;
     private void Scaffold_Click(object sender, RoutedEventArgs e)
     {
@@ -53,6 +124,7 @@ public partial class TestExplorer : Window
     {
         new RunProject { Owner = this }.ShowDialog(); RefreshFiles();
     }
+    private void Storage_Click(object sender, RoutedEventArgs e) => new ProjectStorageWindow(project) { Owner = this }.ShowDialog();
     private void Setup_Click(object sender, RoutedEventArgs e) => OpenSetup();
     private bool OpenSetup()
     {
@@ -116,8 +188,9 @@ public partial class TestExplorer : Window
             }
             else report = await ModTestService.RunUnitAsync(project, filter, running.Token);
             Results.ItemsSource = report.Tests;
-            Details.Text = string.Join(Environment.NewLine, report.Errors);
-            Status.Text = $"{(report.Passed ? "Passed" : "Failed")}: {report.Tests.Count(t => t.Status == "passed")}/{report.Tests.Count} tests passed; {report.Errors.Count} runner errors. {report.ArtifactDirectory}";
+            Details.Text = TestEvidenceService.Summary(report);
+            Status.Text = $"Operation: {report.OperationState}; verdict: {report.Verdict}; {report.Tests.Count(t => t.Status == "passed")}/{report.Tests.Count} cases passed; {report.Errors.Count} runner errors.";
+            RefreshHistory();
             Artifacts.IsEnabled = true;
         }
         catch (Exception ex) { Status.Text = ex.Message; }
@@ -130,12 +203,12 @@ public partial class TestExplorer : Window
     }
     private void Result_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (Results.SelectedItem is ModTestCase test) Details.Text = test.File + Environment.NewLine + test.Message + Environment.NewLine + string.Join(Environment.NewLine, test.Steps);
+        if (Results.SelectedItem is ModTestCase test) { Details.Text = Newtonsoft.Json.JsonConvert.SerializeObject(test, Newtonsoft.Json.Formatting.Indented); EvidenceTabs.SelectedIndex = 1; }
     }
     private void Stop_Click(object sender, RoutedEventArgs e) { running?.Cancel(); Status.Text = "Cancelling and stopping owned test processes..."; }
     private void Artifacts_Click(object sender, RoutedEventArgs e)
     {
-        try { if (report is not null) Process.Start(new ProcessStartInfo(report.ArtifactDirectory) { UseShellExecute = true }); }
+        try { var path = report?.ArtifactDirectory ?? selectedSession?.ArtifactDirectory; if (path is not null) Process.Start(new ProcessStartInfo(path) { UseShellExecute = true }); }
         catch (Exception ex) { Status.Text = ex.Message; }
     }
     private void Window_Closing(object? sender, CancelEventArgs e)

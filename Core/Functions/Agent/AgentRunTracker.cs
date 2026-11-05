@@ -6,6 +6,7 @@ namespace PZTools.Core.Functions.Agent;
 /// <summary>Owns one background operation for an editor bridge, including shutdown and bounded output.</summary>
 public sealed class AgentRunTracker : IAsyncDisposable
 {
+    public static AsyncLocal<string?> CurrentOperationId { get; } = new();
     private readonly object gate = new();
     private readonly Queue<string> output = new();
     private CancellationTokenSource? cancellation;
@@ -31,6 +32,7 @@ public sealed class AgentRunTracker : IAsyncDisposable
             result = null; endpoints = null; error = null; output.Clear();
             task = Task.Run(async () =>
             {
+                CurrentOperationId.Value = id;
                 try
                 {
                     var value = await operation(Append, token);

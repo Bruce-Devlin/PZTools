@@ -13,6 +13,7 @@ public sealed class GameTestEndpointState
     public bool UiReady { get; set; }
     public string CurrentCase { get; set; } = "";
     public string BlockingReason { get; set; } = "No companion heartbeat; screen state unknown.";
+    public string StartupInput { get; set; } = "";
 
     public bool IsRunnable(DateTime now) => Phase == "awaiting_barrier" && IsReady(now);
 
@@ -23,7 +24,7 @@ public sealed class GameTestEndpointState
     public void Refresh(DateTime now)
     {
         BlockingReason = Phase is "complete" or "failed" ? "" :
-            LastHeartbeat is null ? "No companion heartbeat; screen state unknown." :
+            LastHeartbeat is null ? string.IsNullOrEmpty(StartupInput) ? "No companion heartbeat; screen state unknown." : StartupInput :
             LastHeartbeat < now.AddSeconds(-5) ? "Companion heartbeat stalled; screen state unknown." :
             Phase == "awaiting_world" ? "Waiting for world entry; screen state unknown." :
             PlayerPresent == false ? "No living playable character." :

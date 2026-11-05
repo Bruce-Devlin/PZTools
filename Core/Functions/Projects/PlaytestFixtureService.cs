@@ -13,6 +13,12 @@ public static class PlaytestFixtureService
     {
         File.WriteAllText(Path.Combine(workspace.RootPath, ReceiptFile), JsonConvert.SerializeObject(
             new Receipt(1, profile.Build, profile.ClientCount, profile.ServerName, profile.ServerPort, profile.NoSteam), Formatting.Indented));
+        if (workspace.SessionId is not null)
+        {
+            var session = SessionRegistry.Default.Get(workspace.SessionId);
+            session.Retention = "reusable fixture";
+            SessionRegistry.Default.Save(session);
+        }
     }
 
     public static IReadOnlyList<string> Validate(PlaytestProfile profile)

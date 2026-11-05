@@ -8,6 +8,7 @@ using MoonSharp.Interpreter;
 using MoonSharp.Interpreter.Loaders;
 using Newtonsoft.Json;
 using PZTools.Core.Models;
+using PZTools.Core.Functions.Projects;
 using PZTools.Core.Models.Test;
 
 namespace PZTools.Core.Functions.Tester;
@@ -38,9 +39,12 @@ public static class ModTestService
 
     public static ModTestReport CreateReport(ModProject project, string mode)
     {
-        var report = new ModTestReport { Project = project.Name, Mode = mode };
+        var report = new ModTestReport { Project = project.Name, ProjectPath = project.RootPath, Mode = mode,
+            OperationId = PZTools.Core.Functions.Agent.AgentRunTracker.CurrentOperationId.Value };
         report.ArtifactDirectory = Path.Combine(project.RootPath, ".pztools", "test-results", report.RunId);
         Directory.CreateDirectory(report.ArtifactDirectory);
+        report.SessionId = SessionRegistry.Default.Begin(project.RootPath, mode, false, reportId: report.RunId, artifacts: report.ArtifactDirectory).Id;
+        File.WriteAllText(Path.Combine(report.ArtifactDirectory, "results.json"), JsonConvert.SerializeObject(report, Formatting.Indented));
         return report;
     }
 
@@ -52,15 +56,18 @@ public static class ModTestService
         var report = CreateReport(project, "unit");
         try
         {
-            var files = Discover(project, "unit", filter);
+            TestEvidenceService.CaptureSource(report);
+            report.Conditions.Add("MoonSharp 2.0; isolated Lua unit execution; no native game APIs");
+            var capturedProject = new ModProject { RootPath = report.SourceDirectory };
+            var files = Discover(capturedProject, "unit", filter);
             if (files.Count == 0) report.Errors.Add("No unit test files match this run. Unit files end in .unit.lua; game files require Run game tests.");
             foreach (var file in files)
             {
                 ct.ThrowIfCancellationRequested();
-                var relative = Path.GetRelativePath(project.RootPath, file);
+                var relative = Path.GetRelativePath(report.SourceDirectory, file);
                 var watch = Stopwatch.StartNew();
                 var script = new Script(CoreModules.Preset_SoftSandbox | CoreModules.LoadMethods);
-                script.Options.ScriptLoader = new ProjectLoader(project.RootPath);
+                script.Options.ScriptLoader = new ProjectLoader(report.SourceDirectory);
                 script.Options.DebugPrint = line => File.AppendAllText(Path.Combine(report.ArtifactDirectory, "unit.log"), line + Environment.NewLine);
                 try
                 {
@@ -91,6 +98,7 @@ public static class ModTestService
             }
         }
         catch (OperationCanceledException) { report.Errors.Add("Run cancelled."); }
+        catch (Exception ex) { report.Errors.Add(ex.Message); }
         finally { SaveReport(report); }
         return report;
     }
@@ -116,22 +124,48 @@ public static class ModTestService
         if (kind == "begin")
         {
             report.Tests.Add(new ModTestCase { File = file, Name = name, Endpoint = endpoint });
+            Checkpoint(report);
             return;
         }
+        if (kind == "condition") { report.Conditions.Add(endpoint + ": " + message); Checkpoint(report); return; }
         if (kind is "complete" or "ready") return;
         var test = report.Tests.LastOrDefault(t => t.Endpoint == endpoint && t.File == file && t.Name == name && t.Status == "running");
         if (test is null) { report.Errors.Add("Unexpected test event: " + kind + " " + name); return; }
         if (kind == "failure_origin") test.FailureOrigin = message;
+        else if (kind == "api_observed") test.ObservedApis.Add(message);
+        else if (kind == "phase") { test.LastPhase = message; test.Phases.Add(message); }
+        else if (kind == "failure_phase") test.LastPhase = message;
         else if (kind == "step") test.Steps.Add(message);
         else if (kind is "passed" or "failed") { test.Status = kind; test.Message = message; test.DurationSeconds = seconds; }
         else report.Errors.Add("Unknown test event: " + kind);
+        Checkpoint(report);
+    }
+
+    internal static void Checkpoint(ModTestReport report)
+    {
+        if (string.IsNullOrEmpty(report.ArtifactDirectory)) return;
+        Directory.CreateDirectory(report.ArtifactDirectory);
+        var path = Path.Combine(report.ArtifactDirectory, "results.json");
+        File.WriteAllText(path + ".tmp", JsonConvert.SerializeObject(report, Formatting.Indented));
+        File.Move(path + ".tmp", path, true);
     }
 
     public static void SaveReport(ModTestReport report)
     {
         foreach (var test in report.Tests.Where(t => t.Status == "running")) { test.Status = "error"; test.Message = "Run ended before this test completed."; }
+        foreach (var test in report.Tests.Where(t => t.Status != "passed")) TestEvidenceService.AttachDiagnostic(report, test);
+        try { report.SourceChangedDuringRun = TestEvidenceService.ChangedFiles(report).ToList(); }
+        catch (Exception ex) { report.Errors.Add("Source comparison failed: " + ex.Message); }
+        report.OperationState = report.Errors.Count > 0 ? "completed with runner errors" : "completed";
+        if (report.SessionId is not null)
+        {
+            var session = SessionRegistry.Default.Get(report.SessionId);
+            session.Verdict = report.Verdict;
+            session.SourceSnapshotId = report.SourceSnapshotId; session.PayloadManifestPath = report.PayloadManifestPath;
+            SessionRegistry.Default.Finish(session, report.Errors.Count > 0 ? "failed" : "completed", string.Join("\n", report.Errors));
+        }
         Directory.CreateDirectory(report.ArtifactDirectory);
-        File.WriteAllText(Path.Combine(report.ArtifactDirectory, "results.json"), JsonConvert.SerializeObject(report, Formatting.Indented));
+        Checkpoint(report);
         var suite = new XElement("testsuite", new XAttribute("name", report.Project),
             new XAttribute("tests", report.Tests.Count + report.Errors.Count),
             new XAttribute("failures", report.Tests.Count(t => t.Status == "failed")),
@@ -149,7 +183,8 @@ public static class ModTestService
     {
         var root = Path.Combine(project.RootPath, TestFolder);
         Directory.CreateDirectory(root);
-        foreach (var pair in new[] { ("example.unit.lua", "ExampleUnit.lua"), ("example.game.lua", "ExampleGame.lua"), ("README.md", "") })
+        foreach (var pair in new[] { ("example.unit.lua", "ExampleUnit.lua"), ("example.game.lua", "ExampleGame.lua"),
+            ("fixtures.game.lua", "ExampleFixture.lua"), ("api-probe.game.lua", "ExampleApiProbe.lua"), ("README.md", "") })
         {
             var path = Path.Combine(root, pair.Item1);
             if (!File.Exists(path)) File.WriteAllText(path, pair.Item2.Length > 0 ? Resource(pair.Item2) :

@@ -64,6 +64,15 @@ public partial class MainWindow
     public void TrackGameClient(Process process)
     {
         if (IsClosing) return;
+        try
+        {
+            if (_panelGameProcess is not null && !_panelGameProcess.HasExited && _panelGameProcess.Id != process.Id)
+            {
+                GameStatus.Text = $"Client {_panelGameProcess.Id} still owns the Game panel. The existing window remains attached.";
+                return;
+            }
+        }
+        catch (InvalidOperationException) { _panelGameProcess = null; }
         _gameHost.Detach();
         _panelGameProcess = process;
         _gameWindow = 0;

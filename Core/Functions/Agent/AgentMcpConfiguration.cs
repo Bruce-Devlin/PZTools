@@ -21,6 +21,7 @@ namespace PZTools.Core.Functions.Agent
             "pztools_read_file",
             "pztools_get_game_status",
             "pztools_get_game_log",
+            "pztools_get_session_history", "pztools_get_endpoint_log",
             "pztools_get_test_reports", "pztools_discover_tests", "pztools_get_playtest_profiles", "pztools_get_run_status", "pztools_verify_deployment"
         };
 
@@ -42,9 +43,15 @@ namespace PZTools.Core.Functions.Agent
             if (settings.AgentMcpAllowProjectWrites)
                 tools.Add("pztools_write_file");
             if (settings.AgentMcpAllowTesting)
+                tools.AddRange(new[] { "pztools_get_session_history", "pztools_get_endpoint_log", "pztools_compile_lua_native" });
+            if (settings.AgentMcpAllowTesting)
                 tools.AddRange(new[] { "pztools_test_lua", "pztools_check_project", "pztools_get_test_reports", "pztools_discover_tests", "pztools_start_test_run", "pztools_get_run_status", "pztools_get_playtest_profiles", "pztools_verify_deployment" });
             if (settings.AgentMcpAllowTesting && settings.AgentMcpAllowProjectWrites)
                 tools.Add("pztools_scaffold_tests");
+            if (settings.AgentMcpAllowTesting && settings.AgentMcpAllowDeployment && settings.AgentMcpAllowGameControl)
+                tools.Add("pztools_restart_session");
+            if (settings.AgentMcpAllowTesting && settings.AgentMcpAllowGameControl)
+                tools.Add("pztools_save_session");
             if (settings.AgentMcpAllowTesting && settings.AgentMcpAllowDeployment && settings.AgentMcpAllowGameControl)
                 tools.Add("pztools_start_playtest");
             if (settings.AgentMcpAllowDeployment)

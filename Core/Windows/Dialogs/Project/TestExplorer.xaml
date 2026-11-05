@@ -9,14 +9,16 @@
         <StackPanel>
             <TextBlock Text="Mod tests" FontSize="23" FontWeight="SemiBold"/>
             <TextBlock Text="Run Lua unit tests or automate an isolated game session. Select a file to run it; leave the selection empty to run all matching files." TextWrapping="Wrap" Margin="0,6,0,10"/>
-            <WrapPanel>
+            <Expander Header="Setup and tools" Margin="0,0,0,8"><WrapPanel>
                 <Button x:Name="Setup" Content="Set up game tests" Click="Setup_Click" Margin="0,0,8,8"/>
                 <Button Content="Create test examples" Click="Scaffold_Click" Margin="0,0,8,8"/>
                 <Button Content="Refresh" Click="Refresh_Click" Margin="0,0,8,8"/>
+                <Button Content="Compile with installed Kahlua" Click="NativeCompile_Click" Margin="0,0,8,8"/>
                 <Button Content="Edit selected file" Click="Edit_Click" Margin="0,0,8,8"/>
                 <Button Content="Playtest profiles" Click="Profiles_Click" Margin="0,0,8,8"/>
+                <Button Content="Project storage" Click="Storage_Click" Margin="0,0,8,8"/>
                 <Button Content="Clear selection" Click="Clear_Click" Margin="0,0,8,8"/>
-            </WrapPanel>
+            </WrapPanel></Expander>
         </StackPanel>
         <WrapPanel Grid.Row="1" Margin="0,0,0,10">
             <ComboBox x:Name="Profiles" Width="180" DisplayMemberPath="Name" Margin="0,0,8,8" ToolTip="Saved Playtest Lab profile" SelectionChanged="Profile_Changed"/>
@@ -30,11 +32,22 @@
         </WrapPanel>
         <StackPanel Grid.Row="2" Margin="0,0,0,12">
             <TextBlock x:Name="SetupSummary" TextWrapping="Wrap" Foreground="{DynamicResource Brush.TextMuted}"/>
+            <Expander x:Name="HistoryPanel" Header="Run history and endpoints" Margin="0,6,0,0"><StackPanel>
+            <WrapPanel Margin="0,6,0,0">
+                <TextBlock Text="Run history" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <ComboBox x:Name="History" Width="540" DisplayMemberPath="Display" SelectionChanged="History_Changed"/>
+                <Button Content="Refresh history" Click="HistoryRefresh_Click" Margin="8,0,0,0"/>
+                <Button Content="Run evidence" Click="Evidence_Click" Margin="8,0,0,0"/>
+                <Button Content="Open capture" Click="Capture_Click" Margin="8,0,0,0"/>
+                <Button Content="Restart retained session" Click="Restart_Click" Margin="8,0,0,0"/>
+            </WrapPanel>
             <ScrollViewer MaxHeight="96" VerticalScrollBarVisibility="Auto">
                 <TextBlock x:Name="EndpointStatus" TextWrapping="Wrap" Margin="0,6,0,0"/>
             </ScrollViewer>
+            </StackPanel></Expander>
         </StackPanel>
-        <Grid Grid.Row="3">
+        <TabControl Grid.Row="3" Grid.RowSpan="2" x:Name="EvidenceTabs" Margin="0,0,0,8">
+        <TabItem Header="Cases"><Grid>
             <Grid.ColumnDefinitions><ColumnDefinition Width="240"/><ColumnDefinition Width="8"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
             <ListBox x:Name="Files" DisplayMemberPath="Display"/>
             <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Stretch"/>
@@ -43,11 +56,13 @@
                     <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="80"/>
                     <DataGridTextColumn Header="Test" Binding="{Binding Name}" Width="*"/>
                     <DataGridTextColumn Header="Endpoint" Binding="{Binding Endpoint}" Width="90"/>
+                    <DataGridTextColumn Header="Last phase" Binding="{Binding LastPhase}" Width="80"/>
                     <DataGridTextColumn Header="Seconds" Binding="{Binding DurationSeconds, StringFormat=F2}" Width="70"/>
                 </DataGrid.Columns>
             </DataGrid>
-        </Grid>
-        <TextBox Grid.Row="4" x:Name="Details" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Margin="0,10,0,10"/>
+        </Grid></TabItem>
+        <TabItem Header="Evidence and diagnostics"><TextBox x:Name="Details" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Margin="0,6,0,0"/></TabItem>
+        </TabControl>
         <TextBlock Grid.Row="5" x:Name="Status" Text="Unit tests need no game setup. Set up game tests creates a guided Singleplayer or local multiplayer profile." TextWrapping="Wrap"/>
     </Grid>
 </Window>

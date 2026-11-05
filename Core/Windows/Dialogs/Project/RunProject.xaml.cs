@@ -22,6 +22,7 @@ namespace PZTools.Core.Windows.Dialogs.Project
         private bool _allowClose;
         private readonly ObservableCollection<PlaytestDependency> _dependencyRows = new();
         private List<DiscoveredModDependency> _discoveredDependencies = new();
+        public RunSession? RestartSession { get; init; }
 
         public Action<System.Diagnostics.Process>? DockClient { get; set; }
 
@@ -103,7 +104,7 @@ namespace PZTools.Core.Windows.Dialogs.Project
             txtSourceSave.Text = profile.SourceSavePath;
             txtSourceSession.Text = profile.SourceSessionPath;
             chkLocalOnly.IsChecked = profile.LocalServerOnly;
-            chkKeepSession.IsChecked = profile.KeepSessionData;
+            chkKeepSession.IsChecked = true;
             _dependencyRows.Clear();
             foreach (var dependency in profile.Dependencies)
                 _dependencyRows.Add(dependency);
@@ -177,7 +178,12 @@ namespace PZTools.Core.Windows.Dialogs.Project
             if (_runCts is not null) return;
             if (_project is null || cmbProfiles.SelectedItem is not PlaytestProfile profile)
                 return;
-            ReadProfile(profile);
+            if (RestartSession is not null)
+            {
+                try { profile = SessionLifecycleService.RestartProfile(RestartSession); }
+                catch (Exception ex) { StatusText.Text = ex.Message; return; }
+            }
+            else ReadProfile(profile);
             var errors = PlaytestProfileStore.Validate(profile, _project);
             if (errors.Count > 0)
             {
@@ -210,9 +216,10 @@ namespace PZTools.Core.Windows.Dialogs.Project
             btnLaunch.IsEnabled = false;
             btnGuidedSetup.IsEnabled = false;
             btnStopGame.IsEnabled = true;
+            btnSaveShutdown.IsEnabled = true;
             StatusText.Text = "Preparing session...";
             _runCts = new CancellationTokenSource();
-            _runner = new PlaytestSessionRunner { DockFirstClient = DockClient is not null };
+            _runner = new PlaytestSessionRunner { DockFirstClient = DockClient is not null, RestartOf = RestartSession?.Id };
             _runner.FirstClientStarted += process => Dispatcher.BeginInvoke(() =>
             {
                 DockClient?.Invoke(process);
@@ -248,6 +255,7 @@ namespace PZTools.Core.Windows.Dialogs.Project
                 btnLaunch.IsEnabled = true;
                 btnGuidedSetup.IsEnabled = true;
                 btnStopGame.IsEnabled = false;
+                btnSaveShutdown.IsEnabled = false;
             }
         }
 
@@ -310,6 +318,19 @@ namespace PZTools.Core.Windows.Dialogs.Project
         }
 
         private async void BtnLaunch_Click(object sender, RoutedEventArgs e) => await RunSelectedProfileAsync();
+        private async void SaveShutdown_Click(object sender, RoutedEventArgs e)
+        {
+            if (_runner?.CurrentSessionId is not { } id || _project is null) return;
+            btnSaveShutdown.IsEnabled = false;
+            try
+            {
+                StatusText.Text = "Saving through the game, then waiting for clean shutdown...";
+                await PlaytestSessionRunner.SaveAndShutdownAsync(_project.RootPath, id);
+                var session = SessionRegistry.Default.Get(id);
+                StatusText.Text = session.SaveEvidence + "; " + session.Shutdown + ". Restart from Test Explorer > Run history.";
+            }
+            catch (Exception ex) { StatusText.Text = ex.Message + " Session data retained. Terminate processes is a separate action."; }
+        }
         private async void btnStopGame_Click(object sender, RoutedEventArgs e)
         {
             StatusText.Text = "Stopping session...";
@@ -485,7 +506,10 @@ namespace PZTools.Core.Windows.Dialogs.Project
         private async void BtnClose_Click(object sender, RoutedEventArgs e)
         {
             if (_runner is not null)
-                await _runner.StopAsync();
+            {
+                StatusText.Text = "Use Save and shutdown or Terminate processes before closing this active session.";
+                return;
+            }
             _allowClose = true;
             Close();
         }

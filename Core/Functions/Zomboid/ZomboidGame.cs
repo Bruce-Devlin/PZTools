@@ -59,12 +59,19 @@ namespace PZTools.Core.Functions.Zomboid
                 return;
             }
 
+            PZTools.Core.Models.RunSession? session = null;
             try
             {
                 if (!File.Exists(gamePath))
                     throw new FileNotFoundException("Project Zomboid executable was not found.", gamePath);
 
                 IsGameStarting = true;
+                var project = PZTools.Core.Functions.Projects.ProjectEngine.CurrentProject;
+                session = PZTools.Core.Functions.Projects.SessionRegistry.Default.Begin(project?.RootPath ?? AppPaths.CurrentDirectoryPath, "debug", true);
+                _session = session;
+                _session.GameRoot = Path.GetDirectoryName(gamePath)!;
+                _session.WorkspacePath = GameUserDirectory;
+                _session.ArtifactDirectory = GameUserDirectory;
 
                 var psi = new ProcessStartInfo
                 {
@@ -87,15 +94,18 @@ namespace PZTools.Core.Functions.Zomboid
 
                 if (!GameProcess.Start())
                     throw new InvalidOperationException("Windows did not start Project Zomboid.");
+                PZTools.Core.Functions.Projects.SessionRegistry.Default.AddProcess(_session, GameProcess, "client-1", GameUserDirectory);
                 RaiseStateChanged();
                 GameProcess.BeginOutputReadLine();
                 GameProcess.BeginErrorReadLine();
 
                 await GameProcess.WaitForExitAsync();
+                PZTools.Core.Functions.Projects.SessionRegistry.Default.Finish(_session, GameProcess.ExitCode == 0 ? "completed" : "interrupted");
 
             }
             catch (Exception ex)
             {
+                if (session is not null) PZTools.Core.Functions.Projects.SessionRegistry.Default.Finish(session, "failed", ex.Message);
                 await Console.Log($"Failed to launch Project Zomboid: {ex.Message}", Console.LogLevel.Error);
             }
             finally
@@ -112,6 +122,7 @@ namespace PZTools.Core.Functions.Zomboid
             {
                 try
                 {
+                    if (_session is not null) { _session.Shutdown = "forced termination"; PZTools.Core.Functions.Projects.SessionRegistry.Default.Save(_session); }
                     process.Kill(true);
                     await process.WaitForExitAsync();
                     await Console.Log("Game process terminated by user.");
@@ -130,6 +141,7 @@ namespace PZTools.Core.Functions.Zomboid
         }
 
         public static bool IsGameRunning() => IsRunning;
+        private static PZTools.Core.Models.RunSession? _session;
 
         public static string GameDirectory
         {

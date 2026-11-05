@@ -2,6 +2,7 @@ using Newtonsoft.Json;
 
 namespace PZTools.Core.Models
 {
+    public sealed record GameInstallationIdentity(string Root, string Build, string Binary, string Sha256);
     public enum GameSymbolKind
     {
         Type,
@@ -24,6 +25,7 @@ namespace PZTools.Core.Models
         public string Documentation { get; set; } = string.Empty;
         public string RelativePath { get; set; } = string.Empty;
         public int Line { get; set; }
+        [JsonIgnore] public string LuaExposure => "Java declaration; Lua exposure not verified. Run a native API probe for the selected installation.";
 
         [JsonIgnore] public string KindLabel => Kind.ToString();
         [JsonIgnore] public bool IsGameCode => Package == "zombie" || Package.StartsWith("zombie.", StringComparison.Ordinal);
@@ -47,6 +49,7 @@ namespace PZTools.Core.Models
         public DateTimeOffset GeneratedAt { get; set; }
         public int FileCount { get; set; }
         public List<GameKnowledgeSymbol> Symbols { get; set; } = new();
+        public GameInstallationIdentity? Origin { get; set; }
 
         [JsonIgnore] public int TypeCount => Symbols.Count(x => x.Kind == GameSymbolKind.Type);
         [JsonIgnore] public int MethodCount => Symbols.Count(x => x.Kind is GameSymbolKind.Method or GameSymbolKind.Constructor);

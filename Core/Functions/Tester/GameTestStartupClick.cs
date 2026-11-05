@@ -10,9 +10,9 @@ internal static class GameTestStartupClick
     // GLFW polls physical button state; posting WM_LBUTTONDOWN alone is not
     // sufficient. Only send input after foreground ownership and hit testing
     // confirm the owned renderer (including a docked child) is under the cursor.
-    internal static async Task ClickAsync(Process process, CancellationToken ct)
+    internal static async Task<string> ClickAsync(Process process, CancellationToken ct)
     {
-        if (process.HasExited) return;
+        if (process.HasExited) return "Client process exited before startup input.";
         nint renderer = 0;
         long largestArea = 0;
         bool Find(nint window, nint parameter)
@@ -39,27 +39,29 @@ internal static class GameTestStartupClick
             EnumChildWindows(window, Find, 0);
             return true;
         }, 0);
-        if (renderer == 0) return;
+        if (renderer == 0) return "Waiting for the owned game renderer window.";
         await InputGate.WaitAsync(ct);
         try
         {
             var root = GetAncestor(renderer, 2);
             if (IsIconic(root)) ShowWindow(root, 9);
             SetForegroundWindow(root);
-            if (GetForegroundWindow() != root) return;
+            await Task.Delay(100, ct);
+            if (GetForegroundWindow() != root) return "Windows did not grant focus to the owned client; activate its Click to Start window.";
             var point = new Point { X = 32, Y = 32 };
-            if (!ClientToScreen(renderer, ref point)) return;
-            if (WindowFromPoint(point) != renderer) return;
+            if (!ClientToScreen(renderer, ref point)) return "Cannot locate the owned renderer on screen.";
+            if (WindowFromPoint(point) != renderer) return "The owned renderer is covered at the startup click position.";
             GetCursorPos(out var previous);
             SetCursorPos(point.X, point.Y);
             try
             {
-                if (GetForegroundWindow() != root || WindowFromPoint(point) != renderer) return;
+                if (GetForegroundWindow() != root || WindowFromPoint(point) != renderer) return "Client focus changed before startup input.";
                 SendMouse(0x0002);
                 try { await Task.Delay(100, ct); }
                 finally { SendMouse(0x0004); }
             }
             finally { SetCursorPos(previous.X, previous.Y); }
+            return "Startup click delivered to the owned renderer; waiting for a world heartbeat.";
         }
         finally { InputGate.Release(); }
     }

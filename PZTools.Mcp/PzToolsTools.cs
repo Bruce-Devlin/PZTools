@@ -6,6 +6,27 @@ namespace PZTools.Mcp;
 [McpServerToolType]
 public static class PzToolsTools
 {
+    [McpServerTool(Name = "pztools_compile_lua_native")]
+    [Description("Compiles saved project Lua with the selected profile's installed Kahlua runtime. Returns interpreter, Steam build, binary SHA-256, scope and saved results. Does not execute Lua or prove API behavior.")]
+    public static Task<string> NativeCompilation(PzToolsPipeClient client, string profile, string? filter = null, CancellationToken cancellationToken = default)
+        => client.CallAsync("compile_lua_native", new { profile, filter }, cancellationToken);
+    [McpServerTool(Name = "pztools_save_session")]
+    [Description("Requests native save and clean shutdown of an editor-owned manual session. Does not force termination. Inspect SaveEvidence and Shutdown independently; restart verifies a persisted marker.")]
+    public static Task<string> SaveSession(PzToolsPipeClient client, string sessionId, CancellationToken cancellationToken = default)
+        => client.CallAsync("save_session", new { sessionId }, cancellationToken);
+    [McpServerTool(Name = "pztools_restart_session")]
+    [Description("Restarts from a retained session after verified save and clean shutdown. Preserves the original; checks a persisted marker on each endpoint. Project-specific gameplay persistence still requires assertions.")]
+    public static Task<string> RestartSession(PzToolsPipeClient client, string sessionId, CancellationToken cancellationToken = default)
+        => client.CallAsync("restart_session", new { sessionId }, cancellationToken);
+    [McpServerTool(Name = "pztools_get_session_history")]
+    [Description("Lists durable session ownership and artifact records for this project, including manual, debug, test and interrupted runs. Recovery does not replay actions.")]
+    public static Task<string> SessionHistory(PzToolsPipeClient client, CancellationToken cancellationToken = default)
+        => client.CallAsync("session_history", cancellationToken: cancellationToken);
+
+    [McpServerTool(Name = "pztools_get_endpoint_log")]
+    [Description("Reads a bounded incremental log chunk for a session endpoint. Supply NextOffset on the next call; Reset indicates truncation. Returns endpoint, process ID and exact log path.")]
+    public static Task<string> EndpointLog(PzToolsPipeClient client, string sessionId, string endpoint = "client-1", long offset = 0, int bytes = 32768, CancellationToken cancellationToken = default)
+        => client.CallAsync("endpoint_log", new { sessionId, endpoint, offset, bytes }, cancellationToken);
     [McpServerTool(Name = "pztools_capabilities")]
     [Description("Lists the active PZTools project, live editor connection, and capabilities enabled by the user. Call this first.")]
     public static Task<string> Capabilities(PzToolsPipeClient client, CancellationToken cancellationToken)
@@ -155,7 +176,7 @@ public static class PzToolsTools
         => client.CallAsync("start_playtest", new { profile, unattended, timeoutSeconds }, cancellationToken);
 
     [McpServerTool(Name = "pztools_get_run_status")]
-    [Description("Gets the latest MCP run: running/cancelling/completed/cancelled/failed, ready, bounded output, result and error. ready=true means every endpoint has cleared startup UI, registered support, a living player and recent advancing simulation ticks. It becomes false on pause, death, stale heartbeat or stop. Game tests and unattended playtests include endpoint phase, UiReady, heartbeat, simulation progress and blocking reason. Only the latest MCP run is retained; reports persist in .pztools/test-results.")]
+    [Description("Gets a live MCP run or its persisted session after reconnecting. ready=true means every endpoint has cleared startup UI, registered support, a living player and recent advancing simulation ticks. It becomes false on pause, death, stale heartbeat or stop. Historical sessions retain operation/report IDs and artifact locations without replaying actions. Use session history to find older runs; only the current editor owns live cancellation.")]
     public static Task<string> RunStatus(PzToolsPipeClient client, string? runId = null, int lines = 200, CancellationToken cancellationToken = default)
         => client.CallAsync("run_status", new { runId, lines }, cancellationToken);
 

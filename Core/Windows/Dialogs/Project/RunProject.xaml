@@ -37,7 +37,7 @@
                 <ComboBox x:Name="cmbWindowMode" Grid.Row="3" Grid.Column="1" Style="{StaticResource ModernComboBox}" Margin="0,4,18,4"/>
                 <TextBlock Grid.Row="3" Grid.Column="2" Text="Window size" VerticalAlignment="Center"/>
                 <Grid Grid.Row="3" Grid.Column="3"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBox x:Name="txtWindowWidth" Style="{StaticResource ModernTextBox}" Margin="0,4,8,4"/><TextBlock Grid.Column="1" Text="×" VerticalAlignment="Center" Margin="0,0,8,0"/><TextBox x:Name="txtWindowHeight" Grid.Column="2" Style="{StaticResource ModernTextBox}" Margin="0,4"/></Grid>
-                <CheckBox x:Name="chkKeepSession" Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="3" Content="Keep isolated session data after the test finishes" Style="{StaticResource ModernCheckBox}" Margin="0,10,0,4"/>
+                <CheckBox x:Name="chkKeepSession" Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="3" Content="Manual worlds and crashed sessions are retained" IsEnabled="False" Style="{StaticResource ModernCheckBox}" Margin="0,10,0,4"/>
                 <TextBlock Grid.Row="5" Text="Multiplayer fixture" VerticalAlignment="Center"/><TextBox x:Name="txtSourceSession" Grid.Row="5" Grid.Column="1" Grid.ColumnSpan="3" Style="{StaticResource ModernTextBox}" Margin="0,4" ToolTip="Captured session folder for FreshSessionClone"/>
                 <Border Grid.Row="6" Grid.ColumnSpan="4" Style="{StaticResource InsetCard}" Margin="0,14,0,0"><TextBlock Text="FreshClone copies one saved world. FreshSessionClone copies a captured multiplayer fixture, including each client's character. Empty starts clean. ReuseProfileData keeps playing the same isolated world." TextWrapping="Wrap" Foreground="{DynamicResource Brush.TextMuted}"/></Border>
             </Grid></ScrollViewer></TabItem>
@@ -84,6 +84,16 @@
             </Grid></ScrollViewer></TabItem>
         </TabControl>
         <Border Grid.Row="2" Style="{StaticResource InsetCard}" Margin="0,14"><Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions><TextBlock Text="SESSION OUTPUT" FontSize="10" Foreground="{DynamicResource Brush.TextMuted}"/><TextBox x:Name="txtOutputLog" Grid.Row="1" IsReadOnly="True" TextWrapping="NoWrap" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" Background="Transparent" Foreground="{DynamicResource Brush.TextInfo}" FontFamily="Consolas" BorderThickness="0" Margin="0,8,0,0"/></Grid></Border>
-        <Grid Grid.Row="3"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel VerticalAlignment="Center"><TextBlock x:Name="StatusText" Text="Ready" Foreground="{DynamicResource Brush.TextMuted}"/><CheckBox x:Name="chkShowEveryRun" Content="Show this each time I press Run Game" IsChecked="False" Margin="0,7,0,0" Checked="ShowEveryRun_Changed" Unchecked="ShowEveryRun_Changed"/></StackPanel><StackPanel Grid.Column="1" Orientation="Horizontal"><Button Content="Preview payload" Margin="0,0,8,0" Style="{StaticResource ModernButton}" Click="PreviewPayload_Click"/><Button Content="Close" Width="105" Margin="0,0,8,0" Style="{StaticResource ModernButton}" IsCancel="True" Click="BtnClose_Click"/><Button x:Name="btnStopGame" Content="Stop session" Width="120" Margin="0,0,8,0" Style="{StaticResource ModernButton}" Click="btnStopGame_Click" IsEnabled="False"/><Button x:Name="btnLaunch" Content="Run profile" Width="120" Style="{StaticResource PrimaryButton}" IsDefault="True" Click="BtnLaunch_Click"/></StackPanel></Grid>
+        <StackPanel Grid.Row="3">
+            <TextBlock x:Name="StatusText" Text="Ready" TextWrapping="Wrap" Foreground="{DynamicResource Brush.TextMuted}"/>
+            <CheckBox x:Name="chkShowEveryRun" Content="Show this each time I press Run Game" IsChecked="False" Margin="0,7,0,6" Checked="ShowEveryRun_Changed" Unchecked="ShowEveryRun_Changed"/>
+            <WrapPanel HorizontalAlignment="Right">
+                <Button Content="Preview payload" Margin="0,0,8,0" Style="{StaticResource ModernButton}" Click="PreviewPayload_Click"/>
+                <Button Content="Close" MinWidth="85" Margin="0,0,8,0" Style="{StaticResource ModernButton}" IsCancel="True" Click="BtnClose_Click"/>
+                <Button x:Name="btnSaveShutdown" Content="Save and shutdown" Margin="0,0,8,0" Style="{StaticResource ModernButton}" Click="SaveShutdown_Click" IsEnabled="False"/>
+                <Button x:Name="btnStopGame" Content="Terminate processes" MinWidth="150" Margin="0,0,8,0" Style="{StaticResource ModernButton}" Click="btnStopGame_Click" IsEnabled="False"/>
+                <Button x:Name="btnLaunch" Content="Run profile" MinWidth="120" Style="{StaticResource PrimaryButton}" IsDefault="True" Click="BtnLaunch_Click"/>
+            </WrapPanel>
+        </StackPanel>
     </Grid>
 </Window>

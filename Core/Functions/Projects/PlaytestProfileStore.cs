@@ -114,7 +114,7 @@ namespace PZTools.Core.Functions.Projects
             if (profile.ServerName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
                 errors.Add("Server name contains invalid filename characters.");
             if (profile.SaveMode == PlaytestSaveMode.FreshClone && !Directory.Exists(profile.SourceSavePath))
-                errors.Add("The source save folder does not exist.");
+                errors.Add($"The source save folder does not exist: '{profile.SourceSavePath}'. Select a replacement in Playtest Lab > Source save.");
             if (profile.SaveMode == PlaytestSaveMode.FreshSessionClone)
                 errors.AddRange(PlaytestFixtureService.Validate(profile));
             if (profile.Mode == PlaytestMode.DedicatedServer && profile.MaxPlayers < profile.ClientCount)

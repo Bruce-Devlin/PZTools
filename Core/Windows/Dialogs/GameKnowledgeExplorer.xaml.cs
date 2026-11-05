@@ -17,6 +17,7 @@ namespace PZTools.Core.Windows.Dialogs
         private readonly DispatcherTimer _searchTimer;
         private CancellationTokenSource? _loadCts;
         private GameKnowledgeIndex? _index;
+        private readonly Dictionary<string, string> _observedApis = new(StringComparer.Ordinal);
 
         public GameKnowledgeExplorer(string sourceRoot)
         {
@@ -63,6 +64,31 @@ namespace PZTools.Core.Windows.Dialogs
                     build.SourcePath, build.Name, force, progress, cts.Token), cts.Token);
                 if (!ReferenceEquals(_loadCts, cts) || cts.IsCancellationRequested) return;
                 _index = index;
+                var originPath = Path.Combine(build.SourcePath, ".pztools-reference-origin.json");
+                index.Origin = File.Exists(originPath) ? Newtonsoft.Json.JsonConvert.DeserializeObject<GameInstallationIdentity>(File.ReadAllText(originPath)) : null;
+                var gameRoot = PZTools.Core.Functions.Zomboid.ZomboidGame.GameDirectory;
+                if (PZTools.Core.Functions.Zomboid.ZomboidGame.GameMode.Equals("Managed", StringComparison.OrdinalIgnoreCase) &&
+                    double.TryParse(build.Name, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var family))
+                    gameRoot = PlaytestSetupService.ResolveGameRoot(family);
+                var selectedInstallation = Directory.Exists(gameRoot) ? await Task.Run(() => GameInstallation.Inspect(gameRoot, true), cts.Token) : null;
+                if (!ReferenceEquals(_loadCts, cts) || cts.IsCancellationRequested) return;
+                _observedApis.Clear();
+                var reportsRoot = Path.Combine(ProjectEngine.CurrentProjectPath, ".pztools", "test-results");
+                if (index.Origin is not null && index.Origin.Sha256 == selectedInstallation?.Sha256 && Directory.Exists(reportsRoot))
+                    foreach (var file in Directory.EnumerateDirectories(reportsRoot).OrderByDescending(Directory.GetLastWriteTimeUtc).Take(100).Select(p => Path.Combine(p, "results.json")).Where(File.Exists))
+                    {
+                        try
+                        {
+                            var report = Newtonsoft.Json.JsonConvert.DeserializeObject<PZTools.Core.Models.Test.ModTestReport>(File.ReadAllText(file));
+                            if (report?.Mode != "game" || report.GameBinaryFingerprint != selectedInstallation.Sha256) continue;
+                            foreach (var test in report.Tests.Where(t => t.Status == "passed"))
+                                foreach (var api in test.ObservedApis) _observedApis.TryAdd(api, $"{test.Name} on {test.Endpoint}; report {file}");
+                        }
+                        catch (Newtonsoft.Json.JsonException) { }
+                    }
+                ProvenanceText.Text = index.Origin is null ? "Reference origin unknown. Re-extract this installation to record its game build and binary fingerprint. Java declarations do not prove Lua exposure." :
+                    $"Reference: {index.Origin.Build} · SHA-256 {index.Origin.Sha256}\n" +
+                    (selectedInstallation?.Sha256 == index.Origin.Sha256 ? "Matches selected installation." : "MISMATCH or unavailable selected installation. Re-extract the selected game before relying on these declarations.");
                 TreeViewButton.IsEnabled = true;
                 ApplySearch();
             }
@@ -126,7 +152,8 @@ namespace PZTools.Core.Windows.Dialogs
             DocumentationText.Text = string.IsNullOrWhiteSpace(symbol.Documentation)
                 ? "CFR did not recover JavaDoc for this declaration. Read the implementation and call sites before relying on its behaviour."
                 : symbol.Documentation;
-            GuidanceText.Text = BuildGuidance(symbol);
+            GuidanceText.Text = (_observedApis.TryGetValue(symbol.QualifiedName, out var observation) ?
+                "Observed by a passing native Lua probe on this binary: " + observation + ". This covers only the recorded call and test conditions." : symbol.LuaExposure) + "\n" + BuildGuidance(symbol);
         }
 
         private static string BuildGuidance(GameKnowledgeSymbol symbol)

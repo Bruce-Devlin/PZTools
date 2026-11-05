@@ -13,7 +13,7 @@ internal static class PlaytestServerLauncher
             if (File.Exists(configured) && new[] { ".bat", ".cmd", ".exe" }.Contains(Path.GetExtension(configured), StringComparer.OrdinalIgnoreCase)) return configured;
             if (File.Exists(Path.Combine(configured, "StartServer64.bat"))) return Path.Combine(configured, "StartServer64.bat");
             if (HasBundledServer(configured)) return Path.Combine(configured, "ProjectZomboid64.json");
-            throw new FileNotFoundException("The selected server folder has no supported launcher. Select the matching dedicated-server installation or clear the field to use the game's bundled server.");
+            throw new FileNotFoundException($"No supported server launcher at '{configured}'. Select the matching installation in Playtest Lab > Dedicated server, or clear the field to use the bundled server. Discovered: {string.Join("; ", GameInstallation.Discover())}", configured);
         }
         if (File.Exists(Path.Combine(gameRoot, "StartServer64.bat"))) return Path.Combine(gameRoot, "StartServer64.bat");
         if (HasBundledServer(gameRoot)) return Path.Combine(gameRoot, "ProjectZomboid64.json");

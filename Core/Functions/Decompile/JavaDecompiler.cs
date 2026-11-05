@@ -57,10 +57,16 @@ namespace PZTools.Core.Functions.Decompile
             if (!File.Exists(inputJarPath))
                 throw new FileNotFoundException("Input jar not found", inputJarPath);
 
-            Directory.CreateDirectory(outputDirectory);
+            outputDirectory = Path.GetFullPath(outputDirectory);
+            var extraction = Path.Combine(outputDirectory + ".pztools-history", Guid.NewGuid().ToString("N"));
+            var staging = Path.Combine(extraction, "extracting");
+            Directory.CreateDirectory(staging);
+            // Keep the exact input stable throughout extraction; Steam cannot replace it midway.
+            using var sourceBinary = new FileStream(inputJarPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            var binaryHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(sourceBinary));
 
             var args =
-                $"-Xmx{memoryMb}M -jar \"{cfrJarPath}\" \"{inputJarPath}\" --outputdir \"{outputDirectory}\"";
+                $"-Xmx{memoryMb}M -jar \"{cfrJarPath}\" \"{inputJarPath}\" --outputdir \"{staging}\"";
 
             var psi = new ProcessStartInfo
             {
@@ -102,6 +108,21 @@ namespace PZTools.Core.Functions.Decompile
                     return false;
                 }
 
+                if (process.ExitCode == 0)
+                {
+                    var origin = PZTools.Core.Functions.Projects.GameInstallation.Inspect(Path.GetDirectoryName(inputJarPath)!);
+                    origin = origin with { Binary = Path.GetFullPath(inputJarPath), Sha256 = binaryHash };
+                    await File.WriteAllTextAsync(Path.Combine(staging, ".pztools-reference-origin.json"),
+                        Newtonsoft.Json.JsonConvert.SerializeObject(origin, Newtonsoft.Json.Formatting.Indented), cancellationToken);
+                    var previous = Path.Combine(extraction, "previous");
+                    if (Directory.Exists(outputDirectory)) Directory.Move(outputDirectory, previous);
+                    try { Directory.Move(staging, outputDirectory); }
+                    catch
+                    {
+                        if (!Directory.Exists(outputDirectory) && Directory.Exists(previous)) Directory.Move(previous, outputDirectory);
+                        throw;
+                    }
+                }
                 return process.ExitCode == 0;
             }
             catch (Win32Exception ex)

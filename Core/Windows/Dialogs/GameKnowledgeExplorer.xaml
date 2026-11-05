@@ -19,6 +19,7 @@
         </Grid.RowDefinitions>
 
         <Grid>
+            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
             <StackPanel>
                 <TextBlock Text="Game code knowledge base" FontSize="24" FontWeight="SemiBold"/>
@@ -28,6 +29,7 @@
             <Border Grid.Column="1" CornerRadius="12" Padding="13,6" Background="{DynamicResource Brush.BgElevated}" VerticalAlignment="Center">
                 <TextBlock x:Name="IndexSummaryText" Text="Loading index..." Foreground="{DynamicResource Brush.TextMuted}"/>
             </Border>
+            <TextBlock Grid.Row="1" Grid.ColumnSpan="2" x:Name="ProvenanceText" TextWrapping="Wrap" Margin="0,8,0,0" Foreground="{DynamicResource Brush.TextMuted}"/>
         </Grid>
 
         <Grid Grid.Row="1" Margin="0,16,0,12">
