@@ -17,6 +17,10 @@
 
 PZTools brings the repetitive parts of Project Zomboid mod development into one desktop application. Create or import a mod, work across Build 42 and legacy Build 41 targets, catch common mistakes before launch, deploy a known-good copy, and run repeatable local playtests without continually rearranging your normal game data.
 
+[![PZTools workspace showing a Lua preview, project explorer, file inspector, and output panel](https://publiczeus.com/devlin/03-main-editor.png)](https://publiczeus.com/devlin/03-main-editor.png)
+
+*Browse your mod's files, preview Lua, and inspect file settings and version-sync controls alongside the output panel. Click any screenshot to view it at full size.*
+
 I built PZTools after starting several Project Zomboid mods and wanting a better way to manage game builds, inspect game code, and test changes without constantly switching Steam branches or manually decompiling JAR files.
 
 My mods made with PZTools:
@@ -72,6 +76,15 @@ PZTools manages Project Zomboid-specific work while your preferred editor handle
 6. Deploy locally and run the selected profile. Use **Debug > Run Game Settings** to configure isolated saves, dependencies, local clients, display options, or a dedicated server.
 7. Complete Workshop metadata in Project Settings, then upload through SteamCMD (File > Upload via Steam ).
 
+### Projects and build targets
+
+| Choose a project | Browse its build targets |
+| --- | --- |
+| [![Project selector listing local mod projects](https://publiczeus.com/devlin/01-project-selector.png)](https://publiczeus.com/devlin/01-project-selector.png) | [![Project selector with Getting Old expanded to show its build targets](https://publiczeus.com/devlin/02-project-versions.png)](https://publiczeus.com/devlin/02-project-versions.png) |
+| Open a workspace, create a project, or import an existing mod. | Keep version-specific content under one project and choose the target to open. |
+
+*The Build 43 entry shown here is a local project target. The game screenshots below were captured in Build 42.21.*
+
 ### Finding and previewing files
 
 Use **Ctrl+Shift+P** or **View > Command Palette** to search available menu commands. Search by task or menu (for example, `project health`, `test`, or `Workshop`), select with the arrow keys, and press Enter. Escape closes the palette. Commands use the same validation and confirmation flows as their menu entries.
@@ -107,6 +120,14 @@ The current stable build family is configurable under **File > App Options > Sys
 
 When you add a target from the project tree, PZTools offers to copy the complete nearest previous version package. To keep only selected content aligned, right-click a file or folder inside a build target and choose **Sync Across Game Versions**. Folder sync includes files added later, and saved sync rules also populate targets added in the future. Sync is bidirectional, but it never deletes counterparts or overwrites independently changed content; conflicting copies stay in place for manual reconciliation.
 
+### Content managers
+
+Open **Project > Content Managers** to work with professions, traits, translations, and sandbox options for the selected build target.
+
+[![Content manager showing the Adult trait's ID, name, description, and point cost](https://publiczeus.com/devlin/08-content-manager.png)](https://publiczeus.com/devlin/08-content-manager.png)
+
+*Edit trait definitions in a structured form, with the source file and build target visible above the fields.*
+
 ### Dependencies and load order
 
 Use the structured dependency grid in **Project Settings > Dependencies** to add an installed mod or enter an ID manually. `Required`, `Load After`, and `Load Before` are written to each target's `mod.info`; the visible row order seeds new playtest profiles. PZTools discovers Build 41 and Build 42 layouts in local Mods and Steam Workshop content, including `Contents/mods`, `common`, and numeric build wrappers.
@@ -127,9 +148,36 @@ The health dashboard checks:
 
 Errors block local deployment and Workshop upload. Warnings remain visible but do not stop testing.
 
+[![Project Health dashboard showing two build targets, 28 Lua files, and no findings](https://publiczeus.com/devlin/07-project-health.png)](https://publiczeus.com/devlin/07-project-health.png)
+
+*Review project checks in one place, filter findings, and open the affected files before deploying.*
+
 Deployment rejects overlapping source/output paths and linked payload paths, excludes internal caches and `.codex` configuration, and cleans failed staging attempts. Verification also detects unexpected deployed files and malformed manifest entries. Isolated playtests under `.pztools` remain supported.
 
 See [the capability audit](docs/capability-audit.md) for current coverage, remaining specialist-tool gaps, and the distinction between local checks and real-game acceptance.
+
+### Playtesting and automated tests
+
+Use **Debug > Run Game Settings** to configure Playtest Lab. Profiles keep the game build, launch arguments, display options, save source, and dependencies together for repeatable sessions.
+
+[![Playtest Lab showing a single-player profile with a fresh save copy and windowed display settings](https://publiczeus.com/devlin/05-playtest-lab.png)](https://publiczeus.com/devlin/05-playtest-lab.png)
+
+*Configure isolated single-player or dedicated-server sessions. This profile starts from a fresh copy of a saved world.*
+
+[![Project Zomboid running inside the PZTools Game tab with the project explorer and inspector alongside it](https://publiczeus.com/devlin/09-docked-game-view.png)](https://publiczeus.com/devlin/09-docked-game-view.png)
+
+*Playtest inside the central Game tab, or undock the game into its own window.*
+
+Open **Project > Test Explorer** to run Lua unit tests or automated game tests. **Set up game tests** guides you through preparing a single-player or local multiplayer profile; results include individual cases, endpoints, and saved reports.
+
+| Lua unit tests | Tests in the game |
+| --- | --- |
+| [![Test Explorer showing a passing Lua arithmetic assertion example](https://publiczeus.com/devlin/04-test-runner.png)](https://publiczeus.com/devlin/04-test-runner.png) | [![Test Explorer showing a passing inventory test on the client-1 game endpoint](https://publiczeus.com/devlin/06-game-test-results.png)](https://publiczeus.com/devlin/06-game-test-results.png) |
+| Run Lua unit tests without launching Project Zomboid. | Check behaviour against real game objects in an isolated session. |
+
+*These captures show the bundled example tests: one unit test and one game inventory test, each passing in its own run.*
+
+See [the testing guide](docs/testing.md) for test-file conventions, assertions, fixtures, and unattended runs.
 
 ---
 
